@@ -94,6 +94,16 @@ export interface CropResourceStorage {
   [category: string]: number; // e.g., { flower: 250, vegetable: 100, ... }
 }
 
+export interface CropMasteryEntry {
+  level: number;
+  xp: number;
+  prestige: number;
+}
+
+export interface CropMasteryState {
+  [cropId: string]: CropMasteryEntry;
+}
+
 export interface CropInstance {
   position: FieldPosition;
   seedId: string; // Reference to crop definition
@@ -146,6 +156,9 @@ export interface GardenState {
     limits: CropResourceStorage; // Max capacity per category
     current: CropResourceStorage; // Current amounts
   };
+
+  // Per-crop mastery progression used for level and prestige bonuses.
+  cropMastery?: CropMasteryState;
 
   // Sprinkler placements grouped by tier
   sprinklers: Record<string, FieldPosition[]>; // "sprinkler_common" -> [[row, col], ...]

@@ -157,6 +157,87 @@ export function calculateYield(
   return Math.round(cropDef.baseYield * (1 + waterBonus));
 }
 
+export const CROP_MAX_LEVEL = 100;
+
+export function getCropXpForNextLevel(level: number): number {
+  return 25 + level * 25;
+}
+
+function getCropMasteryEntry(state: GameState, cropId: string) {
+  const fromState = state.garden.cropMastery?.[cropId];
+  if (fromState) {
+    return {
+      level: Math.max(1, Math.min(CROP_MAX_LEVEL, fromState.level ?? 1)),
+      xp: Math.max(0, fromState.xp ?? 0),
+      prestige: Math.max(0, fromState.prestige ?? 0),
+    };
+  }
+
+  return {
+    level: 1,
+    xp: 0,
+    prestige: 0,
+  };
+}
+
+export function getCropYieldMultiplier(
+  level: number,
+  prestige: number,
+): number {
+  const levelBonus = (level - 1) * 0.01;
+  const prestigeBonus = prestige * 0.2;
+  return 1 + levelBonus + prestigeBonus;
+}
+
+export function getCropGoldMultiplier(prestige: number): number {
+  return 1 + prestige * 0.1;
+}
+
+export function calculateYieldWithMastery(
+  state: GameState,
+  cropId: string,
+  cropDef: CropDefinition,
+  waterLevel: number,
+): number {
+  const mastery = getCropMasteryEntry(state, cropId);
+  const base = calculateYield(cropDef, waterLevel);
+  const multiplier = getCropYieldMultiplier(mastery.level, mastery.prestige);
+  return Math.max(1, Math.round(base * multiplier));
+}
+
+export function calculateGoldWithMastery(
+  state: GameState,
+  cropId: string,
+  cropDef: CropDefinition,
+): number {
+  const mastery = getCropMasteryEntry(state, cropId);
+  const multiplier = getCropGoldMultiplier(mastery.prestige);
+  return Math.max(1, Math.round(cropDef.baseGold * multiplier));
+}
+
+export function prestigeCropType(state: GameState, cropId: string): GameState {
+  const cropDef = getCropDef(cropId);
+  if (!cropDef) return state;
+
+  const current = getCropMasteryEntry(state, cropId);
+  if (current.level < CROP_MAX_LEVEL) return state;
+
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      cropMastery: {
+        ...(state.garden.cropMastery ?? {}),
+        [cropId]: {
+          level: 1,
+          xp: 0,
+          prestige: current.prestige + 1,
+        },
+      },
+    },
+  };
+}
+
 /**
  * Water a field (increases water level, costs energy)
  */
@@ -454,7 +535,31 @@ export function harvestCrop(
   if (!cropList || !cropList[cropIndex]) return state;
 
   const crop = cropList[cropIndex];
-  const yield_ = calculateYield(cropDef, crop.waterLevel);
+  const mastery = getCropMasteryEntry(state, cropId);
+  const yield_ = calculateYieldWithMastery(
+    state,
+    cropId,
+    cropDef,
+    crop.waterLevel,
+  );
+  const goldReward = calculateGoldWithMastery(state, cropId, cropDef);
+
+  let nextLevel = mastery.level;
+  let nextXp = mastery.xp + cropDef.baseXP;
+  const prestige = mastery.prestige;
+
+  while (
+    nextLevel < CROP_MAX_LEVEL &&
+    nextXp >= getCropXpForNextLevel(nextLevel)
+  ) {
+    nextXp -= getCropXpForNextLevel(nextLevel);
+    nextLevel += 1;
+  }
+
+  if (nextLevel >= CROP_MAX_LEVEL) {
+    nextLevel = CROP_MAX_LEVEL;
+    nextXp = 0;
+  }
 
   let newState = { ...state };
 
@@ -464,7 +569,17 @@ export function harvestCrop(
   newState.garden.cropStorage.current = newStorage;
 
   // Add gold
-  newState.resources.gold += cropDef.baseGold;
+  newState.resources.gold += goldReward;
+
+  // Update mastery progression
+  newState.garden.cropMastery = {
+    ...(newState.garden.cropMastery ?? {}),
+    [cropId]: {
+      level: nextLevel,
+      xp: nextXp,
+      prestige,
+    },
+  };
 
   // Remove crop from garden (for non-perennial)
   if (!cropDef.isPerennial) {

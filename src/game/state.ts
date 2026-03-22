@@ -67,6 +67,7 @@ export const defaultState: GameState = {
         special: 0,
       },
     },
+    cropMastery: {},
     sprinklers: {},
   },
 };

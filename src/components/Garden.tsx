@@ -10,6 +10,13 @@ import {
   plantCrop,
   harvestCrop,
   calculateYield,
+  calculateYieldWithMastery,
+  calculateGoldWithMastery,
+  CROP_MAX_LEVEL,
+  getCropXpForNextLevel,
+  getCropYieldMultiplier,
+  getCropGoldMultiplier,
+  prestigeCropType,
   toggleSprinkler,
   waterField,
   breakRock,
@@ -110,6 +117,7 @@ export function Garden() {
   const [moveSprinklersWithShovel, setMoveSprinklersWithShovel] =
     useState(true);
   const [showStorageModal, setShowStorageModal] = useState(false);
+  const [showCropMasteryModal, setShowCropMasteryModal] = useState(false);
   const [sprinklerPreview, setSprinklerPreview] =
     useState<SprinklerPreviewState | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(
@@ -312,6 +320,36 @@ export function Garden() {
     }
     return null;
   };
+
+  const getCropMastery = (cropId: string) => {
+    const existing = garden.cropMastery?.[cropId];
+    return {
+      level: Math.max(1, Math.min(CROP_MAX_LEVEL, existing?.level ?? 1)),
+      xp: Math.max(0, existing?.xp ?? 0),
+      prestige: Math.max(0, existing?.prestige ?? 0),
+    };
+  };
+
+  const getCropYieldAtLevel = (cropId: string, level: number): number => {
+    const cropDef = getCropDef(cropId);
+    if (!cropDef) return 0;
+    const mastery = getCropMastery(cropId);
+    const base = calculateYield(cropDef, 0);
+    const multiplier = getCropYieldMultiplier(level, mastery.prestige);
+    return Math.max(1, Math.round(base * multiplier));
+  };
+
+  const getCropGoldWithPrestige = (cropId: string): number => {
+    const cropDef = getCropDef(cropId);
+    if (!cropDef) return 0;
+    const mastery = getCropMastery(cropId);
+    const multiplier = getCropGoldMultiplier(mastery.prestige);
+    return Math.max(1, Math.round(cropDef.baseGold * multiplier));
+  };
+
+  const allCropTypes = Object.values(cropDefinitions).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
   const isAdjacentUnlockableField = (row: number, col: number): boolean => {
     if (isFieldUnlocked(row, col)) return false;
@@ -942,6 +980,23 @@ export function Garden() {
             aria-label="Open crop storage"
           >
             🛢️
+          </button>
+
+          {/* Crop Mastery Button */}
+          <button
+            className="btn-round-icon"
+            style={{
+              width: isMobile ? 44 : 50,
+              height: isMobile ? 44 : 50,
+              backgroundColor: "#e7f5ff",
+              border: "2px solid #4dabf7",
+              fontSize: isMobile ? 20 : 22,
+            }}
+            onClick={() => setShowCropMasteryModal(true)}
+            title="Crop mastery"
+            aria-label="Open crop mastery"
+          >
+            📈
           </button>
         </div>
       </div>
@@ -1665,14 +1720,20 @@ export function Garden() {
 
                 if (!cropDef || !cropInstance) return null;
 
-                const yieldAmount = calculateYield(
+                const yieldAmount = calculateYieldWithMastery(
+                  state,
+                  cropId,
                   cropDef,
                   cropInstance.waterLevel,
                 );
                 const waterBonus = Math.round(
                   (cropInstance.waterLevel / 100) * cropDef.baseYield,
                 );
-                const goldAmount = cropDef.baseGold;
+                const goldAmount = calculateGoldWithMastery(
+                  state,
+                  cropId,
+                  cropDef,
+                );
 
                 return (
                   <>
@@ -1874,6 +1935,223 @@ export function Garden() {
             </div>
           </div>
         )}
+
+      {/* Crop Mastery Modal */}
+      {showCropMasteryModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowCropMasteryModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: 8,
+              padding: isMobile ? 12 : 16,
+              maxHeight: isMobile ? "88vh" : "82vh",
+              maxWidth: "760px",
+              width: isMobile ? "95vw" : "760px",
+              overflow: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <h3 style={{ margin: 0 }}>📈 Crop Mastery</h3>
+              <button
+                style={{
+                  padding: "6px 10px",
+                  backgroundColor: "#f0f0f0",
+                  border: "1px solid #ddd",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+                onClick={() => setShowCropMasteryModal(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+              Each level grants +1% crop yield for that crop type. Prestige at
+              level 100 resets that crop to level 1 and grants +20% crop yield
+              and +10% gold for that crop type permanently.
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr",
+                gap: 10,
+              }}
+            >
+              {allCropTypes.map((cropDef) => {
+                const mastery = getCropMastery(cropDef.id);
+                const currentYield = getCropYieldAtLevel(
+                  cropDef.id,
+                  mastery.level,
+                );
+                const nextLevel = Math.min(CROP_MAX_LEVEL, mastery.level + 1);
+                const nextYield = getCropYieldAtLevel(cropDef.id, nextLevel);
+                const currentGold = getCropGoldWithPrestige(cropDef.id);
+                const nextGold = Math.max(
+                  1,
+                  Math.round(
+                    cropDef.baseGold *
+                      getCropGoldMultiplier(mastery.prestige + 1),
+                  ),
+                );
+                const xpToNext =
+                  mastery.level >= CROP_MAX_LEVEL
+                    ? 0
+                    : getCropXpForNextLevel(mastery.level);
+                const xpProgress =
+                  mastery.level >= CROP_MAX_LEVEL
+                    ? 100
+                    : Math.min(100, (mastery.xp / xpToNext) * 100);
+
+                return (
+                  <div
+                    key={cropDef.id}
+                    style={{
+                      padding: 12,
+                      border: "1px solid #ddd",
+                      borderRadius: 6,
+                      backgroundColor: "#fafafa",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 8,
+                        gap: 8,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ fontWeight: "bold" }}>{cropDef.name}</div>
+                      <div style={{ fontSize: 12, color: "#666" }}>
+                        Lv {mastery.level}/{CROP_MAX_LEVEL} | Prestige{" "}
+                        {mastery.prestige}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                        gap: 8,
+                        fontSize: 12,
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      <div>
+                        <div>
+                          Current Yield: {currentYield} {cropDef.category}
+                        </div>
+                        <div>
+                          Current Gold: {formatCompactNumber(currentGold)}
+                        </div>
+                      </div>
+                      <div>
+                        {mastery.level < CROP_MAX_LEVEL ? (
+                          <>
+                            <div>
+                              Next Lv Yield: {nextYield} {cropDef.category}
+                            </div>
+                            <div>
+                              XP to next: {mastery.xp}/{xpToNext}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              Next Prestige Yield: {nextYield}{" "}
+                              {cropDef.category}
+                            </div>
+                            <div>
+                              Next Prestige Gold:{" "}
+                              {formatCompactNumber(nextGold)}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 8,
+                        height: 8,
+                        backgroundColor: "#ddd",
+                        borderRadius: 999,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${xpProgress}%`,
+                          height: "100%",
+                          backgroundColor:
+                            mastery.level >= CROP_MAX_LEVEL
+                              ? "#9c36ff"
+                              : "#51cf66",
+                        }}
+                      />
+                    </div>
+
+                    {mastery.level >= CROP_MAX_LEVEL && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ fontSize: 11, color: "#6b46c1" }}>
+                          Prestige Bonus: +20% crop yield and +10% gold for this
+                          crop type.
+                        </div>
+                        <button
+                          className="btn-primary"
+                          style={{ padding: "6px 10px", fontSize: 12 }}
+                          onClick={() =>
+                            setState((prev) =>
+                              prestigeCropType(prev, cropDef.id),
+                            )
+                          }
+                        >
+                          Prestige
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rock Break Modal */}
       {rockBreakModal.isOpen && rockBreakModal.rockTier && (
@@ -2206,7 +2484,17 @@ export function Garden() {
                   cropDef.growthTimeMinutes -
                     (Date.now() - cropInstance.plantedAt) / (60 * 1000),
                 );
-                const yield_ = calculateYield(cropDef, cropInstance.waterLevel);
+                const yield_ = calculateYieldWithMastery(
+                  state,
+                  tileDetailModal.cropId,
+                  cropDef,
+                  cropInstance.waterLevel,
+                );
+                const goldYield = calculateGoldWithMastery(
+                  state,
+                  tileDetailModal.cropId,
+                  cropDef,
+                );
 
                 return (
                   <>
@@ -2413,7 +2701,7 @@ export function Garden() {
                         <div>
                           Yield: {yield_} {cropDef.category}
                         </div>
-                        <div>Gold: {cropDef.baseGold}</div>
+                        <div>Gold: {goldYield}</div>
                         <div>XP: {cropDef.baseXP}</div>
                         <div style={{ marginTop: 6 }}>
                           Type:{" "}
