@@ -40,12 +40,72 @@ export function Main() {
             ...prev,
             resources: {
               ...prev.resources,
+              gold: prev.resources.gold + 1000,
+            },
+          }));
+        }}
+      >
+        +1000 Gold
+      </button>
+
+      <button
+        style={{
+          padding: "12px",
+          fontSize: "15px",
+          width: "100%",
+          marginBottom: 8,
+        }}
+        onClick={() => {
+          setState((prev) => ({
+            ...prev,
+            resources: {
+              ...prev.resources,
               gems: (prev.resources.gems ?? 0) + 100,
             },
           }));
         }}
       >
         +100 Gems
+      </button>
+
+      <button
+        style={{
+          padding: "12px",
+          fontSize: "15px",
+          width: "100%",
+          marginBottom: 8,
+        }}
+        onClick={() => {
+          setState((prev) => ({
+            ...prev,
+            resources: {
+              ...prev.resources,
+              gems: (prev.resources.gems ?? 0) + 1000,
+            },
+          }));
+        }}
+      >
+        +1000 Gems
+      </button>
+
+      <button
+        style={{
+          padding: "12px",
+          fontSize: "15px",
+          width: "100%",
+          marginBottom: 8,
+        }}
+        onClick={() => {
+          setState((prev) => ({
+            ...prev,
+            resources: {
+              ...prev.resources,
+              energy: (prev.resources.energy ?? 0) + 1000,
+            },
+          }));
+        }}
+      >
+        +1000 Energy
       </button>
 
       <button

@@ -31,7 +31,7 @@ import {
 } from "../game/garden";
 import { getItemDefSafe } from "../game/items";
 import { formatCompactNumber } from "../game/numberFormat";
-import type { CropInstance } from "../game/types";
+import type { CropInstance, FieldPosition } from "../game/types";
 
 interface SeedBagItem {
   seedId: string;
@@ -86,6 +86,7 @@ export function Garden() {
   const { state, setState } = useGame();
   const speedUpMinutes = 30;
   const speedUpGemCost = 100;
+  const seedBagPlantEnergyCost = 1;
   const [showSeedBag, setShowSeedBag] = useState(false);
   const [showToolWheel, setShowToolWheel] = useState(false);
   const [plantModal, setPlantModal] = useState<PlantModalState>({
@@ -118,6 +119,10 @@ export function Garden() {
     useState(true);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showCropMasteryModal, setShowCropMasteryModal] = useState(false);
+  const [isToolEffectActive, setIsToolEffectActive] = useState(false);
+  const [activeSeedBagSeedId, setActiveSeedBagSeedId] = useState<string | null>(
+    null,
+  );
   const [sprinklerPreview, setSprinklerPreview] =
     useState<SprinklerPreviewState | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(
@@ -179,8 +184,29 @@ export function Garden() {
     cropDef.category === "grape" ||
     (cropDef.category === "fruit" && cropDef.isPerennial);
 
+  const normalizeToolId = (toolId: string | null | undefined): string =>
+    (toolId ?? "").replace(/_/g, "").toLowerCase();
+
+  const isPickaxeTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("pickaxe");
+
+  const isShovelTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("shovel");
+
+  const isWateringCanTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("wateringcan");
+
+  const isSprinklerTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("sprinkler");
+
+  const isScytheTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("scythe");
+
+  const isSeedBagTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("seedbag");
+
   const getShovelAreaSize = (): number => {
-    if (!equippedToolId?.includes("shovel")) return 1;
+    if (!isShovelTool(equippedToolId)) return 1;
     const rarity = equippedToolDef?.rarity ?? "common";
     if (rarity === "rare") return 3;
     if (rarity === "epic" || rarity === "legendary" || rarity === "unique") {
@@ -290,6 +316,307 @@ export function Garden() {
         return "📦";
     }
   };
+
+  const getToolIcon = (toolId: string | null | undefined): string => {
+    if (!toolId) return "🧰";
+    if (isPickaxeTool(toolId)) return "⛏️";
+    if (isShovelTool(toolId)) return "🪏";
+    if (isWateringCanTool(toolId)) return "💧";
+    if (isSprinklerTool(toolId)) return "🌊";
+    if (isScytheTool(toolId)) return "🔪";
+    if (isSeedBagTool(toolId)) return "🎒";
+    return "🔧";
+  };
+
+  const getToolCoverageTiles = (
+    centerRow: number,
+    centerCol: number,
+    toolId: string,
+  ): FieldPosition[] => {
+    const normalized = normalizeToolId(toolId);
+    const isRare = normalized.includes("rare");
+    const isEpic = normalized.includes("epic");
+    const isLegendary = normalized.includes("legendary");
+    const isUnique = normalized.includes("unique");
+
+    // Requested tool ranges:
+    // common: center only (1 tile)
+    // rare: center + N/S/E/W (cross radius 1)
+    // epic: full 3x3 square
+    // legendary: full 5x5 square
+    // unique: full 7x7 square
+    let squareRadius = 0;
+    if (isUnique) {
+      squareRadius = 3;
+    } else if (isLegendary) {
+      squareRadius = 2;
+    } else if (isEpic) {
+      squareRadius = 1;
+    }
+
+    const tilesWithDistance: Array<{
+      row: number;
+      col: number;
+      dr: number;
+      dc: number;
+    }> = [];
+
+    for (let dr = -squareRadius; dr <= squareRadius; dr++) {
+      for (let dc = -squareRadius; dc <= squareRadius; dc++) {
+        const absDr = Math.abs(dr);
+        const absDc = Math.abs(dc);
+
+        if (isRare) {
+          const isCross = absDr + absDc <= 1;
+          if (!isCross) continue;
+        }
+
+        if (squareRadius === 0 && !isRare) {
+          if (absDr !== 0 || absDc !== 0) continue;
+        }
+
+        if (squareRadius > 0 || isRare || (absDr === 0 && absDc === 0)) {
+          tilesWithDistance.push({
+            row: centerRow + dr,
+            col: centerCol + dc,
+            dr,
+            dc,
+          });
+        }
+      }
+    }
+
+    // Process center first, then expand outward ring-by-ring.
+    tilesWithDistance.sort((a, b) => {
+      const ringA = Math.max(Math.abs(a.dr), Math.abs(a.dc));
+      const ringB = Math.max(Math.abs(b.dr), Math.abs(b.dc));
+      if (ringA !== ringB) return ringA - ringB;
+
+      const manhattanA = Math.abs(a.dr) + Math.abs(a.dc);
+      const manhattanB = Math.abs(b.dr) + Math.abs(b.dc);
+      if (manhattanA !== manhattanB) return manhattanA - manhattanB;
+
+      if (a.dr !== b.dr) return a.dr - b.dr;
+      return a.dc - b.dc;
+    });
+
+    return tilesWithDistance.map((tile) => ({
+      row: tile.row,
+      col: tile.col,
+    }));
+  };
+
+  const applyWateringCanArea = (
+    currentState: typeof state,
+    centerRow: number,
+    centerCol: number,
+    toolId: string,
+  ) => {
+    const tiles = getToolCoverageTiles(centerRow, centerCol, toolId);
+    let nextState = currentState;
+    let wateredTiles = 0;
+    let lackedEnergy = false;
+
+    for (const tile of tiles) {
+      let cropAtTile: CropInstance | null = null;
+      for (const cropList of Object.values(nextState.garden.crops)) {
+        const found = cropList.find(
+          (crop) =>
+            crop.position?.row === tile.row && crop.position?.col === tile.col,
+        );
+        if (found) {
+          cropAtTile = found;
+          break;
+        }
+      }
+
+      if (!cropAtTile || cropAtTile.hasSprinkler) continue;
+
+      const beforeEnergy = nextState.resources.energy ?? 0;
+      const updatedState = waterField(nextState, tile.row, tile.col);
+      const afterEnergy = updatedState.resources.energy ?? 0;
+
+      if (afterEnergy < beforeEnergy) {
+        wateredTiles += 1;
+        nextState = updatedState;
+      } else {
+        lackedEnergy = true;
+      }
+    }
+
+    return { nextState, wateredTiles, lackedEnergy };
+  };
+
+  const applyScytheHarvestArea = (
+    currentState: typeof state,
+    centerRow: number,
+    centerCol: number,
+    toolId: string,
+  ) => {
+    const tiles = getToolCoverageTiles(centerRow, centerCol, toolId);
+    const tileKeySet = new Set(tiles.map((t) => `${t.row},${t.col}`));
+    const targetsByCropId: Record<string, number[]> = {};
+
+    for (const [cId, cropList] of Object.entries(currentState.garden.crops)) {
+      const cropDef = getCropDef(cId);
+      if (!cropDef) continue;
+
+      cropList.forEach((crop, index) => {
+        const key = `${crop.position.row},${crop.position.col}`;
+        if (!tileKeySet.has(key)) return;
+        if (getGrowthProgress(crop, cropDef) < 100) return;
+
+        if (!targetsByCropId[cId]) targetsByCropId[cId] = [];
+        targetsByCropId[cId].push(index);
+      });
+    }
+
+    let nextState = currentState;
+    for (const [cId, indexes] of Object.entries(targetsByCropId)) {
+      const sortedDesc = [...indexes].sort((a, b) => b - a);
+      for (const idx of sortedDesc) {
+        nextState = harvestCrop(nextState, cId, idx);
+      }
+    }
+
+    return nextState;
+  };
+
+  const consumeOneSeedFromInventory = (
+    inventory: typeof state.inventory,
+    seedId: string,
+  ) => {
+    const idx = inventory.findIndex(
+      (item) => item.itemId === seedId && item.quantity > 0,
+    );
+    if (idx < 0) return { inventory, consumed: false };
+
+    const nextInventory = [...inventory];
+    const nextItem = { ...nextInventory[idx] };
+    nextItem.quantity -= 1;
+
+    if (nextItem.quantity <= 0) {
+      nextInventory.splice(idx, 1);
+    } else {
+      nextInventory[idx] = nextItem;
+    }
+
+    return { inventory: nextInventory, consumed: true };
+  };
+
+  const hasRockAtPositionInState = (
+    currentState: typeof state,
+    row: number,
+    col: number,
+  ): boolean => {
+    const rocks = currentState.garden.rocks;
+    return (
+      rocks.small.some((r) => r.row === row && r.col === col) ||
+      rocks.medium.some((r) => r.row === row && r.col === col) ||
+      rocks.large.some((r) => r.row === row && r.col === col)
+    );
+  };
+
+  const hasCropAtPositionInState = (
+    currentState: typeof state,
+    row: number,
+    col: number,
+  ): boolean => {
+    for (const cropList of Object.values(currentState.garden.crops)) {
+      if (
+        cropList.some(
+          (crop) => crop.position?.row === row && crop.position?.col === col,
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const isFieldUnlockedInState = (
+    currentState: typeof state,
+    row: number,
+    col: number,
+  ): boolean => {
+    const unlocked = currentState.garden.unlockedFields;
+    if (unlocked && unlocked.length > 0) {
+      return unlocked.some((f) => f.row === row && f.col === col);
+    }
+    return (
+      row < currentState.garden.gridSize.rows &&
+      col < currentState.garden.gridSize.cols
+    );
+  };
+
+  const applySeedBagPlantArea = (
+    currentState: typeof state,
+    centerRow: number,
+    centerCol: number,
+    toolId: string,
+    seedId: string,
+  ) => {
+    const cropId = resolveCropIdFromSeed(seedId);
+    if (!cropId) {
+      return {
+        nextState: currentState,
+        plantedTiles: 0,
+        lackedEnergy: false,
+        lackedSeeds: false,
+      };
+    }
+
+    const tiles = getToolCoverageTiles(centerRow, centerCol, toolId);
+    let nextState = currentState;
+    let plantedTiles = 0;
+    let lackedEnergy = false;
+    let lackedSeeds = false;
+
+    for (const tile of tiles) {
+      if (!isFieldUnlockedInState(nextState, tile.row, tile.col)) continue;
+      if (hasRockAtPositionInState(nextState, tile.row, tile.col)) continue;
+      if (hasCropAtPositionInState(nextState, tile.row, tile.col)) continue;
+
+      const energy = nextState.resources.energy ?? 0;
+      if (energy < seedBagPlantEnergyCost) {
+        lackedEnergy = true;
+        break;
+      }
+
+      const consumed = consumeOneSeedFromInventory(nextState.inventory, seedId);
+      if (!consumed.consumed) {
+        lackedSeeds = true;
+        break;
+      }
+
+      let plantedState = plantCrop(nextState, cropId, tile.row, tile.col);
+      plantedState = {
+        ...plantedState,
+        inventory: consumed.inventory,
+        resources: {
+          ...plantedState.resources,
+          energy: energy - seedBagPlantEnergyCost,
+        },
+      };
+
+      nextState = plantedState;
+      plantedTiles += 1;
+    }
+
+    return { nextState, plantedTiles, lackedEnergy, lackedSeeds };
+  };
+
+  useEffect(() => {
+    setIsToolEffectActive(false);
+    setShovelMove(null);
+    setActiveSeedBagSeedId(null);
+  }, [equippedToolId]);
+
+  useEffect(() => {
+    if (!isToolEffectActive) {
+      setShovelMove(null);
+    }
+  }, [isToolEffectActive]);
 
   const isWithinSelectedMoveArea = (row: number, col: number): boolean => {
     if (!shovelMove) return false;
@@ -405,7 +732,7 @@ export function Garden() {
     const isInGrid = isFieldUnlocked(row, col);
     const isPreview = !isInGrid;
     const bestPickaxeLevel = Object.entries(garden.tools)
-      .filter(([toolId]) => toolId.startsWith("pickaxe"))
+      .filter(([toolId]) => normalizeToolId(toolId).startsWith("pickaxe"))
       .reduce((maxLevel, [, level]) => Math.max(maxLevel, level), 0);
     const isSprinklerPreviewTarget = sprinklerPreview
       ? sprinklerCoversField(
@@ -427,6 +754,7 @@ export function Garden() {
     );
 
     if (rockSmall || rockMedium || rockLarge) {
+      const pickaxeActive = isToolEffectActive && isPickaxeTool(equippedToolId);
       const tier = rockSmall ? "small" : rockMedium ? "medium" : "large";
       const config = rockConfig[tier];
       const needsPickaxeLevel = Math.max(
@@ -467,18 +795,28 @@ export function Garden() {
             fontSize: 24,
             position: "relative",
             overflow: "hidden",
-            opacity: equippedToolId?.includes("pickaxe") ? 1 : 0.8,
-            filter: equippedToolId?.includes("pickaxe")
+            opacity: pickaxeActive ? 1 : 0.8,
+            filter: pickaxeActive
               ? "drop-shadow(0 0 6px rgba(255, 200, 0, 0.6))"
               : "none",
           }}
           aria-label={`${tier} rock - requires pickaxe (Level ${config.minPickaxeLevel}+, ${config.energyCost} energy)`}
           onClick={() => {
-            setRockBreakModal({
+            if (pickaxeActive) {
+              setRockBreakModal({
+                isOpen: true,
+                row,
+                col,
+                rockTier: tier as "small" | "medium" | "large",
+              });
+              return;
+            }
+
+            setTileDetailModal({
               isOpen: true,
               row,
               col,
-              rockTier: tier as "small" | "medium" | "large",
+              type: "rock",
             });
           }}
         >
@@ -507,7 +845,7 @@ export function Garden() {
               ⛔
             </div>
           )}
-          {equippedToolId?.includes("pickaxe") && (
+          {pickaxeActive && (
             <div
               style={{
                 position: "absolute",
@@ -603,8 +941,9 @@ export function Garden() {
           aria-label={`${cropDef.name} - ${progress.toFixed(0)}% grown - Water: ${cropInstance.waterLevel.toFixed(0)}%`}
           onClick={() => {
             const equippedTool = equippedToolId;
+            const toolActive = isToolEffectActive;
 
-            if (equippedTool?.includes("shovel")) {
+            if (toolActive && isShovelTool(equippedTool)) {
               setShovelMove({
                 sourceRow: row,
                 sourceCol: col,
@@ -614,20 +953,59 @@ export function Garden() {
             }
 
             // Handle sprinkler placement
-            if (equippedTool?.includes("sprinkler")) {
+            if (toolActive && isSprinklerTool(equippedTool)) {
               const newState = toggleSprinkler(state, row, col);
               setState(newState);
               return;
             }
 
-            // Handle watering
-            if (equippedTool?.includes("wateringcan")) {
-              if (cropInstance.hasSprinkler) {
-                alert("This field already has a sprinkler!");
+            // Handle watering can (AoE by rarity profile)
+            if (toolActive && isWateringCanTool(equippedTool)) {
+              const result = applyWateringCanArea(
+                state,
+                row,
+                col,
+                equippedTool ?? "",
+              );
+              if (result.wateredTiles > 0) {
+                setState(result.nextState);
+              } else if (result.lackedEnergy) {
+                alert("Not enough energy to water crops in range.");
+              }
+              return;
+            }
+
+            // Handle scythe (AoE harvest by rarity profile)
+            if (toolActive && isScytheTool(equippedTool)) {
+              const newState = applyScytheHarvestArea(
+                state,
+                row,
+                col,
+                equippedTool ?? "",
+              );
+              setState(newState);
+              return;
+            }
+
+            if (toolActive && isSeedBagTool(equippedTool)) {
+              if (!activeSeedBagSeedId) {
+                alert("Select a seed in the tool selector first.");
                 return;
               }
-              const newState = waterField(state, row, col);
-              setState(newState);
+              const result = applySeedBagPlantArea(
+                state,
+                row,
+                col,
+                equippedTool ?? "",
+                activeSeedBagSeedId,
+              );
+              if (result.plantedTiles > 0) {
+                setState(result.nextState);
+              } else if (result.lackedEnergy) {
+                alert("Not enough energy to plant in range.");
+              } else if (result.lackedSeeds) {
+                alert("Not enough seeds to plant in range.");
+              }
               return;
             }
 
@@ -878,7 +1256,11 @@ export function Garden() {
         }}
         aria-label="Empty field - click to manage planting or sprinkler"
         onClick={() => {
-          if (equippedToolId?.includes("shovel") && shovelMove) {
+          if (
+            isToolEffectActive &&
+            isShovelTool(equippedToolId) &&
+            shovelMove
+          ) {
             const result = moveCropArea(
               state,
               { row: shovelMove.sourceRow, col: shovelMove.sourceCol },
@@ -891,6 +1273,54 @@ export function Garden() {
               setShovelMove(null);
             } else if (result.reason) {
               alert(result.reason);
+            }
+            return;
+          }
+
+          if (isToolEffectActive && isWateringCanTool(equippedToolId)) {
+            const result = applyWateringCanArea(
+              state,
+              row,
+              col,
+              equippedToolId ?? "",
+            );
+            if (result.wateredTiles > 0) {
+              setState(result.nextState);
+            } else if (result.lackedEnergy) {
+              alert("Not enough energy to water crops in range.");
+            }
+            return;
+          }
+
+          if (isToolEffectActive && isScytheTool(equippedToolId)) {
+            const newState = applyScytheHarvestArea(
+              state,
+              row,
+              col,
+              equippedToolId ?? "",
+            );
+            setState(newState);
+            return;
+          }
+
+          if (isToolEffectActive && isSeedBagTool(equippedToolId)) {
+            if (!activeSeedBagSeedId) {
+              alert("Select a seed in the tool selector first.");
+              return;
+            }
+            const result = applySeedBagPlantArea(
+              state,
+              row,
+              col,
+              equippedToolId ?? "",
+              activeSeedBagSeedId,
+            );
+            if (result.plantedTiles > 0) {
+              setState(result.nextState);
+            } else if (result.lackedEnergy) {
+              alert("Not enough energy to plant in range.");
+            } else if (result.lackedSeeds) {
+              alert("Not enough seeds to plant in range.");
             }
             return;
           }
@@ -998,6 +1428,38 @@ export function Garden() {
           >
             📈
           </button>
+
+          <button
+            className="btn-round-icon"
+            style={{
+              width: isMobile ? 44 : 50,
+              height: isMobile ? 44 : 50,
+              marginLeft: 10,
+              backgroundColor: equippedToolId ? "#253649" : "#1a2430",
+              border: isToolEffectActive
+                ? "2px solid #57b3f3"
+                : "2px solid #3f546a",
+              boxShadow: isToolEffectActive
+                ? "0 0 0 3px rgba(87,179,243,0.22)"
+                : "none",
+              opacity: equippedToolId ? 1 : 0.55,
+              fontSize: isMobile ? 20 : 22,
+            }}
+            onClick={() => {
+              if (!equippedToolId) return;
+              setIsToolEffectActive((prev) => !prev);
+            }}
+            title={
+              equippedToolId
+                ? isToolEffectActive
+                  ? "Tool mode active"
+                  : "Tool mode inactive"
+                : "No tool equipped"
+            }
+            aria-label="Toggle equipped tool mode"
+          >
+            {getToolIcon(equippedToolId)}
+          </button>
         </div>
       </div>
 
@@ -1005,159 +1467,294 @@ export function Garden() {
       {showToolWheel && (
         <div
           style={{
-            marginBottom: 16,
-            padding: isMobile ? 10 : 12,
-            backgroundColor: "#FFF8DC",
-            borderRadius: 6,
-            border: "1px solid #DAA520",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
           }}
+          onClick={() => setShowToolWheel(false)}
         >
-          <div style={{ fontWeight: "bold", marginBottom: 8 }}>
-            Available Tools
-          </div>
-
-          {/* Tool Type Filter Buttons */}
           <div
             style={{
-              display: "flex",
-              gap: 6,
-              marginBottom: 8,
-              flexWrap: "wrap",
+              padding: isMobile ? 10 : 12,
+              backgroundColor: "#16212d",
+              borderRadius: 8,
+              border: "1px solid #2a3a4c",
+              width: isMobile ? "94vw" : "560px",
+              maxWidth: "560px",
+              maxHeight: isMobile ? "88vh" : "80vh",
+              overflow: "auto",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <button
-              className={toolTypeFilter === null ? "btn-selected" : ""}
+            <div
               style={{
-                padding: "4px 8px",
-                fontSize: 11,
-                border: "1px solid #999",
-                borderRadius: 3,
+                fontWeight: "bold",
+                marginBottom: 8,
+                color: "#e5edf5",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
-              onClick={() => setToolTypeFilter(null)}
             >
-              All
-            </button>
-            {["pickaxe", "shovel", "wateringcan", "sprinkler", "scythe"].map(
-              (type) => (
+              <span>Available Tools</span>
+              <button
+                style={{
+                  padding: "4px 8px",
+                  backgroundColor: "#253649",
+                  border: "1px solid #3f546a",
+                  color: "#eaf2fb",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+                onClick={() => setShowToolWheel(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Tool Type Filter Buttons */}
+            <div
+              style={{
+                display: "flex",
+                gap: 6,
+                marginBottom: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                className={toolTypeFilter === null ? "btn-selected" : ""}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: 11,
+                  border: "1px solid #3f546a",
+                  borderRadius: 3,
+                  backgroundColor: "#1b2a39",
+                  color: "#e5edf5",
+                }}
+                onClick={() => setToolTypeFilter(null)}
+              >
+                All
+              </button>
+              {[
+                "pickaxe",
+                "shovel",
+                "wateringcan",
+                "sprinkler",
+                "scythe",
+                "seedbag",
+              ].map((type) => (
                 <button
                   key={type}
                   className={toolTypeFilter === type ? "btn-selected" : ""}
                   style={{
                     padding: "4px 8px",
                     fontSize: 11,
-                    border: "1px solid #999",
+                    border: "1px solid #3f546a",
                     borderRadius: 3,
                     textTransform: "capitalize",
+                    backgroundColor: "#1b2a39",
+                    color: "#e5edf5",
                   }}
                   onClick={() => setToolTypeFilter(type)}
                 >
                   {type}
                 </button>
-              ),
-            )}
-          </div>
+              ))}
+            </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-            {[
-              ...state.inventory
-                .filter((item) => getItemDefSafe(item.itemId)?.type === "tool")
-                .map((item) => ({
-                  key: item.uid,
-                  equipValue: item.uid,
-                  toolId: item.itemId,
-                  level: item.level,
-                  name: getItemDefSafe(item.itemId)?.name ?? item.itemId,
-                })),
-            ]
-              .filter((tool) => {
-                if (!toolTypeFilter) return true;
-                return tool.toolId.includes(toolTypeFilter);
-              })
-              .map((tool) => {
-                let description = "";
-                let icon = "🔧";
+            <div
+              style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}
+            >
+              {[
+                ...state.inventory
+                  .filter(
+                    (item) => getItemDefSafe(item.itemId)?.type === "tool",
+                  )
+                  .map((item) => ({
+                    key: item.uid,
+                    equipValue: item.uid,
+                    toolId: item.itemId,
+                    level: item.level,
+                    name: getItemDefSafe(item.itemId)?.name ?? item.itemId,
+                  })),
+              ]
+                .filter((tool) => {
+                  if (!toolTypeFilter) return true;
+                  if (toolTypeFilter === "wateringcan") {
+                    return isWateringCanTool(tool.toolId);
+                  }
+                  if (toolTypeFilter === "seedbag") {
+                    return isSeedBagTool(tool.toolId);
+                  }
+                  return normalizeToolId(tool.toolId).includes(toolTypeFilter);
+                })
+                .sort((a, b) => {
+                  const rarityOrder: Record<string, number> = {
+                    common: 0,
+                    rare: 1,
+                    epic: 2,
+                    legendary: 3,
+                    unique: 4,
+                  };
+                  const aRarity = getItemDefSafe(a.toolId)?.rarity ?? "common";
+                  const bRarity = getItemDefSafe(b.toolId)?.rarity ?? "common";
+                  const rarityDelta =
+                    rarityOrder[aRarity] - rarityOrder[bRarity];
+                  if (rarityDelta !== 0) return rarityDelta;
+                  return a.level - b.level;
+                })
+                .map((tool) => {
+                  let description = "";
+                  let icon = "🔧";
 
-                if (tool.toolId.includes("pickaxe")) {
-                  icon = "⛏️";
-                  description = "Click rocks to break them (costs energy)";
-                } else if (tool.toolId.includes("shovel")) {
-                  icon = "🪏";
-                  const areaSize = tool.toolId.includes("mithril")
-                    ? 5
-                    : tool.toolId.includes("iron")
-                      ? 3
-                      : 1;
-                  description = `Move planted fields (${areaSize}x${areaSize} area)`;
-                } else if (tool.toolId.includes("sprinkler")) {
-                  icon = "🌊";
-                  description = "Click crops to place/remove sprinklers";
-                } else if (tool.toolId.includes("wateringcan")) {
-                  icon = "💧";
-                  description = "Click crops to water them (10 energy)";
-                } else if (tool.toolId.includes("scythe")) {
-                  icon = "🔪";
-                  description = "For future use";
-                }
+                  if (isPickaxeTool(tool.toolId)) {
+                    icon = "⛏️";
+                    description = "Click rocks to break them (costs energy)";
+                  } else if (isShovelTool(tool.toolId)) {
+                    icon = "🪏";
+                    const areaSize = tool.toolId.includes("mithril")
+                      ? 5
+                      : tool.toolId.includes("iron")
+                        ? 3
+                        : 1;
+                    description = `Move planted fields (${areaSize}x${areaSize} area)`;
+                  } else if (isSprinklerTool(tool.toolId)) {
+                    icon = "🌊";
+                    description = "Click crops to place/remove sprinklers";
+                  } else if (isWateringCanTool(tool.toolId)) {
+                    icon = "💧";
+                    description = "Click crops to water them (10 energy)";
+                  } else if (isScytheTool(tool.toolId)) {
+                    icon = "🔪";
+                    description = "For future use";
+                  } else if (isSeedBagTool(tool.toolId)) {
+                    icon = "🎒";
+                    description = "Plant seeds in an area around clicked tile";
+                  }
 
-                return (
-                  <button
-                    key={tool.key}
-                    style={{
-                      padding: isMobile ? 12 : 10,
-                      backgroundColor:
-                        state.equipment.tool === tool.equipValue
-                          ? "#51cf66"
-                          : "#f0f0f0",
-                      color:
-                        state.equipment.tool === tool.equipValue
-                          ? "white"
-                          : "#333",
-                      border: "1px solid #999",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      fontSize: isMobile ? 12 : 11,
-                      fontWeight:
-                        state.equipment.tool === tool.equipValue
-                          ? "bold"
-                          : "normal",
-                      textAlign: "left",
-                    }}
-                    onClick={() => {
-                      // Equip tool
-                      setState((prev) => ({
-                        ...prev,
-                        equipment: {
-                          ...prev.equipment,
-                          tool: tool.equipValue,
-                        },
-                      }));
-                    }}
-                    title={description}
-                  >
-                    <div style={{ fontWeight: "bold" }}>
-                      {icon} {tool.name}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>
-                      Level {tool.level}
-                    </div>
-                    <div
+                  return (
+                    <button
+                      key={tool.key}
                       style={{
-                        fontSize: 9,
-                        opacity: 0.6,
-                        marginTop: 4,
-                        whiteSpace: "normal",
+                        padding: isMobile ? 12 : 10,
+                        backgroundColor:
+                          state.equipment.tool === tool.equipValue
+                            ? "#1f7f43"
+                            : "#1b2d3f",
+                        color:
+                          state.equipment.tool === tool.equipValue
+                            ? "white"
+                            : "#e5edf5",
+                        border: "1px solid #34516a",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        fontSize: isMobile ? 12 : 11,
+                        fontWeight:
+                          state.equipment.tool === tool.equipValue
+                            ? "bold"
+                            : "normal",
+                        textAlign: "left",
                       }}
+                      onClick={() => {
+                        // Equip tool
+                        setState((prev) => ({
+                          ...prev,
+                          equipment: {
+                            ...prev.equipment,
+                            tool: tool.equipValue,
+                          },
+                        }));
+                      }}
+                      title={description}
                     >
-                      {description}
-                    </div>
-                  </button>
-                );
-              })}
+                      <div style={{ fontWeight: "bold" }}>
+                        {icon} {tool.name}
+                      </div>
+                      <div
+                        style={{ fontSize: 10, opacity: 0.92, marginTop: 2 }}
+                      >
+                        Level {tool.level}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 9,
+                          opacity: 0.78,
+                          marginTop: 4,
+                          whiteSpace: "normal",
+                        }}
+                      >
+                        {description}
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+
+            {isSeedBagTool(equippedToolId) && (
+              <div
+                style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid #2a3a4c",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "bold",
+                    color: "#e5edf5",
+                    marginBottom: 8,
+                  }}
+                >
+                  Seed Bag Tool: Select Seed
+                </div>
+                {seedBag.length === 0 ? (
+                  <div style={{ fontSize: 11, color: "#9eb0c2" }}>
+                    No seeds available.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {seedBag.map((seed) => (
+                      <button
+                        key={seed.seedId}
+                        className={
+                          activeSeedBagSeedId === seed.seedId
+                            ? "btn-selected"
+                            : ""
+                        }
+                        style={{
+                          padding: "4px 8px",
+                          fontSize: 11,
+                          border: "1px solid #3f546a",
+                          borderRadius: 3,
+                          backgroundColor: "#1b2a39",
+                          color: "#e5edf5",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setActiveSeedBagSeedId(seed.seedId)}
+                        title={seed.seedId}
+                      >
+                        {seed.seedId} x{seed.count}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {equippedToolId?.includes("shovel") && (
+      {isShovelTool(equippedToolId) && isToolEffectActive && (
         <div
           style={{
             marginBottom: 16,
@@ -1208,45 +1805,92 @@ export function Garden() {
       {showSeedBag && (
         <div
           style={{
-            marginBottom: 16,
-            padding: isMobile ? 10 : 12,
-            backgroundColor: "#F0FFF0",
-            borderRadius: 6,
-            border: "1px solid #228B22",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
           }}
+          onClick={() => setShowSeedBag(false)}
         >
-          <div style={{ fontWeight: "bold", marginBottom: 8 }}>Seed Bag</div>
-          {seedBag.length === 0 ? (
-            <p style={{ fontSize: 12, color: "#666" }}>No seeds yet</p>
-          ) : (
+          <div
+            style={{
+              padding: isMobile ? 10 : 12,
+              backgroundColor: "#16212d",
+              borderRadius: 8,
+              border: "1px solid #2a3a4c",
+              width: isMobile ? "94vw" : "560px",
+              maxWidth: "560px",
+              maxHeight: isMobile ? "88vh" : "80vh",
+              overflow: "auto",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                gap: 8,
+                fontWeight: "bold",
+                marginBottom: 8,
+                color: "#e5edf5",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              {seedBag.map((seed) => (
-                <div
-                  key={seed.seedId}
-                  style={{
-                    padding: 8,
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ddd",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    fontSize: 11,
-                    textAlign: "left",
-                  }}
-                >
-                  <div>{seed.seedId}</div>
-                  <div style={{ fontSize: 10, color: "#666" }}>
-                    x {seed.count}
-                  </div>
-                </div>
-              ))}
+              <span>Seed Bag</span>
+              <button
+                style={{
+                  padding: "4px 8px",
+                  backgroundColor: "#253649",
+                  border: "1px solid #3f546a",
+                  color: "#eaf2fb",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+                onClick={() => setShowSeedBag(false)}
+              >
+                Close
+              </button>
             </div>
-          )}
+            {seedBag.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#9eb0c2" }}>No seeds yet</p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  gap: 8,
+                }}
+              >
+                {seedBag.map((seed) => (
+                  <div
+                    key={seed.seedId}
+                    style={{
+                      padding: 8,
+                      backgroundColor: "#1b2d3f",
+                      border: "1px solid #34516a",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      fontSize: 11,
+                      textAlign: "left",
+                      color: "#e5edf5",
+                    }}
+                  >
+                    <div>{seed.seedId}</div>
+                    <div style={{ fontSize: 10, color: "#9eb0c2" }}>
+                      x {seed.count}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1290,7 +1934,7 @@ export function Garden() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1306,13 +1950,15 @@ export function Garden() {
         >
           <div
             style={{
-              backgroundColor: "white",
+              backgroundColor: "#162433",
+              color: "#e5edf5",
               borderRadius: 8,
               padding: isMobile ? 12 : 16,
               maxHeight: isMobile ? "88vh" : "80vh",
               maxWidth: "500px",
               width: isMobile ? "94vw" : "500px",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              border: "1px solid #35506a",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
               display: "flex",
               flexDirection: "column",
             }}
@@ -1323,7 +1969,7 @@ export function Garden() {
             </h3>
 
             {seedBag.length === 0 ? (
-              <p style={{ color: "#666", marginBottom: 16 }}>
+              <p style={{ color: "#9eb0c2", marginBottom: 16 }}>
                 You don't have any seeds yet.
               </p>
             ) : (
@@ -1341,8 +1987,9 @@ export function Garden() {
                       marginBottom: 8,
                       position: "sticky",
                       top: 0,
-                      backgroundColor: "white",
+                      backgroundColor: "#162433",
                       paddingBottom: 8,
+                      color: "#e5edf5",
                     }}
                   >
                     Available Seeds:
@@ -1365,10 +2012,10 @@ export function Garden() {
                           key={seed.seedId}
                           style={{
                             padding: 8,
-                            backgroundColor: isSelected ? "#51cf66" : "#f0f0f0",
+                            backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
                             border: isSelected
                               ? "2px solid #2f9e44"
-                              : "1px solid #ddd",
+                              : "1px solid #34516a",
                             borderRadius: 4,
                             cursor: "pointer",
                             textAlign: "left",
@@ -1383,7 +2030,7 @@ export function Garden() {
                           <div
                             style={{
                               fontWeight: "bold",
-                              color: isSelected ? "white" : "black",
+                              color: "#e5edf5",
                             }}
                           >
                             {cropDef?.name || seed.seedId}
@@ -1433,8 +2080,8 @@ export function Garden() {
                             style={{
                               fontSize: 12,
                               color: isSelected
-                                ? "rgba(255,255,255,0.9)"
-                                : "#666",
+                                ? "rgba(229,237,245,0.95)"
+                                : "#9eb0c2",
                               marginTop: 4,
                             }}
                           >
@@ -1474,8 +2121,9 @@ export function Garden() {
                   <button
                     style={{
                       padding: "8px 16px",
-                      backgroundColor: "#f0f0f0",
-                      border: "1px solid #ddd",
+                      backgroundColor: "#253649",
+                      border: "1px solid #3f546a",
+                      color: "#eaf2fb",
                       borderRadius: 4,
                       cursor: "pointer",
                     }}
@@ -1493,10 +2141,17 @@ export function Garden() {
                     style={{
                       padding: "8px 16px",
                       backgroundColor:
-                        plantModal.selectedSeedId === null ? "#ccc" : "#51cf66",
+                        plantModal.selectedSeedId === null
+                          ? "#2c3e50"
+                          : "#1f7f43",
                       color:
-                        plantModal.selectedSeedId === null ? "#999" : "white",
-                      border: "none",
+                        plantModal.selectedSeedId === null
+                          ? "#7f94a8"
+                          : "white",
+                      border:
+                        plantModal.selectedSeedId === null
+                          ? "1px solid #3f546a"
+                          : "none",
                       borderRadius: 4,
                       cursor:
                         plantModal.selectedSeedId === null
@@ -1564,7 +2219,7 @@ export function Garden() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1574,14 +2229,16 @@ export function Garden() {
         >
           <div
             style={{
-              backgroundColor: "white",
+              backgroundColor: "#162433",
+              color: "#e5edf5",
               borderRadius: 8,
               padding: isMobile ? 12 : 16,
               maxHeight: isMobile ? "88vh" : "80vh",
               maxWidth: "560px",
               width: isMobile ? "94vw" : "560px",
               overflow: "auto",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              border: "1px solid #35506a",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1597,8 +2254,9 @@ export function Garden() {
               <button
                 style={{
                   padding: "6px 10px",
-                  backgroundColor: "#f0f0f0",
-                  border: "1px solid #ddd",
+                  backgroundColor: "#253649",
+                  border: "1px solid #3f546a",
+                  color: "#eaf2fb",
                   borderRadius: 4,
                   cursor: "pointer",
                 }}
@@ -1625,9 +2283,9 @@ export function Garden() {
                       key={category}
                       style={{
                         padding: 10,
-                        border: "1px solid #e5e5e5",
+                        border: "1px solid #2f4459",
                         borderRadius: 6,
-                        backgroundColor: "#fafafa",
+                        backgroundColor: "#1b2d3f",
                       }}
                     >
                       <div
@@ -1649,7 +2307,7 @@ export function Garden() {
                       <div
                         style={{
                           height: 8,
-                          backgroundColor: "#ddd",
+                          backgroundColor: "#2f4459",
                           borderRadius: 4,
                           overflow: "hidden",
                         }}
@@ -1683,7 +2341,7 @@ export function Garden() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              backgroundColor: "rgba(6, 10, 14, 0.72)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1701,14 +2359,16 @@ export function Garden() {
           >
             <div
               style={{
-                backgroundColor: "white",
+                backgroundColor: "#162433",
+                color: "#e5edf5",
                 borderRadius: 8,
                 padding: isMobile ? 12 : 20,
                 maxHeight: isMobile ? "88vh" : "80vh",
                 maxWidth: "500px",
                 width: isMobile ? "94vw" : "500px",
                 overflow: "auto",
-                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                border: "1px solid #35506a",
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -1744,10 +2404,11 @@ export function Garden() {
                     {/* Crop Info */}
                     <div
                       style={{
-                        backgroundColor: "#F5F5DC",
+                        backgroundColor: "#1b2d3f",
                         padding: 12,
                         borderRadius: 6,
                         marginBottom: 16,
+                        border: "1px solid #2f4459",
                       }}
                     >
                       <div style={{ fontWeight: "bold", marginBottom: 8 }}>
@@ -1756,7 +2417,7 @@ export function Garden() {
                       <div
                         style={{
                           fontSize: 12,
-                          color: "#666",
+                          color: "#9eb0c2",
                           lineHeight: "1.6",
                         }}
                       >
@@ -1773,10 +2434,11 @@ export function Garden() {
                     {/* Harvest Summary */}
                     <div
                       style={{
-                        backgroundColor: "#F0FFF0",
+                        backgroundColor: "#13261f",
                         padding: 12,
                         borderRadius: 6,
                         marginBottom: 16,
+                        border: "1px solid #2c4d3c",
                       }}
                     >
                       <div style={{ fontWeight: "bold", marginBottom: 10 }}>
@@ -1813,7 +2475,7 @@ export function Garden() {
                           style={{
                             display: "flex",
                             justifyContent: "space-between",
-                            borderTop: "1px solid #ddd",
+                            borderTop: "1px solid #2f4459",
                             paddingTop: 8,
                             marginTop: 8,
                             fontWeight: "bold",
@@ -1855,12 +2517,13 @@ export function Garden() {
                     {cropInstance.waterLevel > 0 && (
                       <div
                         style={{
-                          backgroundColor: "#E8F4F8",
+                          backgroundColor: "#12283a",
                           padding: 10,
                           borderRadius: 6,
                           marginBottom: 16,
                           fontSize: 12,
-                          color: "#0066cc",
+                          color: "#8bc5ff",
+                          border: "1px solid #23445f",
                         }}
                       >
                         <span>💧 Water bonus active!</span> Your crop's water
@@ -1880,8 +2543,9 @@ export function Garden() {
                       <button
                         style={{
                           padding: "10px 20px",
-                          backgroundColor: "#f0f0f0",
-                          border: "1px solid #ddd",
+                          backgroundColor: "#253649",
+                          border: "1px solid #3f546a",
+                          color: "#eaf2fb",
                           borderRadius: 4,
                           cursor: "pointer",
                           fontWeight: "bold",
@@ -1945,7 +2609,7 @@ export function Garden() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1955,14 +2619,16 @@ export function Garden() {
         >
           <div
             style={{
-              backgroundColor: "white",
+              backgroundColor: "#162433",
+              color: "#e5edf5",
               borderRadius: 8,
               padding: isMobile ? 12 : 16,
               maxHeight: isMobile ? "88vh" : "82vh",
               maxWidth: "760px",
               width: isMobile ? "95vw" : "760px",
               overflow: "auto",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              border: "1px solid #35506a",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1978,8 +2644,9 @@ export function Garden() {
               <button
                 style={{
                   padding: "6px 10px",
-                  backgroundColor: "#f0f0f0",
-                  border: "1px solid #ddd",
+                  backgroundColor: "#253649",
+                  border: "1px solid #3f546a",
+                  color: "#eaf2fb",
                   borderRadius: 4,
                   cursor: "pointer",
                 }}
@@ -1989,7 +2656,7 @@ export function Garden() {
               </button>
             </div>
 
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: "#9eb0c2", marginBottom: 12 }}>
               Each level grants +1% crop yield for that crop type. Prestige at
               level 100 resets that crop to level 1 and grants +20% crop yield
               and +10% gold for that crop type permanently.
@@ -2032,9 +2699,9 @@ export function Garden() {
                     key={cropDef.id}
                     style={{
                       padding: 12,
-                      border: "1px solid #ddd",
+                      border: "1px solid #2f4459",
                       borderRadius: 6,
-                      backgroundColor: "#fafafa",
+                      backgroundColor: "#1b2d3f",
                     }}
                   >
                     <div
@@ -2048,7 +2715,7 @@ export function Garden() {
                       }}
                     >
                       <div style={{ fontWeight: "bold" }}>{cropDef.name}</div>
-                      <div style={{ fontSize: 12, color: "#666" }}>
+                      <div style={{ fontSize: 12, color: "#9eb0c2" }}>
                         Lv {mastery.level}/{CROP_MAX_LEVEL} | Prestige{" "}
                         {mastery.prestige}
                       </div>
@@ -2100,7 +2767,7 @@ export function Garden() {
                       style={{
                         marginTop: 8,
                         height: 8,
-                        backgroundColor: "#ddd",
+                        backgroundColor: "#2f4459",
                         borderRadius: 999,
                         overflow: "hidden",
                       }}
@@ -2162,7 +2829,7 @@ export function Garden() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -2179,25 +2846,29 @@ export function Garden() {
         >
           <div
             style={{
-              backgroundColor: "white",
+              backgroundColor: "#162433",
+              color: "#e5edf5",
               borderRadius: 8,
               padding: isMobile ? 12 : 20,
               maxHeight: isMobile ? "88vh" : "80vh",
               maxWidth: "500px",
               width: isMobile ? "94vw" : "500px",
               overflow: "auto",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              border: "1px solid #35506a",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {(() => {
               const tier = rockBreakModal.rockTier;
               const config = rockConfig[tier!];
-              const equippedPickaxe = equippedToolId?.includes("pickaxe")
+              const equippedPickaxe = isPickaxeTool(equippedToolId)
                 ? (state.equipment.tool ?? equippedToolId)
                 : null;
-              const pickaxeLevel = equippedToolId?.includes("pickaxe")
-                ? (equippedToolItem?.level ?? garden.tools[equippedToolId] ?? 0)
+              const pickaxeLevel = isPickaxeTool(equippedToolId)
+                ? (equippedToolItem?.level ??
+                  garden.tools[equippedToolId ?? ""] ??
+                  0)
                 : 0;
               const meetsRequirement = pickaxeLevel >= config.minPickaxeLevel;
               const hasEnergy =
@@ -2210,17 +2881,22 @@ export function Garden() {
                   {/* Rock Info */}
                   <div
                     style={{
-                      backgroundColor: "#F5F5DC",
+                      backgroundColor: "#1b2d3f",
                       padding: 12,
                       borderRadius: 6,
                       marginBottom: 16,
+                      border: "1px solid #2f4459",
                     }}
                   >
                     <div style={{ fontWeight: "bold", marginBottom: 8 }}>
                       {tier?.charAt(0).toUpperCase() + tier?.slice(1)} Rock
                     </div>
                     <div
-                      style={{ fontSize: 12, color: "#666", lineHeight: "1.6" }}
+                      style={{
+                        fontSize: 12,
+                        color: "#9eb0c2",
+                        lineHeight: "1.6",
+                      }}
                     >
                       <div>
                         Location: ({rockBreakModal.row}, {rockBreakModal.col})
@@ -2239,10 +2915,11 @@ export function Garden() {
                   {/* Requirements */}
                   <div
                     style={{
-                      backgroundColor: "#FFF8DC",
+                      backgroundColor: "#1f2b38",
                       padding: 12,
                       borderRadius: 6,
                       marginBottom: 16,
+                      border: "1px solid #2f4459",
                     }}
                   >
                     <div style={{ fontWeight: "bold", marginBottom: 10 }}>
@@ -2371,8 +3048,9 @@ export function Garden() {
                     <button
                       style={{
                         padding: "10px 20px",
-                        backgroundColor: "#f0f0f0",
-                        border: "1px solid #ddd",
+                        backgroundColor: "#253649",
+                        border: "1px solid #3f546a",
+                        color: "#eaf2fb",
                         borderRadius: 4,
                         cursor: "pointer",
                         fontWeight: "bold",
@@ -2443,7 +3121,7 @@ export function Garden() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -2455,14 +3133,16 @@ export function Garden() {
         >
           <div
             style={{
-              backgroundColor: "white",
+              backgroundColor: "#162433",
+              color: "#e5edf5",
               borderRadius: 8,
               padding: isMobile ? 12 : 20,
               maxHeight: isMobile ? "88vh" : "80vh",
               maxWidth: "500px",
               width: isMobile ? "94vw" : "500px",
               overflow: "auto",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              border: "1px solid #35506a",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2503,14 +3183,18 @@ export function Garden() {
                     {/* Progress */}
                     <div style={{ marginBottom: 16 }}>
                       <div
-                        style={{ fontSize: 12, color: "#666", marginBottom: 4 }}
+                        style={{
+                          fontSize: 12,
+                          color: "#9eb0c2",
+                          marginBottom: 4,
+                        }}
                       >
                         Growth Progress: {progress.toFixed(0)}%
                       </div>
                       <div
                         style={{
                           height: 20,
-                          backgroundColor: "#ddd",
+                          backgroundColor: "#2f4459",
                           borderRadius: 4,
                           overflow: "hidden",
                         }}
@@ -2530,11 +3214,13 @@ export function Garden() {
                     {!isReady && (
                       <div
                         style={{
-                          backgroundColor: "#FFF3E0",
+                          backgroundColor: "#2a1f13",
                           padding: 10,
                           borderRadius: 6,
                           marginBottom: 12,
                           fontSize: 12,
+                          color: "#e8c08f",
+                          border: "1px solid #5e452c",
                         }}
                       >
                         Time remaining: {Math.ceil(timeRemaining)} minutes
@@ -2544,17 +3230,18 @@ export function Garden() {
                     {/* Water Mechanics */}
                     <div
                       style={{
-                        backgroundColor: "#E3F2FD",
+                        backgroundColor: "#12283a",
                         padding: 10,
                         borderRadius: 6,
                         marginBottom: 12,
                         fontSize: 11,
+                        border: "1px solid #23445f",
                       }}
                     >
                       <div style={{ fontWeight: "bold", marginBottom: 6 }}>
                         💧 Water Mechanics
                       </div>
-                      <div style={{ lineHeight: "1.6", color: "#555" }}>
+                      <div style={{ lineHeight: "1.6", color: "#b8cadb" }}>
                         <div>
                           Water Level: {cropInstance.waterLevel.toFixed(0)}%
                         </div>
@@ -2578,11 +3265,12 @@ export function Garden() {
 
                     <div
                       style={{
-                        backgroundColor: "#EDF7EE",
+                        backgroundColor: "#10251d",
                         padding: 10,
                         borderRadius: 6,
                         marginBottom: 12,
                         fontSize: 11,
+                        border: "1px solid #2a4a3d",
                       }}
                     >
                       <div style={{ fontWeight: "bold", marginBottom: 6 }}>
@@ -2670,12 +3358,12 @@ export function Garden() {
                             );
                           })
                         ) : (
-                          <span style={{ color: "#666" }}>
+                          <span style={{ color: "#9eb0c2" }}>
                             No sprinkler tool in inventory.
                           </span>
                         )}
                       </div>
-                      <div style={{ marginTop: 8, color: "#4d4d4d" }}>
+                      <div style={{ marginTop: 8, color: "#9eb0c2" }}>
                         Coverage:{" "}
                         {fieldCoverageText(
                           tileDetailModal.row,
@@ -2687,17 +3375,18 @@ export function Garden() {
                     {/* Harvest Preview */}
                     <div
                       style={{
-                        backgroundColor: "#F5F5DC",
+                        backgroundColor: "#1b2d3f",
                         padding: 10,
                         borderRadius: 6,
                         marginBottom: 16,
                         fontSize: 11,
+                        border: "1px solid #2f4459",
                       }}
                     >
                       <div style={{ fontWeight: "bold", marginBottom: 6 }}>
                         📊 At Harvest
                       </div>
-                      <div style={{ lineHeight: "1.6", color: "#555" }}>
+                      <div style={{ lineHeight: "1.6", color: "#b8cadb" }}>
                         <div>
                           Yield: {yield_} {cropDef.category}
                         </div>
@@ -2721,8 +3410,9 @@ export function Garden() {
                       <button
                         style={{
                           padding: "10px 20px",
-                          backgroundColor: "#f0f0f0",
-                          border: "1px solid #ddd",
+                          backgroundColor: "#253649",
+                          border: "1px solid #3f546a",
+                          color: "#eaf2fb",
                           borderRadius: 4,
                           cursor: "pointer",
                           fontWeight: "bold",
@@ -2833,16 +3523,17 @@ export function Garden() {
 
                     <div
                       style={{
-                        backgroundColor: "#F5F5DC",
+                        backgroundColor: "#1b2d3f",
                         padding: 12,
                         borderRadius: 6,
                         marginBottom: 16,
+                        border: "1px solid #2f4459",
                       }}
                     >
                       <div
                         style={{
                           fontSize: 12,
-                          color: "#666",
+                          color: "#9eb0c2",
                           lineHeight: "1.6",
                         }}
                       >
@@ -2876,8 +3567,9 @@ export function Garden() {
                       <button
                         style={{
                           padding: "10px 20px",
-                          backgroundColor: "#f0f0f0",
-                          border: "1px solid #ddd",
+                          backgroundColor: "#253649",
+                          border: "1px solid #3f546a",
+                          color: "#eaf2fb",
                           borderRadius: 4,
                           cursor: "pointer",
                           fontWeight: "bold",
@@ -2940,16 +3632,17 @@ export function Garden() {
 
                       <div
                         style={{
-                          backgroundColor: "#E3F2FD",
+                          backgroundColor: "#12283a",
                           padding: 12,
                           borderRadius: 6,
                           marginBottom: 16,
+                          border: "1px solid #23445f",
                         }}
                       >
                         <div
                           style={{
                             fontSize: 12,
-                            color: "#0d47a1",
+                            color: "#8bc5ff",
                             fontWeight: "bold",
                             marginBottom: 6,
                           }}
@@ -2958,18 +3651,26 @@ export function Garden() {
                             ? `Installed: ${getItemDefSafe(fieldSprinklerId)?.name ?? fieldSprinklerId}`
                             : "No sprinkler installed on this field"}
                         </div>
-                        <div style={{ fontSize: 11, color: "#444" }}>
+                        <div style={{ fontSize: 11, color: "#b8cadb" }}>
                           Place a sprinkler now, or remove the current one.
                         </div>
                         <div
-                          style={{ marginTop: 6, fontSize: 11, color: "#444" }}
+                          style={{
+                            marginTop: 6,
+                            fontSize: 11,
+                            color: "#b8cadb",
+                          }}
                         >
                           Coverage tiers: common=self, rare=up/down/left/right
                           (1), epic=rare + diagonals (1), legendary=epic pattern
                           (2), unique=epic pattern (3).
                         </div>
                         <div
-                          style={{ marginTop: 6, fontSize: 11, color: "#444" }}
+                          style={{
+                            marginTop: 6,
+                            fontSize: 11,
+                            color: "#b8cadb",
+                          }}
                         >
                           Coverage: {fieldCoverageText(emptyRow, emptyCol)}
                         </div>
@@ -2991,9 +3692,9 @@ export function Garden() {
                                 key={sprinklerId}
                                 style={{
                                   padding: "8px 12px",
-                                  backgroundColor: "#e3f2fd",
-                                  color: "#0d47a1",
-                                  border: "1px solid #90caf9",
+                                  backgroundColor: "#1f3a4e",
+                                  color: "#9ed3ff",
+                                  border: "1px solid #3d5f79",
                                   borderRadius: 4,
                                   cursor: "pointer",
                                   fontWeight: "bold",
@@ -3033,7 +3734,7 @@ export function Garden() {
                             );
                           })
                         ) : (
-                          <span style={{ color: "#666", fontSize: 12 }}>
+                          <span style={{ color: "#9eb0c2", fontSize: 12 }}>
                             No sprinkler tool in inventory.
                           </span>
                         )}
@@ -3049,8 +3750,9 @@ export function Garden() {
                         <button
                           style={{
                             padding: "10px 20px",
-                            backgroundColor: "#f0f0f0",
-                            border: "1px solid #ddd",
+                            backgroundColor: "#253649",
+                            border: "1px solid #3f546a",
+                            color: "#eaf2fb",
                             borderRadius: 4,
                             cursor: "pointer",
                             fontWeight: "bold",
@@ -3090,8 +3792,9 @@ export function Garden() {
                         <button
                           style={{
                             padding: "10px 20px",
-                            backgroundColor: "#f0f0f0",
-                            border: "1px solid #ddd",
+                            backgroundColor: "#253649",
+                            border: "1px solid #3f546a",
+                            color: "#eaf2fb",
                             borderRadius: 4,
                             cursor: "pointer",
                             fontWeight: "bold",
@@ -3119,16 +3822,17 @@ export function Garden() {
 
                     <div
                       style={{
-                        backgroundColor: "#E8F5E9",
+                        backgroundColor: "#10251d",
                         padding: 12,
                         borderRadius: 6,
                         marginBottom: 16,
+                        border: "1px solid #2a4a3d",
                       }}
                     >
                       <div
                         style={{
                           fontSize: 12,
-                          color: "#1B5E20",
+                          color: "#7ad9a0",
                           fontWeight: "bold",
                         }}
                       >
@@ -3146,8 +3850,9 @@ export function Garden() {
                       <button
                         style={{
                           padding: "10px 20px",
-                          backgroundColor: "#f0f0f0",
-                          border: "1px solid #ddd",
+                          backgroundColor: "#253649",
+                          border: "1px solid #3f546a",
+                          color: "#eaf2fb",
                           borderRadius: 4,
                           cursor: "pointer",
                           fontWeight: "bold",

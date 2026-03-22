@@ -192,6 +192,127 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     sellPrice: 240,
   },
 
+  // Watering Cans
+  wateringcan_common: {
+    id: "wateringcan_common",
+    name: "Watering Can",
+    type: "tool",
+    rarity: "common",
+    stats: { attack: 1 },
+    sellPrice: 25,
+  },
+  wateringcan_rare: {
+    id: "wateringcan_rare",
+    name: "Copper Watering Can",
+    type: "tool",
+    rarity: "rare",
+    stats: { attack: 2 },
+    sellPrice: 70,
+  },
+  wateringcan_epic: {
+    id: "wateringcan_epic",
+    name: "Mithril Watering Can",
+    type: "tool",
+    rarity: "epic",
+    stats: { attack: 4 },
+    sellPrice: 180,
+  },
+  wateringcan_legendary: {
+    id: "wateringcan_legendary",
+    name: "Royal Watering Can",
+    type: "tool",
+    rarity: "legendary",
+    stats: { attack: 7 },
+    sellPrice: 360,
+  },
+  wateringcan_unique: {
+    id: "wateringcan_unique",
+    name: "Celestial Watering Can",
+    type: "tool",
+    rarity: "unique",
+    stats: { attack: 10 },
+    sellPrice: 700,
+  },
+
+  // Scythes
+  scythe_common: {
+    id: "scythe_common",
+    name: "Rusty Scythe",
+    type: "tool",
+    rarity: "common",
+    stats: { attack: 2 },
+    sellPrice: 35,
+  },
+  scythe_rare: {
+    id: "scythe_rare",
+    name: "Curved Scythe",
+    type: "tool",
+    rarity: "rare",
+    stats: { attack: 5 },
+    sellPrice: 85,
+  },
+  scythe_epic: {
+    id: "scythe_epic",
+    name: "Harvest Scythe",
+    type: "tool",
+    rarity: "epic",
+    stats: { attack: 9 },
+    sellPrice: 200,
+  },
+  scythe_legendary: {
+    id: "scythe_legendary",
+    name: "Reaper's Scythe",
+    type: "tool",
+    rarity: "legendary",
+    stats: { attack: 14 },
+    sellPrice: 420,
+  },
+  scythe_unique: {
+    id: "scythe_unique",
+    name: "Eclipse Scythe",
+    type: "tool",
+    rarity: "unique",
+    stats: { attack: 20 },
+    sellPrice: 900,
+  },
+
+  // Seed Bags
+  seedbag_common: {
+    id: "seedbag_common",
+    name: "Seed Bag",
+    type: "tool",
+    rarity: "common",
+    sellPrice: 30,
+  },
+  seedbag_rare: {
+    id: "seedbag_rare",
+    name: "Seed Satchel",
+    type: "tool",
+    rarity: "rare",
+    sellPrice: 90,
+  },
+  seedbag_epic: {
+    id: "seedbag_epic",
+    name: "Planter Pack",
+    type: "tool",
+    rarity: "epic",
+    sellPrice: 220,
+  },
+  seedbag_legendary: {
+    id: "seedbag_legendary",
+    name: "Verdant Vault",
+    type: "tool",
+    rarity: "legendary",
+    sellPrice: 420,
+  },
+  seedbag_unique: {
+    id: "seedbag_unique",
+    name: "Worldseed Cache",
+    type: "tool",
+    rarity: "unique",
+    sellPrice: 800,
+  },
+
   // Sprinklers
   sprinkler_common: {
     id: "sprinkler_common",
@@ -469,6 +590,9 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "amulet_1");
   newState = addItem(newState, "pickaxe_1");
   newState = addItem(newState, "shovel_1");
+  newState = addItem(newState, "wateringcan_common");
+  newState = addItem(newState, "scythe_common");
+  newState = addItem(newState, "seedbag_common");
   // Epic rarities
   newState = addItem(newState, "greataxe_1");
   newState = addItem(newState, "plate_armor");
@@ -476,11 +600,23 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "mithril_pickaxe");
   newState = addItem(newState, "iron_shovel");
   newState = addItem(newState, "mithril_shovel");
+  newState = addItem(newState, "wateringcan_rare");
+  newState = addItem(newState, "wateringcan_epic");
+  newState = addItem(newState, "scythe_rare");
+  newState = addItem(newState, "scythe_epic");
+  newState = addItem(newState, "seedbag_rare");
+  newState = addItem(newState, "seedbag_epic");
   newState = addItem(newState, "sprinkler_common");
   newState = addItem(newState, "sprinkler_rare");
   newState = addItem(newState, "sprinkler_epic");
   newState = addItem(newState, "sprinkler_legendary");
   newState = addItem(newState, "sprinkler_unique");
+  newState = addItem(newState, "wateringcan_legendary");
+  newState = addItem(newState, "wateringcan_unique");
+  newState = addItem(newState, "scythe_legendary");
+  newState = addItem(newState, "scythe_unique");
+  newState = addItem(newState, "seedbag_legendary");
+  newState = addItem(newState, "seedbag_unique");
   // Legendary rarities
   newState = addItem(newState, "excalibur");
   newState = addItem(newState, "excalibur_armor");
