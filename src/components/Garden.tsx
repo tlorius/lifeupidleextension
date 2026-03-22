@@ -108,6 +108,7 @@ export function Garden() {
   const [shovelMove, setShovelMove] = useState<ShovelMoveState | null>(null);
   const [moveSprinklersWithShovel, setMoveSprinklersWithShovel] =
     useState(true);
+  const [showStorageModal, setShowStorageModal] = useState(false);
   const [sprinklerPreview, setSprinklerPreview] =
     useState<SprinklerPreviewState | null>(null);
   const [viewportWidth, setViewportWidth] = useState<number>(
@@ -259,6 +260,27 @@ export function Garden() {
 
   const formatCategoryLabel = (category: string) =>
     category.charAt(0).toUpperCase() + category.slice(1);
+
+  const getCategoryIcon = (category: string): string => {
+    switch (category) {
+      case "flower":
+        return "🌸";
+      case "vegetable":
+        return "🥕";
+      case "fruit":
+        return "🍎";
+      case "herb":
+        return "🌿";
+      case "grains":
+        return "🌾";
+      case "grape":
+        return "🍇";
+      case "special":
+        return "✨";
+      default:
+        return "📦";
+    }
+  };
 
   const isWithinSelectedMoveArea = (row: number, col: number): boolean => {
     if (!shovelMove) return false;
@@ -1163,65 +1185,29 @@ export function Garden() {
         </div>
       )}
 
-      {/* Crop Storage Status */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: isMobile ? 10 : 12,
-          backgroundColor: "#F5F5DC",
-          borderRadius: 6,
-          border: "1px solid #DAA520",
-        }}
-      >
-        <div style={{ fontWeight: "bold", marginBottom: 8 }}>Crop Storage</div>
-        <div
+      {/* Crop Storage Button */}
+      <div style={{ marginBottom: 16 }}>
+        <button
           style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-            gap: 8,
+            width: "100%",
+            padding: isMobile ? "10px 12px" : "12px 14px",
+            backgroundColor: "#F5F5DC",
+            border: "1px solid #DAA520",
+            borderRadius: 6,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontWeight: "bold",
             fontSize: isMobile ? 13 : 12,
           }}
+          onClick={() => setShowStorageModal(true)}
+          title="Open crop storage"
+          aria-label="Open crop storage"
         >
-          {Object.entries(garden.cropStorage.current).map(
-            ([category, amount]) => {
-              const limit = garden.cropStorage.limits[category];
-              const percent = (amount / limit) * 100;
-              return (
-                <div key={category}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: 2,
-                    }}
-                  >
-                    <span>{formatCategoryLabel(category)}</span>
-                    <span>
-                      {amount} / {limit}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      height: 8,
-                      backgroundColor: "#ddd",
-                      borderRadius: 4,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        backgroundColor: "#51cf66",
-                        width: `${percent}%`,
-                        transition: "width 0.3s",
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            },
-          )}
-        </div>
+          <span>🛢️ Crop Silos</span>
+          <span style={{ opacity: 0.7 }}>Open</span>
+        </button>
       </div>
 
       {/* Garden Grid */}
@@ -1524,6 +1510,123 @@ export function Garden() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Crop Storage Modal */}
+      {showStorageModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowStorageModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: 8,
+              padding: isMobile ? 12 : 16,
+              maxHeight: isMobile ? "88vh" : "80vh",
+              maxWidth: "560px",
+              width: isMobile ? "94vw" : "560px",
+              overflow: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <h3 style={{ margin: 0 }}>🛢️ Crop Silos</h3>
+              <button
+                style={{
+                  padding: "6px 10px",
+                  backgroundColor: "#f0f0f0",
+                  border: "1px solid #ddd",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+                onClick={() => setShowStorageModal(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                gap: 10,
+                fontSize: isMobile ? 13 : 12,
+              }}
+            >
+              {Object.entries(garden.cropStorage.current).map(
+                ([category, amount]) => {
+                  const limit = garden.cropStorage.limits[category];
+                  const percent = (amount / limit) * 100;
+                  return (
+                    <div
+                      key={category}
+                      style={{
+                        padding: 10,
+                        border: "1px solid #e5e5e5",
+                        borderRadius: 6,
+                        backgroundColor: "#fafafa",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span>
+                          {getCategoryIcon(category)}{" "}
+                          {formatCategoryLabel(category)}
+                        </span>
+                        <span>
+                          {amount} / {limit}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          height: 8,
+                          backgroundColor: "#ddd",
+                          borderRadius: 4,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            backgroundColor: "#51cf66",
+                            width: `${percent}%`,
+                            transition: "width 0.3s",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                },
+              )}
+            </div>
           </div>
         </div>
       )}

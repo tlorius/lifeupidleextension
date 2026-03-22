@@ -25,60 +25,76 @@ export function ResourcesDisplay() {
     return value.toFixed(1);
   };
 
+  const resourceChipStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "6px 10px",
+    backgroundColor: "#ffffff",
+    border: "1px solid #ddd",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: "bold",
+    whiteSpace: "nowrap",
+  };
+
   return (
     <div
       style={{
         backgroundColor: "#f5f5f5",
-        padding: 12,
+        padding: 10,
         marginBottom: 16,
         borderRadius: 6,
       }}
     >
-      {/* Resources Row */}
+      {/* Compact Resource Row */}
       <div
         style={{
           display: "flex",
-          gap: 20,
-          justifyContent: "space-around",
-          marginBottom: 12,
-          fontSize: 14,
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
-        <div>
-          <div style={{ color: "#999", fontSize: 12 }}>Gold</div>
-          <div style={{ fontWeight: "bold" }}>
-            {Math.floor(state.resources.gold)}
-          </div>
+        <div style={resourceChipStyle} title="Gold">
+          <span>🪙</span>
+          <span>{Math.floor(state.resources.gold)}</span>
         </div>
-        <div>
-          <div style={{ color: "#999", fontSize: 12 }}>Gems</div>
-          <div style={{ fontWeight: "bold" }}>{state.resources.gems ?? 0}</div>
-        </div>
-        <div>
-          <div style={{ color: "#999", fontSize: 12 }}>Energy</div>
-          <div style={{ fontWeight: "bold" }}>
-            {Math.floor(state.resources.energy ?? 100)}
-          </div>
-        </div>
-      </div>
 
-      {/* Stats Toggle Button */}
-      <button
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          backgroundColor: showStats ? "#51cf66" : "#e0e0e0",
-          color: showStats ? "white" : "black",
-          border: "none",
-          borderRadius: 4,
-          cursor: "pointer",
-          fontSize: 12,
-          fontWeight: "bold",
-        }}
-        onClick={() => setShowStats(!showStats)}
-      >
-        {showStats ? "▼ Player Stats" : "► Player Stats"}
-      </button>
+        <div style={resourceChipStyle} title="Gems">
+          <span>💎</span>
+          <span>{state.resources.gems ?? 0}</span>
+        </div>
+
+        <div style={resourceChipStyle} title="Energy">
+          <span>⚡</span>
+          <span>{Math.floor(state.resources.energy ?? 100)}</span>
+        </div>
+
+        <button
+          style={{
+            marginLeft: "auto",
+            width: 32,
+            height: 32,
+            padding: 0,
+            backgroundColor: showStats ? "#51cf66" : "#e0e0e0",
+            color: showStats ? "white" : "#333",
+            border: "none",
+            borderRadius: 999,
+            cursor: "pointer",
+            fontSize: 14,
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title={showStats ? "Hide player stats" : "Show player stats"}
+          aria-label={showStats ? "Hide player stats" : "Show player stats"}
+          onClick={() => setShowStats(!showStats)}
+        >
+          {showStats ? "▾" : "▸"}
+        </button>
+      </div>
 
       {/* Stats Display */}
       {showStats && (
