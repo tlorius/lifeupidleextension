@@ -8,9 +8,14 @@ import {
   getPetStats,
   getGoldIncome,
 } from "../game/engine";
+import { formatCompactNumber } from "../game/numberFormat";
 import type { Stats } from "../game/types";
 
-export function ResourcesDisplay() {
+interface ResourcesDisplayProps {
+  compact?: boolean;
+}
+
+export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
   const { state } = useGame();
   const [showStats, setShowStats] = useState(false);
 
@@ -22,18 +27,18 @@ export function ResourcesDisplay() {
 
   const formatStat = (value: number | undefined): string => {
     if (value === undefined) return "0";
-    return value.toFixed(1);
+    return formatCompactNumber(value, { minCompactValue: 1000, decimals: 2 });
   };
 
   const resourceChipStyle = {
     display: "flex",
     alignItems: "center",
-    gap: 6,
-    padding: "6px 10px",
-    backgroundColor: "#ffffff",
-    border: "1px solid #ddd",
+    gap: compact ? 4 : 6,
+    padding: compact ? "4px 8px" : "6px 10px",
+    backgroundColor: "#1f2b38",
+    border: "1px solid #3b4d60",
     borderRadius: 999,
-    fontSize: 12,
+    fontSize: compact ? 11 : 12,
     fontWeight: "bold",
     whiteSpace: "nowrap",
   };
@@ -41,10 +46,11 @@ export function ResourcesDisplay() {
   return (
     <div
       style={{
-        backgroundColor: "#f5f5f5",
-        padding: 10,
-        marginBottom: 16,
+        backgroundColor: "#172330",
+        padding: compact ? 6 : 10,
+        marginBottom: compact ? 0 : 16,
         borderRadius: 6,
+        border: "1px solid #2e4256",
       }}
     >
       {/* Compact Resource Row */}
@@ -58,28 +64,28 @@ export function ResourcesDisplay() {
       >
         <div style={resourceChipStyle} title="Gold">
           <span>🪙</span>
-          <span>{Math.floor(state.resources.gold)}</span>
+          <span>{formatCompactNumber(state.resources.gold)}</span>
         </div>
 
         <div style={resourceChipStyle} title="Gems">
           <span>💎</span>
-          <span>{state.resources.gems ?? 0}</span>
+          <span>{formatCompactNumber(state.resources.gems ?? 0)}</span>
         </div>
 
         <div style={resourceChipStyle} title="Energy">
           <span>⚡</span>
-          <span>{Math.floor(state.resources.energy ?? 100)}</span>
+          <span>{formatCompactNumber(state.resources.energy ?? 100)}</span>
         </div>
 
         <button
           className={showStats ? "btn-selected" : ""}
           style={{
-            marginLeft: "auto",
-            width: 32,
-            height: 32,
+            marginLeft: compact ? 2 : "auto",
+            width: compact ? 28 : 32,
+            height: compact ? 28 : 32,
             padding: 0,
             borderRadius: 999,
-            fontSize: 14,
+            fontSize: compact ? 12 : 14,
             fontWeight: "bold",
             display: "flex",
             alignItems: "center",
@@ -97,157 +103,207 @@ export function ResourcesDisplay() {
       {showStats && (
         <div
           style={{
-            marginTop: 12,
-            paddingTop: 12,
-            borderTop: "1px solid #ddd",
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(6, 10, 14, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1400,
           }}
+          onClick={() => setShowStats(false)}
         >
-          {/* Current Total Stats */}
-          <div style={{ marginBottom: 16 }}>
-            <h4
-              style={{
-                margin: "0 0 8px 0",
-                fontSize: 13,
-                color: "#333",
-              }}
-            >
-              Total Stats
-            </h4>
+          <div
+            style={{
+              width: "min(720px, 92vw)",
+              maxHeight: "88vh",
+              overflowY: "auto",
+              borderRadius: 10,
+              border: "1px solid #35506a",
+              backgroundColor: "#162433",
+              padding: 14,
+              boxShadow: "0 18px 40px rgba(0, 0, 0, 0.45)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  color: "#e6edf5",
+                }}
+              >
+                Player Stats
+              </h4>
+              <button
+                style={{ padding: "6px 10px", fontSize: 12 }}
+                onClick={() => setShowStats(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Current Total Stats */}
+            <div style={{ marginBottom: 16 }}>
+              <h4
+                style={{
+                  margin: "0 0 8px 0",
+                  fontSize: 13,
+                  color: "#e6edf5",
+                }}
+              >
+                Total Stats
+              </h4>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                  fontSize: 12,
+                }}
+              >
+                <div>
+                  <span style={{ color: "#9eb0c2" }}>Attack:</span>{" "}
+                  <strong>{formatStat(total.attack)}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#9eb0c2" }}>Defense:</span>{" "}
+                  <strong>{formatStat(total.defense)}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#9eb0c2" }}>Intelligence:</span>{" "}
+                  <strong>{formatStat(total.intelligence)}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#9eb0c2" }}>Gold Income:</span>{" "}
+                  <strong style={{ color: "#FFD700" }}>
+                    +{formatStat(total.goldIncome)}%
+                  </strong>
+                </div>
+                {(total.energyRegeneration ?? 0) > 0 && (
+                  <div>
+                    <span style={{ color: "#9eb0c2" }}>Energy Regen:</span>{" "}
+                    <strong>+{formatStat(total.energyRegeneration)}%</strong>
+                  </div>
+                )}
+                {(total.plantGrowth ?? 0) > 0 && (
+                  <div>
+                    <span style={{ color: "#9eb0c2" }}>Plant Growth:</span>{" "}
+                    <strong>+{formatStat(total.plantGrowth)}%</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Gold Income Display */}
+            <div
+              style={{
+                marginBottom: 12,
+                padding: 8,
+                backgroundColor: "#29384a",
+                borderRadius: 4,
                 fontSize: 12,
               }}
             >
-              <div>
-                <span style={{ color: "#666" }}>Attack:</span>{" "}
-                <strong>{formatStat(total.attack)}</strong>
+              <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+                Gold Income (per second):
               </div>
-              <div>
-                <span style={{ color: "#666" }}>Defense:</span>{" "}
-                <strong>{formatStat(total.defense)}</strong>
+              <div
+                style={{ fontSize: 14, color: "#FFD700", fontWeight: "bold" }}
+              >
+                {formatCompactNumber(getGoldIncome(state), {
+                  minCompactValue: 1000,
+                })}{" "}
+                🪙
               </div>
-              <div>
-                <span style={{ color: "#666" }}>Intelligence:</span>{" "}
-                <strong>{formatStat(total.intelligence)}</strong>
+              <div style={{ fontSize: 11, color: "#9eb0c2", marginTop: 4 }}>
+                Base: {formatStat(state.stats.attack)} × (1 +{" "}
+                {formatStat(total.goldIncome)}%)
               </div>
-              <div>
-                <span style={{ color: "#666" }}>Gold Income:</span>{" "}
-                <strong style={{ color: "#FFD700" }}>
-                  +{formatStat(total.goldIncome)}%
-                </strong>
+            </div>
+
+            {/* Stat Breakdown */}
+            <div style={{ fontSize: 11, color: "#9eb0c2" }}>
+              <div style={{ marginBottom: 8 }}>
+                <strong>Calculation Breakdown (Combat Stats):</strong>
+              </div>
+              <div style={{ marginBottom: 4 }}>
+                <span>
+                  Attack = Base({formatStat(baseStats.attack)}) + Items(
+                  {formatStat(equipmentStats.attack)}) + Upgrades(
+                  {formatStat(upgradeStats.attack)}) + Pets(
+                  {formatStat(petStats.attack)})
+                </span>
+              </div>
+              <div style={{ marginBottom: 4 }}>
+                <span>
+                  Defense = Items(
+                  {formatStat(equipmentStats.defense)}) + Upgrades(
+                  {formatStat(upgradeStats.defense)}) + Pets(
+                  {formatStat(petStats.defense)})
+                </span>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <span>
+                  Intelligence = Items(
+                  {formatStat(equipmentStats.intelligence)}) + Upgrades(
+                  {formatStat(upgradeStats.intelligence)}) + Pets(
+                  {formatStat(petStats.intelligence)})
+                </span>
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                <strong>Bonus Stats (% Additions):</strong>
+              </div>
+              <div style={{ marginBottom: 4 }}>
+                <span>
+                  Gold Income = Upgrades(
+                  {formatStat(upgradeStats.goldIncome)}%) + Pets(
+                  {formatStat(petStats.goldIncome)}%)
+                </span>
               </div>
               {(total.energyRegeneration ?? 0) > 0 && (
-                <div>
-                  <span style={{ color: "#666" }}>Energy Regen:</span>{" "}
-                  <strong>+{formatStat(total.energyRegeneration)}%</strong>
+                <div style={{ marginBottom: 4 }}>
+                  <span>
+                    Energy Regen = Upgrades(
+                    {formatStat(upgradeStats.energyRegeneration)}%) + Pets(
+                    {formatStat(petStats.energyRegeneration)}%)
+                  </span>
                 </div>
               )}
               {(total.plantGrowth ?? 0) > 0 && (
-                <div>
-                  <span style={{ color: "#666" }}>Plant Growth:</span>{" "}
-                  <strong>+{formatStat(total.plantGrowth)}%</strong>
+                <div style={{ marginBottom: 4 }}>
+                  <span>
+                    Plant Growth = Upgrades(
+                    {formatStat(upgradeStats.plantGrowth)}%) + Pets(
+                    {formatStat(petStats.plantGrowth)}%)
+                  </span>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Gold Income Display */}
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 8,
-              backgroundColor: "#fffacd",
-              borderRadius: 4,
-              fontSize: 12,
-            }}
-          >
-            <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-              Gold Income (per second):
+            {/* Detailed Sections */}
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: "1px solid #2e4256",
+              }}
+            >
+              <StatSection title="Base" stats={baseStats} />
+              <StatSection title="Items" stats={equipmentStats} />
+              <StatSection title="Upgrades" stats={upgradeStats} />
+              <StatSection title="Pets" stats={petStats} />
             </div>
-            <div style={{ fontSize: 14, color: "#FFD700", fontWeight: "bold" }}>
-              {getGoldIncome(state).toFixed(2)} 🪙
-            </div>
-            <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-              Base: {formatStat(state.stats.attack)} × (1 +{" "}
-              {formatStat(total.goldIncome)}%)
-            </div>
-          </div>
-
-          {/* Stat Breakdown */}
-          <div style={{ fontSize: 11, color: "#666" }}>
-            <div style={{ marginBottom: 8 }}>
-              <strong>Calculation Breakdown (Combat Stats):</strong>
-            </div>
-            <div style={{ marginBottom: 4 }}>
-              <span>
-                Attack = Base({formatStat(baseStats.attack)}) + Items(
-                {formatStat(equipmentStats.attack)}) + Upgrades(
-                {formatStat(upgradeStats.attack)}) + Pets(
-                {formatStat(petStats.attack)})
-              </span>
-            </div>
-            <div style={{ marginBottom: 4 }}>
-              <span>
-                Defense = Items(
-                {formatStat(equipmentStats.defense)}) + Upgrades(
-                {formatStat(upgradeStats.defense)}) + Pets(
-                {formatStat(petStats.defense)})
-              </span>
-            </div>
-            <div style={{ marginBottom: 8 }}>
-              <span>
-                Intelligence = Items(
-                {formatStat(equipmentStats.intelligence)}) + Upgrades(
-                {formatStat(upgradeStats.intelligence)}) + Pets(
-                {formatStat(petStats.intelligence)})
-              </span>
-            </div>
-
-            <div style={{ marginBottom: 8 }}>
-              <strong>Bonus Stats (% Additions):</strong>
-            </div>
-            <div style={{ marginBottom: 4 }}>
-              <span>
-                Gold Income = Upgrades(
-                {formatStat(upgradeStats.goldIncome)}%) + Pets(
-                {formatStat(petStats.goldIncome)}%)
-              </span>
-            </div>
-            {(total.energyRegeneration ?? 0) > 0 && (
-              <div style={{ marginBottom: 4 }}>
-                <span>
-                  Energy Regen = Upgrades(
-                  {formatStat(upgradeStats.energyRegeneration)}%) + Pets(
-                  {formatStat(petStats.energyRegeneration)}%)
-                </span>
-              </div>
-            )}
-            {(total.plantGrowth ?? 0) > 0 && (
-              <div style={{ marginBottom: 4 }}>
-                <span>
-                  Plant Growth = Upgrades(
-                  {formatStat(upgradeStats.plantGrowth)}%) + Pets(
-                  {formatStat(petStats.plantGrowth)}%)
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Detailed Sections */}
-          <div
-            style={{
-              marginTop: 12,
-              paddingTop: 12,
-              borderTop: "1px solid #eee",
-            }}
-          >
-            <StatSection title="Base" stats={baseStats} />
-            <StatSection title="Items" stats={equipmentStats} />
-            <StatSection title="Upgrades" stats={upgradeStats} />
-            <StatSection title="Pets" stats={petStats} />
           </div>
         </div>
       )}
@@ -274,16 +330,17 @@ function StatSection({
         style={{
           fontSize: 11,
           fontWeight: "bold",
-          color: "#666",
+          color: "#c7d3df",
           marginBottom: 4,
         }}
       >
         {title}
       </div>
-      <div style={{ fontSize: 11, paddingLeft: 8, color: "#888" }}>
+      <div style={{ fontSize: 11, paddingLeft: 8, color: "#9eb0c2" }}>
         {keys.map((key) => (
           <div key={key}>
-            {key}: {(stats[key] ?? 0).toFixed(1)}
+            {key}:{" "}
+            {formatCompactNumber(stats[key] ?? 0, { minCompactValue: 1000 })}
           </div>
         ))}
       </div>

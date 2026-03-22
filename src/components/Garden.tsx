@@ -23,6 +23,7 @@ import {
   rockConfig,
 } from "../game/garden";
 import { getItemDefSafe } from "../game/items";
+import { formatCompactNumber } from "../game/numberFormat";
 import type { CropInstance } from "../game/types";
 
 interface SeedBagItem {
@@ -2031,7 +2032,10 @@ export function Garden() {
                             alignItems: "center",
                           }}
                         >
-                          <span>Required: {config.energyCost} ⚡</span>
+                          <span>
+                            Required: {formatCompactNumber(config.energyCost)}{" "}
+                            ⚡
+                          </span>
                           <span
                             style={{
                               color: hasEnergy ? "#2196F3" : "#F44336",
@@ -2039,7 +2043,7 @@ export function Garden() {
                             }}
                           >
                             {hasEnergy ? "✓" : "✗"}{" "}
-                            {state.resources.energy ?? 0}
+                            {formatCompactNumber(state.resources.energy ?? 0)}
                           </span>
                         </div>
                       </div>
@@ -2068,7 +2072,9 @@ export function Garden() {
                       {!hasEnergy && (
                         <div>
                           ⚠️ Not enough energy. You need{" "}
-                          {config.energyCost - (state.resources.energy ?? 0)}{" "}
+                          {formatCompactNumber(
+                            config.energyCost - (state.resources.energy ?? 0),
+                          )}{" "}
                           more.
                         </div>
                       )}
@@ -2475,7 +2481,8 @@ export function Garden() {
                             setState(newState);
                           }}
                         >
-                          Reduce {speedUpMinutes}m ({speedUpGemCost}💎)
+                          Reduce {speedUpMinutes}m (
+                          {formatCompactNumber(speedUpGemCost)}💎)
                         </button>
                       )}
                       {isReady && (

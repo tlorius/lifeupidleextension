@@ -8,6 +8,7 @@ import {
   upgradeItem,
   sellItem,
 } from "../game/engine";
+import { formatCompactNumber } from "../game/numberFormat";
 import type { ItemInstance } from "../game/types";
 
 interface ItemDetailProps {
@@ -118,7 +119,9 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
             {Object.entries(stats).map(([key, value]) => (
               <div key={key} style={{ fontSize: 13, marginBottom: 4 }}>
                 <strong>{key}:</strong>{" "}
-                {typeof value === "number" ? value.toFixed(1) : value}
+                {typeof value === "number"
+                  ? formatCompactNumber(value, { minCompactValue: 1000 })
+                  : value}
               </div>
             ))}
           </div>
@@ -173,7 +176,7 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
             }}
             disabled={!canAffordUpgrade}
           >
-            Upgrade ({upgradeCost}💎)
+            Upgrade ({formatCompactNumber(upgradeCost)}💎)
           </button>
 
           {/* Sell Button */}
@@ -190,7 +193,7 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
               onClose();
             }}
           >
-            Sell ({def.sellPrice || 0}🪙)
+            Sell ({formatCompactNumber(def.sellPrice || 0)}🪙)
           </button>
         </div>
 

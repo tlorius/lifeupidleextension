@@ -10,6 +10,7 @@ import {
   areUpgradePrerequisitesMet,
   getUnlockedUpgrades,
 } from "../game/upgrades";
+import { formatCompactNumber } from "../game/numberFormat";
 
 export function Upgrades() {
   const { state, setState } = useGame();
@@ -172,7 +173,7 @@ export function Upgrades() {
                     color: "#999",
                   }}
                 >
-                  Next: {cost}🪙
+                  Next: {formatCompactNumber(cost)}🪙
                 </span>
               </div>
 
@@ -293,7 +294,7 @@ export function Upgrades() {
                 }}
               >
                 {upgrades.length} upgrades ({unlockedCount} unlocked) • Level{" "}
-                {totalLevel}
+                {formatCompactNumber(totalLevel, { minCompactValue: 1000 })}
               </p>
             </button>
           );

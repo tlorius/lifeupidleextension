@@ -3,6 +3,7 @@ import { useGame } from "../game/GameContext";
 import { getItemDefSafe } from "../game/items";
 import { ItemDetail } from "./ItemDetail";
 import { isItemEquipped, calculateItemStat } from "../game/engine";
+import { formatCompactNumber } from "../game/numberFormat";
 import type { ItemType, Stats } from "../game/types";
 
 function getItemIcon(itemType: ItemType, _rarity: string): string {
@@ -99,9 +100,9 @@ export function Inventory() {
 
       {/* Inventory Items */}
       {filteredInventory.length === 0 ? (
-        <p style={{ color: "#999" }}>No items</p>
+        <p style={{ color: "#9eb0c2" }}>No items</p>
       ) : (
-        <div>
+        <div style={{ display: "grid", gap: 10 }}>
           {filteredInventory.map((item) => {
             const def = getItemDefSafe(item.itemId);
             const equipped = isItemEquipped(state, item.uid);
@@ -132,37 +133,42 @@ export function Inventory() {
               <div
                 key={item.uid}
                 style={{
-                  border: equipped ? "2px solid #51cf66" : "1px solid #ddd",
-                  borderRadius: 6,
-                  padding: 12,
-                  marginBottom: 10,
+                  border: equipped ? "1px solid #2c8f84" : "1px solid #2f4459",
+                  borderRadius: 8,
+                  padding: 10,
                   cursor: "pointer",
                   transition: "all 0.2s",
-                  backgroundColor: equipped ? "#f0fff4" : "#fafafa",
+                  backgroundColor: equipped ? "#182f3a" : "#172533",
                   position: "relative",
                   display: "flex",
-                  alignItems: "center",
-                  gap: 12,
+                  alignItems: "flex-start",
+                  gap: 10,
                 }}
                 onClick={() => setSelectedItemUid(item.uid)}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLElement).style.backgroundColor =
-                    "#f0f0f0";
+                    "#1d3142";
                   (e.currentTarget as HTMLElement).style.borderColor =
                     rarityColors[def?.rarity || "common"];
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.backgroundColor =
-                    equipped ? "#f0fff4" : "#fafafa";
+                    equipped ? "#182f3a" : "#172533";
                   (e.currentTarget as HTMLElement).style.borderColor = equipped
-                    ? "#51cf66"
-                    : "#ddd";
+                    ? "#2c8f84"
+                    : "#2f4459";
                 }}
               >
                 {/* Item Icon */}
                 <div
                   style={{
-                    fontSize: 28,
+                    width: 28,
+                    minWidth: 28,
+                    height: 28,
+                    fontSize: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     flexShrink: 0,
                     filter: `drop-shadow(0 0 4px ${rarityColors[def?.rarity || "common"]}80)`,
                   }}
@@ -171,16 +177,82 @@ export function Inventory() {
                 </div>
 
                 {/* Item Details */}
-                <div style={{ flex: 1 }}></div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <div>
+                      <strong
+                        style={{ color: rarityColors[def?.rarity || "common"] }}
+                      >
+                        {def?.name}
+                      </strong>
+                      <div
+                        style={{ fontSize: 11, color: "#9eb0c2", marginTop: 3 }}
+                      >
+                        Lvl {item.level} • {def?.rarity}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#8fa3b7" }}>
+                      Total{" "}
+                      {formatCompactNumber(totalStats, {
+                        minCompactValue: 1000,
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Stats Display */}
+                  {Object.keys(itemStats).length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 6,
+                        fontSize: 11,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {Object.entries(itemStats).map(([key, value]) => (
+                        <div
+                          key={key}
+                          style={{
+                            color: "#dce6f0",
+                            backgroundColor: "#223447",
+                            border: "1px solid #345068",
+                            borderRadius: 999,
+                            padding: "2px 8px",
+                          }}
+                        >
+                          <span style={{ color: "#9eb0c2" }}>{key}:</span>{" "}
+                          <strong>
+                            {formatCompactNumber(value, {
+                              minCompactValue: 1000,
+                            })}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 11, color: "#8ea3b8" }}>
+                    Click to view details
+                  </div>
+                </div>
 
                 {/* Equipped Badge */}
                 {equipped && (
                   <div
                     style={{
                       position: "absolute",
-                      top: 4,
+                      top: 6,
                       right: 8,
-                      backgroundColor: "#51cf66",
+                      backgroundColor: "#2c8f84",
                       color: "white",
                       fontSize: "10px",
                       padding: "2px 6px",
@@ -191,67 +263,6 @@ export function Inventory() {
                     ✓ EQUIPPED
                   </div>
                 )}
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "start",
-                    marginBottom: 8,
-                  }}
-                >
-                  <div>
-                    <strong
-                      style={{ color: rarityColors[def?.rarity || "common"] }}
-                    >
-                      {def?.name}
-                    </strong>
-                    <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                      Lvl {item.level} • {def?.rarity}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stats Display */}
-                {Object.keys(itemStats).length > 0 && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 8,
-                      fontSize: 12,
-                      marginBottom: 8,
-                      padding: "8px 0",
-                      borderTop: "1px solid #eee",
-                      borderBottom: "1px solid #eee",
-                    }}
-                  >
-                    {Object.entries(itemStats).map(([key, value]) => (
-                      <div key={key} style={{ color: "#666" }}>
-                        <span style={{ fontSize: 11, color: "#999" }}>
-                          {key}:
-                        </span>{" "}
-                        <strong>{value.toFixed(1)}</strong>
-                      </div>
-                    ))}
-                    <div
-                      style={{
-                        gridColumn: "1 / -1",
-                        color: "#333",
-                        fontWeight: "bold",
-                        paddingTop: 4,
-                      }}
-                    >
-                      Total: {totalStats.toFixed(1)}
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  style={{ fontSize: 12, color: "#999", textAlign: "right" }}
-                >
-                  Click to view details
-                </div>
               </div>
             );
           })}

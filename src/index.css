@@ -1,19 +1,19 @@
 :root {
   --app-font: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
-  --text: #1f2933;
-  --text-muted: #52606d;
-  --bg: #f6f8fa;
-  --panel: #ffffff;
-  --border: #bcccdc;
-  --btn-bg: #e9eef5;
-  --btn-text: #102a43;
-  --btn-border: #9fb3c8;
-  --btn-hover: #d9e2ec;
-  --btn-active: #0b69a3;
+  --text: #e5edf5;
+  --text-muted: #9eb0c2;
+  --bg: #0f1720;
+  --panel: #16212d;
+  --border: #2a3a4c;
+  --btn-bg: #253649;
+  --btn-text: #eaf2fb;
+  --btn-border: #3f546a;
+  --btn-hover: #30465d;
+  --btn-active: #1b77b8;
   --btn-active-text: #ffffff;
-  --btn-danger: #c0392b;
-  --btn-danger-hover: #a93226;
-  --focus: #0b69a3;
+  --btn-danger: #c94b44;
+  --btn-danger-hover: #b9403a;
+  --focus: #57b3f3;
 }
 
 * {
@@ -24,7 +24,7 @@
 body {
   margin: 0;
   color: var(--text);
-  background: linear-gradient(180deg, #f7fafc 0%, #eef2f7 100%);
+  background: linear-gradient(180deg, #0a1118 0%, #111c28 100%);
 }
 
 #root {
@@ -36,7 +36,7 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  background: #f8fafc;
+  background: #111b26;
 }
 
 h1,
@@ -44,7 +44,7 @@ h2,
 h3,
 h4 {
   margin-top: 0;
-  color: #102a43;
+  color: #f3f7fb;
 }
 
 p {
@@ -94,8 +94,8 @@ button:disabled {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #0a5d90;
-  border-color: #0a5d90;
+  background: #166ca8;
+  border-color: #166ca8;
 }
 
 .btn-danger {
@@ -110,8 +110,8 @@ button:disabled {
 }
 
 .btn-selected {
-  background: #1f7a8c;
-  border-color: #1f7a8c;
+  background: #2c8f84;
+  border-color: #2c8f84;
   color: #ffffff;
 }
 
