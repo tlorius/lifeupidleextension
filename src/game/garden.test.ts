@@ -4,8 +4,21 @@ import {
   plantCrop,
   harvestCrop,
   calculateYield,
+  calculateYieldWithMastery,
+  calculateGoldWithMastery,
   waterField,
   toggleSprinkler,
+  setCropSprinkler,
+  placeSprinklerOnField,
+  removeSprinklerFromField,
+  sprinklerCoversField,
+  getSprinklerCoverageProfile,
+  prestigeCropType,
+  getCropXpForNextLevel,
+  getCropYieldMultiplier,
+  getCropGoldMultiplier,
+  moveCropArea,
+  CROP_MAX_LEVEL,
   breakRock,
   getCropDef,
   getGrowthProgress,
@@ -269,8 +282,8 @@ describe("Garden System - Unit Tests", () => {
     });
 
     it("should identify rocks as blocking", () => {
-      testState.garden.rocks.small = [{ row: 1, col: 1 }];
-      const cost = getFieldUnlockCost(testState, 1, 1);
+      testState.garden.rocks.small = [{ row: 3, col: 3 }];
+      const cost = getFieldUnlockCost(testState, 3, 3);
 
       expect(cost.type).toBe("rock");
       expect(cost.rockTier).toBe("small");
@@ -298,6 +311,199 @@ describe("Garden System - Unit Tests", () => {
     it("should have correct seed item IDs", () => {
       const def = getCropDef("rose_rare");
       expect(def?.seedItemId).toBe("rose_seed_rare");
+    });
+  });
+
+  describe("Crop Mastery & Prestige", () => {
+    it("should increase yield with mastery helpers", () => {
+      const cropDef = getCropDef("sunflower_common")!;
+      const boostedState: GameState = {
+        ...testState,
+        garden: {
+          ...testState.garden,
+          cropMastery: {
+            sunflower_common: {
+              level: 25,
+              xp: 0,
+              prestige: 2,
+            },
+          },
+        },
+      };
+
+      const baseYield = calculateYield(cropDef, 100);
+      const masteryYield = calculateYieldWithMastery(
+        boostedState,
+        "sunflower_common",
+        cropDef,
+        100,
+      );
+
+      expect(masteryYield).toBeGreaterThan(baseYield);
+    });
+
+    it("should increase gold with prestige multiplier", () => {
+      const cropDef = getCropDef("sunflower_common")!;
+      const boostedState: GameState = {
+        ...testState,
+        garden: {
+          ...testState.garden,
+          cropMastery: {
+            sunflower_common: {
+              level: 1,
+              xp: 0,
+              prestige: 3,
+            },
+          },
+        },
+      };
+
+      const baseGold = cropDef.baseGold;
+      const masteryGold = calculateGoldWithMastery(
+        boostedState,
+        "sunflower_common",
+        cropDef,
+      );
+
+      expect(masteryGold).toBeGreaterThan(baseGold);
+    });
+
+    it("should only prestige crops that reached max level", () => {
+      const belowCapState: GameState = {
+        ...testState,
+        garden: {
+          ...testState.garden,
+          cropMastery: {
+            sunflower_common: {
+              level: CROP_MAX_LEVEL - 1,
+              xp: 0,
+              prestige: 1,
+            },
+          },
+        },
+      };
+      const atCapState: GameState = {
+        ...testState,
+        garden: {
+          ...testState.garden,
+          cropMastery: {
+            sunflower_common: {
+              level: CROP_MAX_LEVEL,
+              xp: 999,
+              prestige: 1,
+            },
+          },
+        },
+      };
+
+      const unchanged = prestigeCropType(belowCapState, "sunflower_common");
+      const prestiged = prestigeCropType(atCapState, "sunflower_common");
+
+      expect(unchanged).toBe(belowCapState);
+      expect(prestiged.garden.cropMastery?.sunflower_common.level).toBe(1);
+      expect(prestiged.garden.cropMastery?.sunflower_common.xp).toBe(0);
+      expect(prestiged.garden.cropMastery?.sunflower_common.prestige).toBe(2);
+    });
+
+    it("should expose mastery progression formulas", () => {
+      expect(getCropXpForNextLevel(1)).toBe(50);
+      expect(getCropXpForNextLevel(5)).toBe(150);
+      expect(getCropYieldMultiplier(1, 0)).toBe(1);
+      expect(getCropYieldMultiplier(11, 1)).toBeCloseTo(1.3, 5);
+      expect(getCropGoldMultiplier(0)).toBe(1);
+      expect(getCropGoldMultiplier(4)).toBeCloseTo(1.4, 5);
+    });
+  });
+
+  describe("Sprinkler Coverage Utilities", () => {
+    it("should return expected coverage profile by rarity", () => {
+      expect(getSprinklerCoverageProfile("sprinkler_common")).toEqual({
+        crossRange: 0,
+        diagonalRange: 0,
+      });
+      expect(getSprinklerCoverageProfile("sprinkler_rare")).toEqual({
+        crossRange: 1,
+        diagonalRange: 0,
+      });
+      expect(getSprinklerCoverageProfile("sprinkler_epic")).toEqual({
+        crossRange: 1,
+        diagonalRange: 1,
+      });
+      expect(getSprinklerCoverageProfile("sprinkler_legendary")).toEqual({
+        crossRange: 2,
+        diagonalRange: 2,
+      });
+      expect(getSprinklerCoverageProfile("sprinkler_unique")).toEqual({
+        crossRange: 3,
+        diagonalRange: 3,
+      });
+    });
+
+    it("should compute coverage for cross and diagonal tiles", () => {
+      const center = { row: 4, col: 4 };
+
+      expect(
+        sprinklerCoversField("sprinkler_rare", center, { row: 4, col: 5 }),
+      ).toBe(true);
+      expect(
+        sprinklerCoversField("sprinkler_rare", center, { row: 5, col: 5 }),
+      ).toBe(false);
+      expect(
+        sprinklerCoversField("sprinkler_epic", center, { row: 5, col: 5 }),
+      ).toBe(true);
+      expect(
+        sprinklerCoversField("sprinkler_legendary", center, { row: 4, col: 7 }),
+      ).toBe(false);
+    });
+
+    it("should place and remove sprinklers on empty fields", () => {
+      let state = placeSprinklerOnField(testState, 5, 5, "sprinkler_rare");
+      expect(state.garden.sprinklers.sprinkler_rare).toContainEqual({
+        row: 5,
+        col: 5,
+      });
+
+      state = removeSprinklerFromField(state, 5, 5);
+      expect(state.garden.sprinklers.sprinkler_rare).toEqual([]);
+    });
+
+    it("should sync crop sprinkler state with standalone map", () => {
+      let state = plantCrop(testState, "sunflower_common", 1, 1);
+      state = setCropSprinkler(state, 1, 1, "sprinkler_epic");
+
+      expect(state.garden.crops["sunflower_common"][0].hasSprinkler).toBe(true);
+      expect(state.garden.sprinklers.sprinkler_epic).toContainEqual({
+        row: 1,
+        col: 1,
+      });
+
+      state = setCropSprinkler(state, 1, 1, null);
+      expect(state.garden.crops["sunflower_common"][0].hasSprinkler).toBe(
+        false,
+      );
+      expect(state.garden.sprinklers.sprinkler_epic).toEqual([]);
+    });
+  });
+
+  describe("Area Move", () => {
+    it("should fail moving area when destination has a rock", () => {
+      let state = plantCrop(testState, "sunflower_common", 0, 0);
+      state.garden.unlockedFields = [
+        ...(state.garden.unlockedFields ?? []),
+        { row: 2, col: 2 },
+      ];
+      state.garden.rocks.small = [{ row: 2, col: 2 }];
+
+      const result = moveCropArea(
+        state,
+        { row: 0, col: 0 },
+        { row: 2, col: 2 },
+        1,
+        true,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain("rocks");
     });
   });
 });
