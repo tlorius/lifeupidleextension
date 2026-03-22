@@ -264,6 +264,47 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 8, defense: 8, intelligence: 8 },
     sellPrice: 300,
   },
+  // Potions - Rare (new)
+  swift_tonic: {
+    id: "swift_tonic",
+    name: "Swift Tonic",
+    type: "potion",
+    rarity: "rare",
+    sellPrice: 45,
+  },
+  fortitude_brew: {
+    id: "fortitude_brew",
+    name: "Brew of Fortitude",
+    type: "potion",
+    rarity: "rare",
+    stats: { defense: 3 },
+    sellPrice: 55,
+  },
+  // Potions - Epic (new)
+  scholars_draught: {
+    id: "scholars_draught",
+    name: "Scholar's Draught",
+    type: "potion",
+    rarity: "epic",
+    stats: { intelligence: 5 },
+    sellPrice: 180,
+  },
+  berserkers_tonic: {
+    id: "berserkers_tonic",
+    name: "Berserker's Tonic",
+    type: "potion",
+    rarity: "epic",
+    stats: { attack: 10, defense: -3 },
+    sellPrice: 160,
+  },
+  // Potions - Unique (new)
+  chaos_potion: {
+    id: "chaos_potion",
+    name: "Potion of Chaos",
+    type: "potion",
+    rarity: "unique",
+    sellPrice: 500,
+  },
 
   // Seeds aligned with garden crop configuration
   sunflower_seed_common: {
@@ -453,6 +494,11 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "mana_potion");
   newState = addItem(newState, "elixir");
   newState = addItem(newState, "immortal_brew");
+  newState = addItem(newState, "swift_tonic");
+  newState = addItem(newState, "fortitude_brew");
+  newState = addItem(newState, "scholars_draught");
+  newState = addItem(newState, "berserkers_tonic");
+  newState = addItem(newState, "chaos_potion");
   // Seeds
   // Keep debug seeds aligned to implemented crop definitions only.
   // Pets

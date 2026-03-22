@@ -151,6 +151,11 @@ export interface GardenState {
   sprinklers: Record<string, FieldPosition[]>; // "sprinkler_common" -> [[row, col], ...]
 }
 
+export interface TemporaryEffects {
+  goldIncomeBoostPercent?: number;
+  goldIncomeBoostUntil?: number;
+}
+
 export interface GameState {
   meta: {
     version: number;
@@ -159,6 +164,7 @@ export interface GameState {
 
   resources: Resources;
   stats: Stats;
+  temporaryEffects?: TemporaryEffects;
 
   inventory: ItemInstance[];
   equipment: Equipment;

@@ -9,8 +9,14 @@ export function getGoldIncome(state: GameState): number {
   const totalStats = getTotalStats(state);
   const goldIncomeBonus = totalStats.goldIncome ?? 0;
 
+  const now = Date.now();
+  const tempGoldBoost =
+    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
+      ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
+      : 0;
+
   // Apply gold income bonus: (1 + goldIncome)
-  return baseGoldPerSecond * (1 + goldIncomeBonus / 100);
+  return baseGoldPerSecond * (1 + (goldIncomeBonus + tempGoldBoost) / 100);
 }
 
 export function applyIdle(state: GameState, deltaMs: number): void {
@@ -171,6 +177,203 @@ export function addItem(
   };
 }
 
+function consumeInventoryItem(
+  state: GameState,
+  itemUid: string,
+): { inventory: GameState["inventory"]; item?: ItemInstance } | null {
+  const itemIndex = state.inventory.findIndex((i) => i.uid === itemUid);
+  if (itemIndex === -1) return null;
+
+  const item = state.inventory[itemIndex];
+  const nextInventory = [...state.inventory];
+  const nextQuantity = Math.max(0, (item.quantity ?? 1) - 1);
+
+  if (nextQuantity > 0) {
+    nextInventory[itemIndex] = { ...item, quantity: nextQuantity };
+  } else {
+    nextInventory.splice(itemIndex, 1);
+  }
+
+  return { inventory: nextInventory, item };
+}
+
+export function usePotion(state: GameState, itemUid: string): GameState {
+  const consumed = consumeInventoryItem(state, itemUid);
+  if (!consumed?.item) return state;
+
+  const item = consumed.item;
+  const def = getItemDefSafe(item.itemId);
+  if (!def || def.type !== "potion") return state;
+
+  const now = Date.now();
+  const tempEffects = {
+    goldIncomeBoostPercent: state.temporaryEffects?.goldIncomeBoostPercent ?? 0,
+    goldIncomeBoostUntil: state.temporaryEffects?.goldIncomeBoostUntil ?? 0,
+  };
+
+  let nextState: GameState = {
+    ...state,
+    inventory: consumed.inventory,
+  };
+
+  if (def.id === "health_potion") {
+    const currentEnergy = nextState.resources.energy ?? 100;
+    nextState = {
+      ...nextState,
+      resources: {
+        ...nextState.resources,
+        energy: Math.min(100, currentEnergy + 50),
+      },
+    };
+  } else if (def.id === "mana_potion") {
+    tempEffects.goldIncomeBoostPercent = Math.max(
+      tempEffects.goldIncomeBoostPercent ?? 0,
+      25,
+    );
+    tempEffects.goldIncomeBoostUntil = Math.max(
+      tempEffects.goldIncomeBoostUntil ?? 0,
+      now + 10 * 60 * 1000,
+    );
+  } else if (def.id === "elixir") {
+    const currentEnergy = nextState.resources.energy ?? 100;
+    nextState = {
+      ...nextState,
+      resources: {
+        ...nextState.resources,
+        energy: Math.min(100, currentEnergy + 30),
+      },
+    };
+    tempEffects.goldIncomeBoostPercent = Math.max(
+      tempEffects.goldIncomeBoostPercent ?? 0,
+      60,
+    );
+    tempEffects.goldIncomeBoostUntil = Math.max(
+      tempEffects.goldIncomeBoostUntil ?? 0,
+      now + 20 * 60 * 1000,
+    );
+  } else if (def.id === "immortal_brew") {
+    nextState = {
+      ...nextState,
+      stats: {
+        ...nextState.stats,
+        attack: (nextState.stats.attack ?? 0) + 2,
+        defense: (nextState.stats.defense ?? 0) + 2,
+        intelligence: (nextState.stats.intelligence ?? 0) + 2,
+      },
+      resources: {
+        ...nextState.resources,
+        energy: 100,
+      },
+    };
+    tempEffects.goldIncomeBoostPercent = Math.max(
+      tempEffects.goldIncomeBoostPercent ?? 0,
+      100,
+    );
+    tempEffects.goldIncomeBoostUntil = Math.max(
+      tempEffects.goldIncomeBoostUntil ?? 0,
+      now + 30 * 60 * 1000,
+    );
+  } else if (def.id === "swift_tonic") {
+    tempEffects.goldIncomeBoostPercent = Math.max(
+      tempEffects.goldIncomeBoostPercent ?? 0,
+      200,
+    );
+    tempEffects.goldIncomeBoostUntil = Math.max(
+      tempEffects.goldIncomeBoostUntil ?? 0,
+      now + 5 * 60 * 1000,
+    );
+  } else if (def.id === "fortitude_brew") {
+    nextState = {
+      ...nextState,
+      stats: {
+        ...nextState.stats,
+        defense: (nextState.stats.defense ?? 0) + 3,
+      },
+      resources: {
+        ...nextState.resources,
+        energy: 100,
+      },
+    };
+  } else if (def.id === "scholars_draught") {
+    nextState = {
+      ...nextState,
+      stats: {
+        ...nextState.stats,
+        intelligence: (nextState.stats.intelligence ?? 0) + 5,
+      },
+    };
+    tempEffects.goldIncomeBoostPercent = Math.max(
+      tempEffects.goldIncomeBoostPercent ?? 0,
+      50,
+    );
+    tempEffects.goldIncomeBoostUntil = Math.max(
+      tempEffects.goldIncomeBoostUntil ?? 0,
+      now + 15 * 60 * 1000,
+    );
+  } else if (def.id === "berserkers_tonic") {
+    nextState = {
+      ...nextState,
+      stats: {
+        ...nextState.stats,
+        attack: (nextState.stats.attack ?? 0) + 10,
+        defense: (nextState.stats.defense ?? 0) - 3,
+      },
+    };
+  } else if (def.id === "chaos_potion") {
+    const roll = Math.floor(Math.random() * 5);
+    if (roll === 0) {
+      nextState = {
+        ...nextState,
+        stats: {
+          ...nextState.stats,
+          attack: (nextState.stats.attack ?? 0) + 15,
+        },
+      };
+    } else if (roll === 1) {
+      nextState = {
+        ...nextState,
+        stats: {
+          ...nextState.stats,
+          defense: (nextState.stats.defense ?? 0) + 15,
+        },
+      };
+    } else if (roll === 2) {
+      nextState = {
+        ...nextState,
+        stats: {
+          ...nextState.stats,
+          intelligence: (nextState.stats.intelligence ?? 0) + 15,
+        },
+      };
+    } else if (roll === 3) {
+      tempEffects.goldIncomeBoostPercent = Math.max(
+        tempEffects.goldIncomeBoostPercent ?? 0,
+        300,
+      );
+      tempEffects.goldIncomeBoostUntil = Math.max(
+        tempEffects.goldIncomeBoostUntil ?? 0,
+        now + 10 * 60 * 1000,
+      );
+    } else {
+      // Curse: lose stats across the board
+      nextState = {
+        ...nextState,
+        stats: {
+          ...nextState.stats,
+          attack: Math.max(0, (nextState.stats.attack ?? 0) - 10),
+          defense: Math.max(0, (nextState.stats.defense ?? 0) - 10),
+          intelligence: Math.max(0, (nextState.stats.intelligence ?? 0) - 10),
+        },
+      };
+    }
+  }
+
+  return {
+    ...nextState,
+    temporaryEffects: tempEffects,
+  };
+}
+
 export function sellItem(state: GameState, itemUid: string): GameState {
   const item = state.inventory.find((i) => i.uid === itemUid);
   if (!item) return state;
@@ -188,7 +391,11 @@ export function sellItem(state: GameState, itemUid: string): GameState {
   };
 }
 
-export function equipItem(state: GameState, itemUid: string): GameState {
+export function equipItem(
+  state: GameState,
+  itemUid: string,
+  targetAccessorySlot?: "accessory1" | "accessory2",
+): GameState {
   const item = state.inventory.find((i) => i.uid === itemUid);
   if (!item) return state;
 
@@ -196,10 +403,14 @@ export function equipItem(state: GameState, itemUid: string): GameState {
   if (!def) return state;
 
   const newEquipment = { ...state.equipment };
+  const isSprinkler = def.type === "tool" && def.id.includes("sprinkler");
+  if (isSprinkler) return state;
 
   if (def.type === "accessory") {
-    // find first empty accessory slot
-    if (!newEquipment.accessory1) {
+    if (targetAccessorySlot) {
+      newEquipment[targetAccessorySlot] = item.uid;
+    } else if (!newEquipment.accessory1) {
+      // find first empty accessory slot
       newEquipment.accessory1 = item.uid;
     } else if (!newEquipment.accessory2) {
       newEquipment.accessory2 = item.uid;

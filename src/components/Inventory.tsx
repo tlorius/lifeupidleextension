@@ -50,14 +50,57 @@ export function Inventory() {
     "tool",
   ];
 
-  let filteredInventory = state.inventory.filter((item) => {
+  const filteredInventory = state.inventory.filter((item) => {
     if (filter === "all") return true;
     const def = getItemDefSafe(item.itemId);
     return def?.type === filter;
   });
 
-  // Sort by level descending, then by total stats descending
-  filteredInventory = [...filteredInventory].sort((a, b) => {
+  type InventoryDisplayEntry = {
+    uid: string;
+    itemId: string;
+    level: number;
+    quantity: number;
+    isGroupedSeed: boolean;
+  };
+
+  const seedGroups = new Map<string, InventoryDisplayEntry>();
+  const nonSeedEntries: InventoryDisplayEntry[] = [];
+
+  for (const item of filteredInventory) {
+    const def = getItemDefSafe(item.itemId);
+    if (def?.type === "seed") {
+      const existing = seedGroups.get(item.itemId);
+      if (existing) {
+        existing.quantity += item.quantity;
+        if (item.level > existing.level) {
+          existing.level = item.level;
+          existing.uid = item.uid;
+        }
+      } else {
+        seedGroups.set(item.itemId, {
+          uid: item.uid,
+          itemId: item.itemId,
+          level: item.level,
+          quantity: item.quantity,
+          isGroupedSeed: true,
+        });
+      }
+    } else {
+      nonSeedEntries.push({
+        uid: item.uid,
+        itemId: item.itemId,
+        level: item.level,
+        quantity: item.quantity,
+        isGroupedSeed: false,
+      });
+    }
+  }
+
+  const displayInventory: InventoryDisplayEntry[] = [
+    ...nonSeedEntries,
+    ...Array.from(seedGroups.values()),
+  ].sort((a, b) => {
     if (a.level !== b.level) return b.level - a.level;
     const defA = getItemDefSafe(a.itemId);
     const defB = getItemDefSafe(b.itemId);
@@ -99,11 +142,11 @@ export function Inventory() {
       </div>
 
       {/* Inventory Items */}
-      {filteredInventory.length === 0 ? (
+      {displayInventory.length === 0 ? (
         <p style={{ color: "#9eb0c2" }}>No items</p>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
-          {filteredInventory.map((item) => {
+          {displayInventory.map((item) => {
             const def = getItemDefSafe(item.itemId);
             const equipped = isItemEquipped(state, item.uid);
             const totalStats = calculateItemTotalStats(item, def);
@@ -200,14 +243,24 @@ export function Inventory() {
                       </div>
                     </div>
                     <div style={{ fontSize: 11, color: "#8fa3b7" }}>
-                      Total{" "}
-                      {formatCompactNumber(totalStats, {
-                        minCompactValue: 1000,
-                      })}
+                      {item.isGroupedSeed
+                        ? `x${formatCompactNumber(item.quantity, { minCompactValue: 1000 })}`
+                        : `Total ${formatCompactNumber(totalStats, { minCompactValue: 1000 })}`}
                     </div>
                   </div>
 
                   {/* Stats Display */}
+                  {item.isGroupedSeed && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#9eb0c2",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Grouped seed stack from all matching seed entries.
+                    </div>
+                  )}
                   {Object.keys(itemStats).length > 0 && (
                     <div
                       style={{
@@ -241,7 +294,9 @@ export function Inventory() {
                   )}
 
                   <div style={{ fontSize: 11, color: "#8ea3b8" }}>
-                    Click to view details
+                    {item.isGroupedSeed
+                      ? "Click to view one seed entry"
+                      : "Click to view details"}
                   </div>
                 </div>
 

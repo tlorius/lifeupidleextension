@@ -1396,7 +1396,8 @@ export function Garden() {
                                 </div>
                               )}
                               Growth: {cropDef?.growthTimeMinutes}m | Yield:{" "}
-                              {cropDef?.baseYield}
+                              {cropDef?.baseYield} {cropDef?.category ?? "crop"}{" "}
+                              + {cropDef?.baseGold ?? 0} gold
                             </div>
                             <div>Available: x{seed.count}</div>
                           </div>

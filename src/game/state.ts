@@ -24,6 +24,10 @@ export const defaultState: GameState = {
   stats: {
     attack: 10,
   },
+  temporaryEffects: {
+    goldIncomeBoostPercent: 0,
+    goldIncomeBoostUntil: 0,
+  },
   garden: {
     gridSize: { rows: 2, cols: 2 },
     unlockedFields: [
