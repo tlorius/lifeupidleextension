@@ -106,7 +106,7 @@ describe("Garden System - Integration Tests", () => {
 
       // Simulate 1 minute of idle
       const timeElapsed = 60 * 1000;
-      state = applyGardenIdle(state, timeElapsed);
+      applyGardenIdle(state, timeElapsed);
 
       crop = state.garden.crops["sunflower_common"][0];
       const expectedDecay =
@@ -192,7 +192,7 @@ describe("Garden System - Integration Tests", () => {
 
   describe("Resource Management Integration", () => {
     it("should track energy usage across multiple actions", () => {
-      const initialEnergy = testState.resources.energy;
+      const initialEnergy = testState.resources.energy ?? 0;
 
       let state = plantCrop(testState, "sunflower_common", 0, 0);
       state = waterField(state, 0, 0); // Costs 10 energy
@@ -224,15 +224,13 @@ describe("Garden System - Integration Tests", () => {
 
     it("should respect storage limits when harvesting", () => {
       let state = plantCrop(testState, "carrot_common", 0, 0);
-      const cropDef = getCropDef("carrot_common")!;
-      const storageMax = state.garden.cropStorage.max.vegetable;
+      const storageMax = state.garden.cropStorage.limits.vegetable;
 
       // Fill storage to max
       state.garden.cropStorage.current.vegetable = storageMax - 1;
 
       let crop = state.garden.crops["carrot_common"][0];
       crop.plantedAt = Date.now() - 50 * 60 * 1000;
-      const yieldAmount = calculateYield(cropDef, 0);
 
       state = harvestCrop(state, "carrot_common", 0);
 
@@ -249,8 +247,6 @@ describe("Garden System - Integration Tests", () => {
       const cropDef = getCropDef("sunflower_common")!;
 
       let crop = state.garden.crops["sunflower_common"][0];
-      const plantTime = crop.plantedAt;
-
       // Check at 50% growth
       crop.plantedAt = Date.now() - (cropDef.growthTimeMinutes * 60 * 1000) / 2;
       let progress = getGrowthProgress(crop, cropDef);
@@ -282,6 +278,9 @@ describe("Garden System - Integration Tests", () => {
         );
         expect(progress).toBeLessThan(100);
       }
+
+      expect(state.resources.gold).toBe(goldBefore);
+      expect(state.garden.cropStorage.current.flower).toBe(storageBefore);
     });
   });
 

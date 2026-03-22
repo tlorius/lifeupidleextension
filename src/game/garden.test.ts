@@ -23,7 +23,6 @@ describe("Garden System - Unit Tests", () => {
 
   describe("Planting Crops", () => {
     it("should plant a crop at a valid position", () => {
-      const initialCropCount = Object.keys(testState.garden.crops).length;
       const newState = plantCrop(testState, "sunflower_common", 0, 0);
 
       expect(newState.garden.crops["sunflower_common"]).toBeDefined();
@@ -81,7 +80,6 @@ describe("Garden System - Unit Tests", () => {
       const crop = newState.garden.crops["sunflower_common"][0];
       const cropDef = getCropDef("sunflower_common")!;
 
-      const now = Date.now();
       const progress = getGrowthProgress(crop, cropDef);
 
       // Just planted, should be near 0%
@@ -171,7 +169,7 @@ describe("Garden System - Unit Tests", () => {
 
     it("should cost energy to water", () => {
       const newState = plantCrop(testState, "sunflower_common", 0, 0);
-      const initialEnergy = newState.resources.energy;
+      const initialEnergy = newState.resources.energy ?? 0;
 
       const afterWater = waterField(newState, 0, 0);
       const finalEnergy = afterWater.resources.energy;
@@ -229,7 +227,7 @@ describe("Garden System - Unit Tests", () => {
 
     it("should cost energy to break rock", () => {
       testState.garden.rocks.small = [{ row: 0, col: 0 }];
-      const initialEnergy = testState.resources.energy;
+      const initialEnergy = testState.resources.energy ?? 0;
 
       const result = breakRock(testState, 0, 0, "pickaxe_common");
 
