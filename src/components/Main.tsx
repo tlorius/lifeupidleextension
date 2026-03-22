@@ -11,7 +11,7 @@ export function Main() {
       <button
         style={{
           padding: "12px",
-          fontSize: "16px",
+          fontSize: "15px",
           width: "100%",
           marginBottom: 8,
         }}
@@ -31,7 +31,7 @@ export function Main() {
       <button
         style={{
           padding: "12px",
-          fontSize: "16px",
+          fontSize: "15px",
           width: "100%",
           marginBottom: 8,
         }}
@@ -51,7 +51,7 @@ export function Main() {
       <button
         style={{
           padding: "12px",
-          fontSize: "16px",
+          fontSize: "15px",
           width: "100%",
           marginBottom: 8,
         }}
@@ -63,15 +63,11 @@ export function Main() {
       </button>
 
       <button
+        className="btn-danger"
         style={{
           padding: "12px",
-          fontSize: "16px",
+          fontSize: "15px",
           width: "100%",
-          backgroundColor: "#ff6b6b",
-          color: "white",
-          border: "none",
-          borderRadius: 4,
-          cursor: "pointer",
         }}
         onClick={() => {
           if (

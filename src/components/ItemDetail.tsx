@@ -135,14 +135,12 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
 
           {/* Equip Button */}
           <button
+            className={!equipped ? "btn-primary" : ""}
             style={{
               padding: "10px 12px",
               fontSize: "14px",
               width: "100%",
               marginBottom: 8,
-              backgroundColor: equipped ? "#ff6b6b" : "#51cf66",
-              color: "white",
-              border: "none",
               borderRadius: 4,
               cursor: equipped ? "not-allowed" : "pointer",
               opacity: equipped ? 0.6 : 1,
@@ -159,14 +157,12 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
 
           {/* Upgrade Button */}
           <button
+            className={canAffordUpgrade ? "btn-primary" : ""}
             style={{
               padding: "10px 12px",
               fontSize: "14px",
               width: "100%",
               marginBottom: 8,
-              backgroundColor: canAffordUpgrade ? "#405DE6" : "#ccc",
-              color: "white",
-              border: "none",
               borderRadius: 4,
               cursor: canAffordUpgrade ? "pointer" : "not-allowed",
             }}
@@ -182,15 +178,12 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
 
           {/* Sell Button */}
           <button
+            className="btn-danger"
             style={{
               padding: "10px 12px",
               fontSize: "14px",
               width: "100%",
-              backgroundColor: "#ff6b6b",
-              color: "white",
-              border: "none",
               borderRadius: 4,
-              cursor: "pointer",
             }}
             onClick={() => {
               setState((prev) => sellItem(prev, item.uid));
@@ -206,10 +199,7 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
             padding: "10px 12px",
             fontSize: "14px",
             width: "100%",
-            backgroundColor: "#f0f0f0",
-            border: "1px solid #ddd",
             borderRadius: 4,
-            cursor: "pointer",
           }}
           onClick={onClose}
         >

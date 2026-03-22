@@ -23,14 +23,10 @@ export function Upgrades() {
     return (
       <div style={{ padding: 16 }}>
         <button
+          className="btn-primary"
           style={{
             marginBottom: 16,
             padding: "8px 12px",
-            backgroundColor: "#999",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
           }}
           onClick={() => setSelectedTree(null)}
         >
@@ -181,16 +177,10 @@ export function Upgrades() {
               </div>
 
               <button
+                className={canPurchase ? "btn-primary" : ""}
                 style={{
                   width: "100%",
                   padding: "10px 12px",
-                  backgroundColor: !isUnlocked
-                    ? "#999"
-                    : canPurchase
-                      ? "#51cf66"
-                      : "#ccc",
-                  color: "white",
-                  border: "none",
                   borderRadius: 4,
                   cursor:
                     !isUnlocked || !canPurchase ? "not-allowed" : "pointer",
@@ -275,20 +265,18 @@ export function Upgrades() {
               key={tree}
               style={{
                 padding: 16,
-                backgroundColor: "#f5f5f5",
                 border: "1px solid #ddd",
                 borderRadius: 6,
-                cursor: "pointer",
                 transition: "all 0.2s",
               }}
               onClick={() => setSelectedTree(tree)}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.backgroundColor =
-                  "#e8e8e8";
+                  "#d9e2ec";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.backgroundColor =
-                  "#f5f5f5";
+                  "#e9eef5";
               }}
             >
               <h3

@@ -19,76 +19,36 @@ function App() {
         style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}
       >
         <button
-          style={{
-            flex: "1 1 auto",
-            padding: "8px 12px",
-            backgroundColor: screen === "main" ? "#51cf66" : "#f0f0f0",
-            color: screen === "main" ? "white" : "black",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={screen === "main" ? "btn-selected" : ""}
+          style={{ flex: "1 1 auto" }}
           onClick={() => setScreen("main")}
         >
           Main
         </button>
         <button
-          style={{
-            flex: "1 1 auto",
-            padding: "8px 12px",
-            backgroundColor: screen === "inventory" ? "#51cf66" : "#f0f0f0",
-            color: screen === "inventory" ? "white" : "black",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={screen === "inventory" ? "btn-selected" : ""}
+          style={{ flex: "1 1 auto" }}
           onClick={() => setScreen("inventory")}
         >
           Inventory
         </button>
         <button
-          style={{
-            flex: "1 1 auto",
-            padding: "8px 12px",
-            backgroundColor: screen === "equipment" ? "#51cf66" : "#f0f0f0",
-            color: screen === "equipment" ? "white" : "black",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={screen === "equipment" ? "btn-selected" : ""}
+          style={{ flex: "1 1 auto" }}
           onClick={() => setScreen("equipment")}
         >
           Equipment
         </button>
         <button
-          style={{
-            flex: "1 1 auto",
-            padding: "8px 12px",
-            backgroundColor: screen === "upgrades" ? "#51cf66" : "#f0f0f0",
-            color: screen === "upgrades" ? "white" : "black",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={screen === "upgrades" ? "btn-selected" : ""}
+          style={{ flex: "1 1 auto" }}
           onClick={() => setScreen("upgrades")}
         >
           Upgrades
         </button>
         <button
-          style={{
-            flex: "1 1 auto",
-            padding: "8px 12px",
-            backgroundColor: screen === "garden" ? "#51cf66" : "#f0f0f0",
-            color: screen === "garden" ? "white" : "black",
-            border: "none",
-            borderRadius: 4,
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className={screen === "garden" ? "btn-selected" : ""}
+          style={{ flex: "1 1 auto" }}
           onClick={() => setScreen("garden")}
         >
           Garden

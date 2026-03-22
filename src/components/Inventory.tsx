@@ -83,14 +83,11 @@ export function Inventory() {
         {itemTypes.map((type) => (
           <button
             key={type}
+            className={filter === type ? "btn-selected" : ""}
             style={{
               padding: "8px 12px",
               fontSize: "12px",
-              backgroundColor: filter === type ? "#51cf66" : "#f0f0f0",
-              color: filter === type ? "white" : "black",
-              border: "none",
               borderRadius: 4,
-              cursor: "pointer",
               transition: "all 0.2s",
             }}
             onClick={() => setFilter(type)}

@@ -896,13 +896,12 @@ export function Garden() {
         <div style={{ display: "flex", gap: 8 }}>
           {/* Tool Wheel Button */}
           <button
+            className="btn-round-icon"
             style={{
               width: isMobile ? 44 : 50,
               height: isMobile ? 44 : 50,
-              borderRadius: "50%",
               backgroundColor: "#FFD700",
               border: "2px solid #DAA520",
-              cursor: "pointer",
               fontSize: isMobile ? 20 : 24,
             }}
             onClick={() => setShowToolWheel(!showToolWheel)}
@@ -913,19 +912,35 @@ export function Garden() {
 
           {/* Seed Bag Button */}
           <button
+            className="btn-round-icon"
             style={{
               width: isMobile ? 44 : 50,
               height: isMobile ? 44 : 50,
-              borderRadius: "50%",
               backgroundColor: "#90EE90",
               border: "2px solid #228B22",
-              cursor: "pointer",
               fontSize: isMobile ? 20 : 24,
             }}
             onClick={() => setShowSeedBag(!showSeedBag)}
             title="Seed bag"
           >
             🎒
+          </button>
+
+          {/* Crop Silo Button */}
+          <button
+            className="btn-round-icon"
+            style={{
+              width: isMobile ? 44 : 50,
+              height: isMobile ? 44 : 50,
+              backgroundColor: "#F5F5DC",
+              border: "2px solid #DAA520",
+              fontSize: isMobile ? 19 : 22,
+            }}
+            onClick={() => setShowStorageModal(true)}
+            title="Crop silos"
+            aria-label="Open crop storage"
+          >
+            🛢️
           </button>
         </div>
       </div>
@@ -955,15 +970,12 @@ export function Garden() {
             }}
           >
             <button
+              className={toolTypeFilter === null ? "btn-selected" : ""}
               style={{
                 padding: "4px 8px",
                 fontSize: 11,
-                backgroundColor:
-                  toolTypeFilter === null ? "#51cf66" : "#e9ecef",
-                color: toolTypeFilter === null ? "white" : "#333",
                 border: "1px solid #999",
                 borderRadius: 3,
-                cursor: "pointer",
               }}
               onClick={() => setToolTypeFilter(null)}
             >
@@ -973,15 +985,12 @@ export function Garden() {
               (type) => (
                 <button
                   key={type}
+                  className={toolTypeFilter === type ? "btn-selected" : ""}
                   style={{
                     padding: "4px 8px",
                     fontSize: 11,
-                    backgroundColor:
-                      toolTypeFilter === type ? "#51cf66" : "#e9ecef",
-                    color: toolTypeFilter === type ? "white" : "#333",
                     border: "1px solid #999",
                     borderRadius: 3,
-                    cursor: "pointer",
                     textTransform: "capitalize",
                   }}
                   onClick={() => setToolTypeFilter(type)}
@@ -1184,31 +1193,6 @@ export function Garden() {
           )}
         </div>
       )}
-
-      {/* Crop Storage Button */}
-      <div style={{ marginBottom: 16 }}>
-        <button
-          style={{
-            width: "100%",
-            padding: isMobile ? "10px 12px" : "12px 14px",
-            backgroundColor: "#F5F5DC",
-            border: "1px solid #DAA520",
-            borderRadius: 6,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            fontWeight: "bold",
-            fontSize: isMobile ? 13 : 12,
-          }}
-          onClick={() => setShowStorageModal(true)}
-          title="Open crop storage"
-          aria-label="Open crop storage"
-        >
-          <span>🛢️ Crop Silos</span>
-          <span style={{ opacity: 0.7 }}>Open</span>
-        </button>
-      </div>
 
       {/* Garden Grid */}
       <div

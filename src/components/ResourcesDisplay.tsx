@@ -72,16 +72,13 @@ export function ResourcesDisplay() {
         </div>
 
         <button
+          className={showStats ? "btn-selected" : ""}
           style={{
             marginLeft: "auto",
             width: 32,
             height: 32,
             padding: 0,
-            backgroundColor: showStats ? "#51cf66" : "#e0e0e0",
-            color: showStats ? "white" : "#333",
-            border: "none",
             borderRadius: 999,
-            cursor: "pointer",
             fontSize: 14,
             fontWeight: "bold",
             display: "flex",
