@@ -120,6 +120,8 @@ export function Garden() {
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showCropMasteryModal, setShowCropMasteryModal] = useState(false);
   const [isToolEffectActive, setIsToolEffectActive] = useState(false);
+  const [activateSeedBagAfterSelection, setActivateSeedBagAfterSelection] =
+    useState(false);
   const [activeSeedBagSeedId, setActiveSeedBagSeedId] = useState<string | null>(
     null,
   );
@@ -140,6 +142,10 @@ export function Garden() {
     ? getItemDefSafe(equippedToolItem.itemId)
     : null;
   const isMobile = viewportWidth <= 768;
+  const toolbarButtonSize = isMobile ? 52 : 58;
+  const toolbarIconSize = isMobile ? 22 : 26;
+  const toolbarBadgeSize = isMobile ? 28 : 24;
+  const toolbarCornerActionSize = isMobile ? 24 : 20;
 
   const isFieldUnlocked = (row: number, col: number): boolean => {
     const unlocked = garden.unlockedFields;
@@ -317,6 +323,18 @@ export function Garden() {
     }
   };
 
+  const getRaritySortValue = (rarity: string | null | undefined): number => {
+    const rarityOrder: Record<string, number> = {
+      common: 0,
+      rare: 1,
+      epic: 2,
+      legendary: 3,
+      unique: 4,
+    };
+
+    return rarityOrder[rarity ?? "common"] ?? rarityOrder.common;
+  };
+
   const getToolIcon = (toolId: string | null | undefined): string => {
     if (!toolId) return "🧰";
     if (isPickaxeTool(toolId)) return "⛏️";
@@ -327,6 +345,41 @@ export function Garden() {
     if (isSeedBagTool(toolId)) return "🎒";
     return "🔧";
   };
+
+  const getSeedPresentation = (seedId: string) => {
+    const cropId = resolveCropIdFromSeed(seedId);
+    const cropDef = cropId ? getCropDef(cropId) : null;
+    const itemDef = getItemDefSafe(seedId);
+
+    return {
+      cropId,
+      cropDef,
+      icon: cropDef ? getCategoryIcon(cropDef.category) : "🌱",
+      label: cropDef?.name ?? itemDef?.name ?? seedId,
+    };
+  };
+
+  const handleSeedBagSeedSelect = (
+    seedId: string,
+    options?: { closeSeedBagModal?: boolean },
+  ) => {
+    setActiveSeedBagSeedId(seedId);
+
+    if (activateSeedBagAfterSelection && isSeedBagTool(equippedToolId)) {
+      setIsToolEffectActive(true);
+      setShowSeedBag(false);
+      setActivateSeedBagAfterSelection(false);
+      return;
+    }
+
+    if (options?.closeSeedBagModal) {
+      setShowSeedBag(false);
+    }
+  };
+
+  const activeSeedBagSeedPresentation = activeSeedBagSeedId
+    ? getSeedPresentation(activeSeedBagSeedId)
+    : null;
 
   const getToolCoverageTiles = (
     centerRow: number,
@@ -1367,11 +1420,11 @@ export function Garden() {
           <button
             className="btn-round-icon"
             style={{
-              width: isMobile ? 44 : 50,
-              height: isMobile ? 44 : 50,
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
               backgroundColor: "#FFD700",
               border: "2px solid #DAA520",
-              fontSize: isMobile ? 20 : 24,
+              fontSize: toolbarIconSize,
             }}
             onClick={() => setShowToolWheel(!showToolWheel)}
             title="Tool wheel"
@@ -1379,31 +1432,15 @@ export function Garden() {
             🔧
           </button>
 
-          {/* Seed Bag Button */}
-          <button
-            className="btn-round-icon"
-            style={{
-              width: isMobile ? 44 : 50,
-              height: isMobile ? 44 : 50,
-              backgroundColor: "#90EE90",
-              border: "2px solid #228B22",
-              fontSize: isMobile ? 20 : 24,
-            }}
-            onClick={() => setShowSeedBag(!showSeedBag)}
-            title="Seed bag"
-          >
-            🎒
-          </button>
-
           {/* Crop Silo Button */}
           <button
             className="btn-round-icon"
             style={{
-              width: isMobile ? 44 : 50,
-              height: isMobile ? 44 : 50,
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
               backgroundColor: "#F5F5DC",
               border: "2px solid #DAA520",
-              fontSize: isMobile ? 19 : 22,
+              fontSize: toolbarIconSize,
             }}
             onClick={() => setShowStorageModal(true)}
             title="Crop silos"
@@ -1416,11 +1453,11 @@ export function Garden() {
           <button
             className="btn-round-icon"
             style={{
-              width: isMobile ? 44 : 50,
-              height: isMobile ? 44 : 50,
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
               backgroundColor: "#e7f5ff",
               border: "2px solid #4dabf7",
-              fontSize: isMobile ? 20 : 22,
+              fontSize: toolbarIconSize,
             }}
             onClick={() => setShowCropMasteryModal(true)}
             title="Crop mastery"
@@ -1429,37 +1466,133 @@ export function Garden() {
             📈
           </button>
 
-          <button
-            className="btn-round-icon"
+          <div
             style={{
-              width: isMobile ? 44 : 50,
-              height: isMobile ? 44 : 50,
-              marginLeft: 10,
-              backgroundColor: equippedToolId ? "#253649" : "#1a2430",
-              border: isToolEffectActive
-                ? "2px solid #57b3f3"
-                : "2px solid #3f546a",
-              boxShadow: isToolEffectActive
-                ? "0 0 0 3px rgba(87,179,243,0.22)"
-                : "none",
-              opacity: equippedToolId ? 1 : 0.55,
-              fontSize: isMobile ? 20 : 22,
+              position: "relative",
+              marginLeft: 12,
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
             }}
-            onClick={() => {
-              if (!equippedToolId) return;
-              setIsToolEffectActive((prev) => !prev);
-            }}
-            title={
-              equippedToolId
-                ? isToolEffectActive
-                  ? "Tool mode active"
-                  : "Tool mode inactive"
-                : "No tool equipped"
-            }
-            aria-label="Toggle equipped tool mode"
           >
-            {getToolIcon(equippedToolId)}
-          </button>
+            <button
+              className="btn-round-icon"
+              style={{
+                width: toolbarButtonSize,
+                height: toolbarButtonSize,
+                backgroundColor: equippedToolId ? "#253649" : "#1a2430",
+                border: isToolEffectActive
+                  ? "2px solid #57b3f3"
+                  : "2px solid #3f546a",
+                boxShadow: isToolEffectActive
+                  ? "0 0 0 3px rgba(87,179,243,0.22)"
+                  : "none",
+                opacity: 1,
+                fontSize: toolbarIconSize,
+              }}
+              onClick={() => {
+                if (!equippedToolId) {
+                  setShowToolWheel(true);
+                  return;
+                }
+
+                const willActivate = !isToolEffectActive;
+                if (
+                  willActivate &&
+                  isSeedBagTool(equippedToolId) &&
+                  !activeSeedBagSeedId
+                ) {
+                  setActivateSeedBagAfterSelection(true);
+                  setShowSeedBag(true);
+                  return;
+                }
+
+                setActivateSeedBagAfterSelection(false);
+                setIsToolEffectActive((prev) => !prev);
+              }}
+              title={
+                equippedToolId
+                  ? isToolEffectActive
+                    ? "Tool mode active"
+                    : "Tool mode inactive"
+                  : "Open tool bag"
+              }
+              aria-label={
+                equippedToolId ? "Toggle equipped tool mode" : "Open tool bag"
+              }
+            >
+              {getToolIcon(equippedToolId)}
+            </button>
+            {equippedToolId && (
+              <button
+                type="button"
+                style={{
+                  position: "absolute",
+                  top: isMobile ? -6 : -4,
+                  left: isMobile ? -6 : -4,
+                  width: toolbarCornerActionSize,
+                  height: toolbarCornerActionSize,
+                  borderRadius: "50%",
+                  backgroundColor: "#8f1d1d",
+                  border: "1px solid #d66a6a",
+                  color: "#fff4f4",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: isMobile ? 12 : 11,
+                  lineHeight: 1,
+                  padding: 0,
+                  cursor: "pointer",
+                }}
+                title="Unequip tool"
+                aria-label="Unequip tool"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActivateSeedBagAfterSelection(false);
+                  setIsToolEffectActive(false);
+                  setState((prev) => ({
+                    ...prev,
+                    equipment: {
+                      ...prev.equipment,
+                      tool: null,
+                    },
+                  }));
+                }}
+              >
+                ×
+              </button>
+            )}
+            {isSeedBagTool(equippedToolId) && activeSeedBagSeedPresentation && (
+              <button
+                type="button"
+                style={{
+                  position: "absolute",
+                  top: isMobile ? -6 : -4,
+                  right: isMobile ? -6 : -4,
+                  width: toolbarBadgeSize,
+                  height: toolbarBadgeSize,
+                  borderRadius: "50%",
+                  backgroundColor: "#142131",
+                  border: "1px solid #4f6b84",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: isMobile ? 15 : 13,
+                  lineHeight: 1,
+                  padding: 0,
+                  cursor: "pointer",
+                }}
+                title={activeSeedBagSeedPresentation.label}
+                aria-label={`Selected seed: ${activeSeedBagSeedPresentation.label}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActivateSeedBagAfterSelection(false);
+                  setShowSeedBag(true);
+                }}
+              >
+                {activeSeedBagSeedPresentation.icon}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1598,19 +1731,13 @@ export function Garden() {
                   return normalizeToolId(tool.toolId).includes(toolTypeFilter);
                 })
                 .sort((a, b) => {
-                  const rarityOrder: Record<string, number> = {
-                    common: 0,
-                    rare: 1,
-                    epic: 2,
-                    legendary: 3,
-                    unique: 4,
-                  };
                   const aRarity = getItemDefSafe(a.toolId)?.rarity ?? "common";
                   const bRarity = getItemDefSafe(b.toolId)?.rarity ?? "common";
                   const rarityDelta =
-                    rarityOrder[aRarity] - rarityOrder[bRarity];
+                    getRaritySortValue(bRarity) - getRaritySortValue(aRarity);
                   if (rarityDelta !== 0) return rarityDelta;
-                  return a.level - b.level;
+                  if (a.level !== b.level) return b.level - a.level;
+                  return a.name.localeCompare(b.name);
                 })
                 .map((tool) => {
                   let description = "";
@@ -1723,29 +1850,39 @@ export function Garden() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {seedBag.map((seed) => (
-                      <button
-                        key={seed.seedId}
-                        className={
-                          activeSeedBagSeedId === seed.seedId
-                            ? "btn-selected"
-                            : ""
-                        }
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: 11,
-                          border: "1px solid #3f546a",
-                          borderRadius: 3,
-                          backgroundColor: "#1b2a39",
-                          color: "#e5edf5",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => setActiveSeedBagSeedId(seed.seedId)}
-                        title={seed.seedId}
-                      >
-                        {seed.seedId} x{seed.count}
-                      </button>
-                    ))}
+                    {seedBag.map((seed) => {
+                      const seedPresentation = getSeedPresentation(seed.seedId);
+
+                      return (
+                        <button
+                          key={seed.seedId}
+                          className={
+                            activeSeedBagSeedId === seed.seedId
+                              ? "btn-selected"
+                              : ""
+                          }
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            border: "1px solid #3f546a",
+                            borderRadius: 3,
+                            backgroundColor: "#1b2a39",
+                            color: "#e5edf5",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                          onClick={() => handleSeedBagSeedSelect(seed.seedId)}
+                          title={seedPresentation.label}
+                        >
+                          <span>{seedPresentation.icon}</span>
+                          <span>
+                            {seedPresentation.label} x{seed.count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1816,7 +1953,10 @@ export function Garden() {
             justifyContent: "center",
             zIndex: 1000,
           }}
-          onClick={() => setShowSeedBag(false)}
+          onClick={() => {
+            setShowSeedBag(false);
+            setActivateSeedBagAfterSelection(false);
+          }}
         >
           <div
             style={{
@@ -1853,7 +1993,10 @@ export function Garden() {
                   cursor: "pointer",
                   fontSize: 12,
                 }}
-                onClick={() => setShowSeedBag(false)}
+                onClick={() => {
+                  setShowSeedBag(false);
+                  setActivateSeedBagAfterSelection(false);
+                }}
               >
                 Close
               </button>
@@ -1868,26 +2011,51 @@ export function Garden() {
                   gap: 8,
                 }}
               >
-                {seedBag.map((seed) => (
-                  <div
-                    key={seed.seedId}
-                    style={{
-                      padding: 8,
-                      backgroundColor: "#1b2d3f",
-                      border: "1px solid #34516a",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      fontSize: 11,
-                      textAlign: "left",
-                      color: "#e5edf5",
-                    }}
-                  >
-                    <div>{seed.seedId}</div>
-                    <div style={{ fontSize: 10, color: "#9eb0c2" }}>
-                      x {seed.count}
-                    </div>
-                  </div>
-                ))}
+                {seedBag.map((seed) => {
+                  const seedPresentation = getSeedPresentation(seed.seedId);
+                  const isSelected = activeSeedBagSeedId === seed.seedId;
+
+                  return (
+                    <button
+                      key={seed.seedId}
+                      type="button"
+                      className={isSelected ? "btn-selected" : ""}
+                      style={{
+                        padding: 8,
+                        backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
+                        border: isSelected
+                          ? "2px solid #2f9e44"
+                          : "1px solid #34516a",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        fontSize: 11,
+                        textAlign: "left",
+                        color: "#e5edf5",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 8,
+                      }}
+                      onClick={() =>
+                        handleSeedBagSeedSelect(seed.seedId, {
+                          closeSeedBagModal: true,
+                        })
+                      }
+                      title={seedPresentation.label}
+                    >
+                      <span style={{ fontSize: 18, lineHeight: 1.1 }}>
+                        {seedPresentation.icon}
+                      </span>
+                      <span>
+                        <div style={{ fontWeight: "bold" }}>
+                          {seedPresentation.label}
+                        </div>
+                        <div style={{ fontSize: 10, color: "#9eb0c2" }}>
+                          x {seed.count}
+                        </div>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2002,8 +2170,8 @@ export function Garden() {
                     }}
                   >
                     {seedBag.map((seed) => {
-                      const cropId = resolveCropIdFromSeed(seed.seedId);
-                      const cropDef = cropId ? getCropDef(cropId) : null;
+                      const seedPresentation = getSeedPresentation(seed.seedId);
+                      const cropDef = seedPresentation.cropDef;
                       const isSelected =
                         plantModal.selectedSeedId === seed.seedId;
 
@@ -2029,11 +2197,15 @@ export function Garden() {
                         >
                           <div
                             style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
                               fontWeight: "bold",
                               color: "#e5edf5",
                             }}
                           >
-                            {cropDef?.name || seed.seedId}
+                            <span>{seedPresentation.icon}</span>
+                            <span>{seedPresentation.label}</span>
                           </div>
                           {cropDef && (
                             <div

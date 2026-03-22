@@ -227,7 +227,10 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
     scaling: 1.6,
     bonuses: [{ percentBonusType: "plantGrowth", percentBonusAmount: 0.1 }],
     prerequisites: [],
-    linkedUpgrades: [{ upgradeId: "better_watering", unlocksAtLevel: 1 }],
+    linkedUpgrades: [
+      { upgradeId: "better_watering", unlocksAtLevel: 1 },
+      { upgradeId: "composting", unlocksAtLevel: 1 },
+    ],
   },
 
   // Plant Mastery -> Better Watering
@@ -244,6 +247,69 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
       { percentBonusType: "wateringDuration", percentBonusAmount: 0.1 },
     ],
     prerequisites: ["plant_mastery"],
+    linkedUpgrades: [{ upgradeId: "soil_aeration", unlocksAtLevel: 1 }],
+  },
+
+  // Plant Mastery -> Composting (parallel tier 2 branch)
+  composting: {
+    id: "composting",
+    name: "Composting",
+    description: "Enrich soil naturally to boost plant growth by 10% per level",
+    type: "plantGrowth",
+    tree: "farming",
+    level: 0,
+    baseCost: 110,
+    scaling: 1.65,
+    bonuses: [{ percentBonusType: "plantGrowth", percentBonusAmount: 0.1 }],
+    prerequisites: ["plant_mastery"],
+    linkedUpgrades: [{ upgradeId: "soil_aeration", unlocksAtLevel: 1 }],
+  },
+
+  // Tier 3: requires both tier 2 branches at level 1
+  soil_aeration: {
+    id: "soil_aeration",
+    name: "Soil Aeration",
+    description: "Loosen the earth to improve plant growth by 8% per level",
+    type: "plantGrowth",
+    tree: "farming",
+    level: 0,
+    baseCost: 140,
+    scaling: 1.7,
+    bonuses: [{ percentBonusType: "plantGrowth", percentBonusAmount: 0.08 }],
+    prerequisites: ["better_watering", "composting"],
+    linkedUpgrades: [{ upgradeId: "greenhouse_design", unlocksAtLevel: 2 }],
+  },
+
+  // Soil Aeration (level 2) -> Greenhouse Design
+  greenhouse_design: {
+    id: "greenhouse_design",
+    name: "Greenhouse Design",
+    description:
+      "Refine climate control to extend watering duration by 12% per level",
+    type: "wateringDuration",
+    tree: "farming",
+    level: 0,
+    baseCost: 220,
+    scaling: 1.8,
+    bonuses: [
+      { percentBonusType: "wateringDuration", percentBonusAmount: 0.12 },
+    ],
+    prerequisites: ["soil_aeration"],
+    linkedUpgrades: [{ upgradeId: "harvest_festival", unlocksAtLevel: 3 }],
+  },
+
+  // Greenhouse Design (level 3) -> Harvest Festival
+  harvest_festival: {
+    id: "harvest_festival",
+    name: "Harvest Festival",
+    description: "Celebrate abundance to boost plant growth by 15% per level",
+    type: "plantGrowth",
+    tree: "farming",
+    level: 0,
+    baseCost: 360,
+    scaling: 1.95,
+    bonuses: [{ percentBonusType: "plantGrowth", percentBonusAmount: 0.15 }],
+    prerequisites: ["greenhouse_design"],
     linkedUpgrades: [],
   },
 };
