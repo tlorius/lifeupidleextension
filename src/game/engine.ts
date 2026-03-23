@@ -129,35 +129,6 @@ export function isItemEquipped(state: GameState, itemUid: string): boolean {
   return Object.values(equipment).includes(itemUid);
 }
 
-/* Right now not functional - i just want to use the equiped pet and upgrades need to be redesigned
-export function getGoldPerSecond(state: GameState): number {
-  let base = state.stats.attack
-
-  base *= 1 + state.upgrades.autoGold.level * 0.2
-
-  // pet bonus
-  state.pets.forEach(p => {
-    if (p.bonus.goldMultiplier) {
-      base *= p.bonus.goldMultiplier
-    }
-  })
-
-  return base
-} 
-  
-Also in need of redesign
-export function buyUpgrade(state: GameState, id: keyof GameState["upgrades"]) {
-  const upg = state.upgrades[id]
-
-  const cost = upg.baseCost * Math.pow(upg.scaling, upg.level)
-
-  if (state.resources.gold < cost) return
-
-  state.resources.gold -= cost
-  upg.level++
-}
-*/
-
 export function addItem(
   state: GameState,
   itemId: string,
@@ -448,6 +419,7 @@ export function upgradeItem(state: GameState, itemUid: string): GameState {
   const item = state.inventory[itemIndex];
   const def = getItemDefSafe(item.itemId);
   if (!def) return state;
+  if (def.type === "potion") return state;
 
   const cost = calculateUpgradeCost(item.level, def.rarity);
   if ((state.resources.gems ?? 0) < cost) return state;

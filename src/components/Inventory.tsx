@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGame } from "../game/GameContext";
 import { getItemDefSafe } from "../game/items";
 import { ItemDetail } from "./ItemDetail";
+import type { PotionToastPayload, PotionToastTone } from "./ItemDetail";
 import { isItemEquipped, calculateItemStat } from "../game/engine";
 import { formatCompactNumber } from "../game/numberFormat";
 import type { ItemType, Stats } from "../game/types";
@@ -38,6 +39,29 @@ export function Inventory() {
   const { state } = useGame();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
   const [filter, setFilter] = useState<ItemType | "all">("all");
+  const [potionToast, setPotionToast] = useState<PotionToastPayload | null>(
+    null,
+  );
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current !== null) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const showPotionToast = (payload: PotionToastPayload) => {
+    setPotionToast(payload);
+    if (toastTimeoutRef.current !== null) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setPotionToast(null);
+      toastTimeoutRef.current = null;
+    }, 3000);
+  };
 
   const itemTypes: (ItemType | "all")[] = [
     "all",
@@ -110,6 +134,36 @@ export function Inventory() {
   });
 
   const selectedItem = state.inventory.find((i) => i.uid === selectedItemUid);
+
+  const toastToneStyles: Record<
+    PotionToastTone,
+    { border: string; background: string; color: string }
+  > = {
+    positive: {
+      border: "1px solid #3f7c55",
+      background: "#183524",
+      color: "#ddf6e5",
+    },
+    mixed: {
+      border: "1px solid #8a6a3f",
+      background: "#3a2d1a",
+      color: "#f5e7ce",
+    },
+    negative: {
+      border: "1px solid #8a3f3f",
+      background: "#3a1c1c",
+      color: "#f8dcdc",
+    },
+    neutral: {
+      border: "1px solid #4b6a84",
+      background: "#183044",
+      color: "#e8f2fb",
+    },
+  };
+
+  const activeToastStyle = potionToast
+    ? toastToneStyles[potionToast.tone]
+    : toastToneStyles.neutral;
 
   return (
     <div>
@@ -328,7 +382,31 @@ export function Inventory() {
         <ItemDetail
           item={selectedItem}
           onClose={() => setSelectedItemUid(null)}
+          onPotionUsed={showPotionToast}
         />
+      )}
+
+      {potionToast && (
+        <div
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 1600,
+            maxWidth: "min(380px, calc(100vw - 32px))",
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: activeToastStyle.border,
+            backgroundColor: activeToastStyle.background,
+            color: activeToastStyle.color,
+            fontSize: 12,
+            boxShadow: "0 10px 20px rgba(0, 0, 0, 0.35)",
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          {potionToast.message}
+        </div>
       )}
     </div>
   );

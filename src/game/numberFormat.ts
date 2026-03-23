@@ -70,6 +70,11 @@ function trimTrailingZeros(value: number, decimals: number): string {
     .replace(/\.0+$/, "");
 }
 
+function formatFixedDecimals(value: number, decimals: number): string {
+  if (decimals <= 0) return Math.trunc(value).toString();
+  return value.toFixed(decimals);
+}
+
 export function formatCompactNumber(
   input: number,
   options: CompactNumberOptions = {},
@@ -112,5 +117,5 @@ export function formatCompactNumber(
     return input.toExponential(Math.min(decimals, 6));
   }
 
-  return `${trimTrailingZeros(rounded, decimals)}${units[unitIndex].suffix}`;
+  return `${formatFixedDecimals(rounded, decimals)}${units[unitIndex].suffix}`;
 }

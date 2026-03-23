@@ -14,12 +14,20 @@ import type { Equipment, Stats } from "../game/types";
 import { formatCompactNumber } from "../game/numberFormat";
 import type { ItemInstance } from "../game/types";
 
+export type PotionToastTone = "positive" | "mixed" | "negative" | "neutral";
+
+export interface PotionToastPayload {
+  message: string;
+  tone: PotionToastTone;
+}
+
 interface ItemDetailProps {
   item: ItemInstance;
   onClose: () => void;
+  onPotionUsed?: (payload: PotionToastPayload) => void;
 }
 
-export function ItemDetail({ item, onClose }: ItemDetailProps) {
+export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
   const { state, setState } = useGame();
   const [accessoryTargetSlot, setAccessoryTargetSlot] = useState<
     "accessory1" | "accessory2"
@@ -61,9 +69,11 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
   const stats = getItemStats(item, def);
   const equipped = isItemEquipped(state, item.uid);
   const upgradeCost = calculateUpgradeCost(item.level, def.rarity);
-  const canAffordUpgrade = (state.resources.gems ?? 0) >= upgradeCost;
   const isSprinkler = def.type === "tool" && def.id.includes("sprinkler");
   const isPotion = def.type === "potion";
+  const canUpgradeItem = !isPotion;
+  const canAffordUpgrade =
+    canUpgradeItem && (state.resources.gems ?? 0) >= upgradeCost;
   const isEquipableType =
     ["weapon", "armor", "accessory", "pet", "tool"].includes(def.type) &&
     !isSprinkler;
@@ -131,6 +141,89 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
         }}
       />
     );
+  };
+
+  const formatDelta = (value: number): string => {
+    if (value > 0) return `+${value}`;
+    return `${value}`;
+  };
+
+  const getPotionEffectToastMessage = (
+    previous: typeof state,
+    next: typeof state,
+  ): PotionToastPayload => {
+    const parts: string[] = [];
+    let positiveCount = 0;
+    let negativeCount = 0;
+
+    const energyDelta =
+      (next.resources.energy ?? 0) - (previous.resources.energy ?? 0);
+    if (energyDelta > 0) {
+      parts.push(`Energy ${formatDelta(energyDelta)}`);
+      positiveCount += 1;
+    }
+
+    const attackDelta = (next.stats.attack ?? 0) - (previous.stats.attack ?? 0);
+    const defenseDelta =
+      (next.stats.defense ?? 0) - (previous.stats.defense ?? 0);
+    const intelligenceDelta =
+      (next.stats.intelligence ?? 0) - (previous.stats.intelligence ?? 0);
+
+    if (attackDelta !== 0) {
+      parts.push(`Attack ${formatDelta(attackDelta)}`);
+      if (attackDelta > 0) positiveCount += 1;
+      if (attackDelta < 0) negativeCount += 1;
+    }
+    if (defenseDelta !== 0) {
+      parts.push(`Defense ${formatDelta(defenseDelta)}`);
+      if (defenseDelta > 0) positiveCount += 1;
+      if (defenseDelta < 0) negativeCount += 1;
+    }
+    if (intelligenceDelta !== 0) {
+      parts.push(`Intelligence ${formatDelta(intelligenceDelta)}`);
+      if (intelligenceDelta > 0) positiveCount += 1;
+      if (intelligenceDelta < 0) negativeCount += 1;
+    }
+
+    const now = Date.now();
+    const tempBeforeActive =
+      (previous.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
+        ? (previous.temporaryEffects?.goldIncomeBoostPercent ?? 0)
+        : 0;
+    const tempAfterActive =
+      (next.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
+        ? (next.temporaryEffects?.goldIncomeBoostPercent ?? 0)
+        : 0;
+    const tempDelta = tempAfterActive - tempBeforeActive;
+
+    if (tempAfterActive > 0 && tempDelta >= 0) {
+      const msLeft = Math.max(
+        0,
+        (next.temporaryEffects?.goldIncomeBoostUntil ?? 0) - now,
+      );
+      const minutes = Math.floor(msLeft / 60000);
+      const seconds = Math.ceil((msLeft % 60000) / 1000);
+      const durationLabel =
+        minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+      parts.push(`Gold Income +${tempAfterActive}% (${durationLabel})`);
+      positiveCount += 1;
+    }
+
+    if (parts.length === 0) {
+      return { message: "Potion used", tone: "neutral" };
+    }
+
+    const tone: PotionToastTone =
+      positiveCount > 0 && negativeCount > 0
+        ? "mixed"
+        : negativeCount > 0
+          ? "negative"
+          : "positive";
+
+    return {
+      message: `Gained: ${parts.join(" | ")}`,
+      tone,
+    };
   };
 
   return (
@@ -365,7 +458,16 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
                 borderRadius: 4,
               }}
               onClick={() => {
-                setState((prev) => usePotion(prev, item.uid));
+                let toastPayload: PotionToastPayload = {
+                  message: "Potion used",
+                  tone: "neutral",
+                };
+                setState((prev) => {
+                  const next = usePotion(prev, item.uid);
+                  toastPayload = getPotionEffectToastMessage(prev, next);
+                  return next;
+                });
+                onPotionUsed?.(toastPayload);
                 onClose();
               }}
             >
@@ -471,6 +573,7 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
               marginBottom: 8,
               borderRadius: 4,
               cursor: canAffordUpgrade ? "pointer" : "not-allowed",
+              opacity: canUpgradeItem ? 1 : 0.65,
             }}
             onClick={() => {
               if (canAffordUpgrade) {
@@ -479,7 +582,9 @@ export function ItemDetail({ item, onClose }: ItemDetailProps) {
             }}
             disabled={!canAffordUpgrade}
           >
-            Upgrade ({formatCompactNumber(upgradeCost)}💎)
+            {canUpgradeItem
+              ? `Upgrade (${formatCompactNumber(upgradeCost)}💎)`
+              : "Potions cannot be upgraded"}
           </button>
 
           {/* Sell Button */}

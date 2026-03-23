@@ -9,6 +9,7 @@ import {
   getGoldIncome,
 } from "../game/engine";
 import { formatCompactNumber } from "../game/numberFormat";
+import { defaultState } from "../game/state";
 import type { Stats } from "../game/types";
 
 interface ResourcesDisplayProps {
@@ -24,6 +25,52 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
   const equipmentStats = getEquipmentStats(state);
   const upgradeStats = getUpgradeStats(state);
   const petStats = getPetStats(state);
+  const now = Date.now();
+
+  const activeGoldPotionBoost =
+    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
+      ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
+      : 0;
+  const activePotionMsLeft = Math.max(
+    0,
+    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) - now,
+  );
+
+  const permanentPotionStatChanges: Partial<Stats> = {
+    attack: (state.stats.attack ?? 0) - (defaultState.stats.attack ?? 0),
+    defense: (state.stats.defense ?? 0) - (defaultState.stats.defense ?? 0),
+    intelligence:
+      (state.stats.intelligence ?? 0) - (defaultState.stats.intelligence ?? 0),
+    gardening:
+      (state.stats.gardening ?? 0) - (defaultState.stats.gardening ?? 0),
+  };
+
+  const hasPermanentPotionChanges = Object.values(
+    permanentPotionStatChanges,
+  ).some((value) => (value ?? 0) !== 0);
+
+  const formatDuration = (ms: number): string => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    if (minutes <= 0) return `${seconds}s`;
+    return `${minutes}m ${seconds}s`;
+  };
+
+  const formatSigned = (value: number | undefined): string => {
+    const safeValue = value ?? 0;
+    if (safeValue > 0) return `+${formatStat(safeValue)}`;
+    return formatStat(safeValue);
+  };
+
+  const baseGoldPerSecond = state.stats.attack || 1;
+  const upgradeGoldBonus = upgradeStats.goldIncome ?? 0;
+  const petGoldBonus = petStats.goldIncome ?? 0;
+  const tempGoldBonus = activeGoldPotionBoost;
+  const totalGoldBonusPercent = upgradeGoldBonus + petGoldBonus + tempGoldBonus;
+  const totalGoldMultiplier = 1 + totalGoldBonusPercent / 100;
+  const calculatedGoldPerSecond = baseGoldPerSecond * totalGoldMultiplier;
 
   const formatStat = (value: number | undefined): string => {
     if (value === undefined) return "0";
@@ -226,9 +273,135 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 🪙
               </div>
               <div style={{ fontSize: 11, color: "#9eb0c2", marginTop: 4 }}>
-                Base: {formatStat(state.stats.attack)} × (1 +{" "}
-                {formatStat(total.goldIncome)}%)
+                Base: {formatStat(baseGoldPerSecond)} × (1 +{" "}
+                {formatStat(totalGoldBonusPercent)}%)
               </div>
+              <div style={{ fontSize: 11, color: "#9eb0c2", marginTop: 6 }}>
+                Formula: gold/s = base attack × (1 + total gold bonus / 100)
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 8,
+                  border: "1px solid #3b5268",
+                  borderRadius: 6,
+                  backgroundColor: "#223345",
+                  display: "grid",
+                  gap: 4,
+                }}
+              >
+                <div style={{ color: "#d8e5f0", fontWeight: "bold" }}>
+                  Gold Bonus Composition
+                </div>
+                <div>
+                  Upgrades: <strong>+{formatStat(upgradeGoldBonus)}%</strong>
+                </div>
+                <div>
+                  Pets: <strong>+{formatStat(petGoldBonus)}%</strong>
+                </div>
+                <div>
+                  Temporary Buffs:{" "}
+                  <strong>+{formatStat(tempGoldBonus)}%</strong>
+                </div>
+                <div style={{ borderTop: "1px dashed #45637d", paddingTop: 4 }}>
+                  Total Bonus:{" "}
+                  <strong>+{formatStat(totalGoldBonusPercent)}%</strong>
+                </div>
+                <div>
+                  Multiplier:{" "}
+                  <strong>{formatStat(totalGoldMultiplier)}x</strong>
+                </div>
+                <div>
+                  Result: <strong>{formatStat(baseGoldPerSecond)}</strong> ×{" "}
+                  <strong>{formatStat(totalGoldMultiplier)}</strong> ={" "}
+                  <strong style={{ color: "#FFD700" }}>
+                    {formatCompactNumber(calculatedGoldPerSecond, {
+                      minCompactValue: 1000,
+                      decimals: 2,
+                    })}{" "}
+                    gold/s
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Potion Effects */}
+            <div
+              style={{
+                marginBottom: 12,
+                padding: 8,
+                backgroundColor: "#2a3540",
+                borderRadius: 4,
+                fontSize: 12,
+              }}
+            >
+              <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                Active Potion Bonuses
+              </div>
+              {activeGoldPotionBoost > 0 ? (
+                <div style={{ color: "#9fe3a8" }}>
+                  Gold Income: +{formatStat(activeGoldPotionBoost)}% (
+                  {formatDuration(activePotionMsLeft)} left)
+                </div>
+              ) : (
+                <div style={{ color: "#9eb0c2" }}>
+                  No active temporary potion bonuses
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                marginBottom: 12,
+                padding: 8,
+                backgroundColor: "#2a3540",
+                borderRadius: 4,
+                fontSize: 12,
+              }}
+            >
+              <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                Permanent Potion Stat Changes
+              </div>
+              {hasPermanentPotionChanges ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 4,
+                  }}
+                >
+                  {(
+                    Object.entries(permanentPotionStatChanges) as [
+                      keyof Stats,
+                      number | undefined,
+                    ][]
+                  )
+                    .filter(([, value]) => (value ?? 0) !== 0)
+                    .map(([key, value]) => (
+                      <div key={key}>
+                        <span
+                          style={{
+                            color: "#9eb0c2",
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {key}:
+                        </span>{" "}
+                        <strong
+                          style={{
+                            color: (value ?? 0) >= 0 ? "#9fe3a8" : "#ff9f9f",
+                          }}
+                        >
+                          {formatSigned(value)}
+                        </strong>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div style={{ color: "#9eb0c2" }}>
+                  No permanent potion stat changes
+                </div>
+              )}
             </div>
 
             {/* Stat Breakdown */}
@@ -268,7 +441,8 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 <span>
                   Gold Income = Upgrades(
                   {formatStat(upgradeStats.goldIncome)}%) + Pets(
-                  {formatStat(petStats.goldIncome)}%)
+                  {formatStat(petStats.goldIncome)}%) + Temporary(
+                  {formatStat(activeGoldPotionBoost)}%)
                 </span>
               </div>
               {(total.energyRegeneration ?? 0) > 0 && (
