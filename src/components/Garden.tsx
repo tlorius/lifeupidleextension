@@ -35,6 +35,7 @@ import {
   getSeedMakerCost,
   getSeedMakerDurationMs,
   craftSeedFromSeedMaker,
+  canCraftSeedFromSeedMaker,
 } from "../game/garden";
 import { getItemDefSafe } from "../game/items";
 import { formatCompactNumber } from "../game/numberFormat";
@@ -394,6 +395,32 @@ export function Garden() {
       selectedSeedMakerSeedId ?? seedMakerRecipes[0]?.seedId ?? null;
     if (!seedId) {
       alert("Select a seed recipe first.");
+      return;
+    }
+
+    const selectedRecipe = seedMakerRecipes.find((r) => r.seedId === seedId);
+    const cost = getSeedMakerCost(seedId);
+    const availableGems = state.resources.gems ?? 0;
+    const availableCategoryAmount = selectedRecipe
+      ? (state.garden.cropStorage.current[selectedRecipe.category] ?? 0)
+      : 0;
+
+    if (!canCraftSeedFromSeedMaker(state, seedId)) {
+      if (availableGems < cost.gemCost) {
+        alert(
+          `Cannot start Seedmaker. Need ${cost.gemCost} gems for the selected recipe.`,
+        );
+        return;
+      }
+
+      if (selectedRecipe && availableCategoryAmount < cost.resourceCost) {
+        alert(
+          `Cannot start Seedmaker. Need ${cost.resourceCost} ${formatCategoryLabel(selectedRecipe.category)} resource for the selected recipe.`,
+        );
+        return;
+      }
+
+      alert("Cannot start Seedmaker with the selected recipe right now.");
       return;
     }
 

@@ -28,6 +28,7 @@ import {
   getGrowthProgress,
   getFieldUnlockCost,
   craftSeedFromSeedMaker,
+  canCraftSeedFromSeedMaker,
   getSeedMakerDurationMs,
 } from "./garden";
 import type { GameState } from "./types";
@@ -341,6 +342,30 @@ describe("Garden System - Unit Tests", () => {
         (item) => item.itemId === "carrot_seed_common",
       );
       expect(seedEntry?.quantity).toBe(1);
+    });
+
+    it("should not allow seedmaker craft when category resource is missing", () => {
+      testState.garden.cropStorage.current.vegetable = 0;
+      testState.resources.gems = 10;
+
+      const canCraft = canCraftSeedFromSeedMaker(
+        testState,
+        "carrot_seed_common",
+      );
+
+      expect(canCraft).toBe(false);
+    });
+
+    it("should not allow seedmaker craft when gems are missing", () => {
+      testState.garden.cropStorage.current.vegetable = 10;
+      testState.resources.gems = 0;
+
+      const canCraft = canCraftSeedFromSeedMaker(
+        testState,
+        "carrot_seed_common",
+      );
+
+      expect(canCraft).toBe(false);
     });
 
     it("should run seedmaker cycles during idle while auto mode is running", () => {

@@ -97,6 +97,30 @@ export function craftSeedFromSeedMaker(
   state: GameState,
   seedId: string,
 ): boolean {
+  if (!canCraftSeedFromSeedMaker(state, seedId)) return false;
+
+  const cropDef = Object.values(cropDefinitions).find(
+    (crop) => crop.seedItemId === seedId,
+  );
+  if (!cropDef) return false;
+
+  const cost = getSeedMakerCost(seedId);
+  const currentGems = state.resources.gems ?? 0;
+  const currentCategoryAmount =
+    state.garden.cropStorage.current[cropDef.category] ?? 0;
+
+  state.resources.gems = currentGems - cost.gemCost;
+  state.garden.cropStorage.current[cropDef.category] =
+    currentCategoryAmount - cost.resourceCost;
+  addSeedToInventory(state, seedId);
+
+  return true;
+}
+
+export function canCraftSeedFromSeedMaker(
+  state: GameState,
+  seedId: string,
+): boolean {
   const cropDef = Object.values(cropDefinitions).find(
     (crop) => crop.seedItemId === seedId,
   );
@@ -109,12 +133,6 @@ export function craftSeedFromSeedMaker(
 
   if (currentGems < cost.gemCost) return false;
   if (currentCategoryAmount < cost.resourceCost) return false;
-
-  state.resources.gems = currentGems - cost.gemCost;
-  state.garden.cropStorage.current[cropDef.category] =
-    currentCategoryAmount - cost.resourceCost;
-  addSeedToInventory(state, seedId);
-
   return true;
 }
 
