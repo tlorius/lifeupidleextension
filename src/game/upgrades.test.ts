@@ -105,3 +105,105 @@ describe("Upgrade System - Farming Branching", () => {
     ]);
   });
 });
+
+describe("Upgrade System - Modern Tree Graph", () => {
+  let state: GameState;
+
+  beforeEach(() => {
+    state = JSON.parse(JSON.stringify(defaultState));
+    state.resources.gold = 1_000_000_000_000;
+  });
+
+  it("includes newly added trees and capstone upgrades", () => {
+    const expeditionIds = getUpgradesByTree("expedition").map((u) => u.id);
+    const resourceIds = getUpgradesByTree("resource").map((u) => u.id);
+
+    expect(expeditionIds).toContain("scouting_network");
+    expect(expeditionIds).toContain("void_contracts");
+    expect(resourceIds).toContain("singularity_bank");
+  });
+
+  it("enforces linked level thresholds and cross-tree prerequisite for void contracts", () => {
+    state = buyUpgrade(state, "scouting_network");
+    expect(isUpgradeUnlocked(state, "caravan_raids")).toBe(false);
+
+    state = buyUpgrade(state, "scouting_network");
+    expect(isUpgradeUnlocked(state, "caravan_raids")).toBe(true);
+
+    state = buyUpgrade(state, "caravan_raids");
+    state = buyUpgrade(state, "caravan_raids");
+    state = buyUpgrade(state, "caravan_raids");
+    state = buyUpgrade(state, "caravan_raids");
+
+    state = buyUpgrade(state, "scouting_network");
+    state = buyUpgrade(state, "scouting_network");
+    expect(isUpgradeUnlocked(state, "map_fog_crusher")).toBe(true);
+
+    state = buyUpgrade(state, "map_fog_crusher");
+    state = buyUpgrade(state, "map_fog_crusher");
+    state = buyUpgrade(state, "map_fog_crusher");
+
+    expect(isUpgradeUnlocked(state, "bounty_syndicate")).toBe(true);
+    state = buyUpgrade(state, "bounty_syndicate");
+    state = buyUpgrade(state, "bounty_syndicate");
+    state = buyUpgrade(state, "bounty_syndicate");
+    state = buyUpgrade(state, "bounty_syndicate");
+    state = buyUpgrade(state, "bounty_syndicate");
+
+    expect(isUpgradeUnlocked(state, "void_contracts")).toBe(false);
+
+    for (let i = 0; i < 6; i += 1) {
+      state = buyUpgrade(state, "gem_hunter");
+    }
+
+    expect(isUpgradeUnlocked(state, "void_contracts")).toBe(true);
+  });
+
+  it("requires dual resource branches before singularity bank", () => {
+    for (let i = 0; i < 4; i += 1) {
+      state = buyUpgrade(state, "gold_rush");
+    }
+    for (let i = 0; i < 4; i += 1) {
+      state = buyUpgrade(state, "gold_efficiency");
+    }
+    for (let i = 0; i < 4; i += 1) {
+      state = buyUpgrade(state, "wealth");
+    }
+
+    expect(isUpgradeUnlocked(state, "compound_interest")).toBe(true);
+    expect(isUpgradeUnlocked(state, "treasure_cartography")).toBe(true);
+
+    for (let i = 0; i < 5; i += 1) {
+      state = buyUpgrade(state, "compound_interest");
+    }
+    for (let i = 0; i < 4; i += 1) {
+      state = buyUpgrade(state, "treasure_cartography");
+    }
+
+    expect(isUpgradeUnlocked(state, "market_domination")).toBe(true);
+
+    for (let i = 0; i < 3; i += 1) {
+      state = buyUpgrade(state, "energy_conservation");
+    }
+    for (let i = 0; i < 4; i += 1) {
+      state = buyUpgrade(state, "leyline_tapping");
+    }
+    for (let i = 0; i < 4; i += 1) {
+      state = buyUpgrade(state, "gem_hunter");
+    }
+    for (let i = 0; i < 3; i += 1) {
+      state = buyUpgrade(state, "prism_sieves");
+    }
+
+    expect(isUpgradeUnlocked(state, "transmutation_engine")).toBe(true);
+
+    for (let i = 0; i < 6; i += 1) {
+      state = buyUpgrade(state, "market_domination");
+    }
+    for (let i = 0; i < 5; i += 1) {
+      state = buyUpgrade(state, "transmutation_engine");
+    }
+
+    expect(isUpgradeUnlocked(state, "singularity_bank")).toBe(true);
+  });
+});

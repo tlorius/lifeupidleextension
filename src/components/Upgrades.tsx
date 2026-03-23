@@ -50,6 +50,8 @@ export function Upgrades() {
         return "✨";
       case "farming":
         return "🌿";
+      case "expedition":
+        return "🧭";
       default:
         return "🌳";
     }
@@ -65,7 +67,7 @@ export function Upgrades() {
     if (upgradeDef.id.includes("gold") || upgradeDef.id.includes("wealth")) {
       return "💰";
     }
-    if (upgradeDef.id.includes("energy")) {
+    if (upgradeDef.id.includes("energy") || upgradeDef.id.includes("mana")) {
       return "⚡";
     }
     if (upgradeDef.id.includes("gem")) {

@@ -477,7 +477,7 @@ describe("Garden System - Unit Tests", () => {
       const result = breakRock(testState, 0, 0, "pickaxe_common");
 
       expect(result.success).toBe(false);
-      expect(result.reason).toContain("energy");
+      expect(result.reason).toContain("mana");
     });
 
     it("should expand grid when breaking rock at boundary", () => {
