@@ -15,7 +15,7 @@ describe("Upgrade System - Farming Branching", () => {
 
   beforeEach(() => {
     state = JSON.parse(JSON.stringify(defaultState));
-    state.resources.gold = 100000;
+    state.resources.gold = 1_000_000_000;
   });
 
   it("should include the second farming strand in definitions", () => {
@@ -78,6 +78,18 @@ describe("Upgrade System - Farming Branching", () => {
     state = buyUpgrade(state, "greenhouse_design");
     unlocked = getUnlockedUpgrades(state, "greenhouse_design");
     expect(unlocked).toContain("harvest_festival");
+
+    for (let i = 0; i < 9; i += 1) {
+      state = buyUpgrade(state, "harvest_festival");
+    }
+    unlocked = getUnlockedUpgrades(state, "harvest_festival");
+    expect(unlocked).not.toContain("seedmaker_lab");
+    expect(isUpgradeUnlocked(state, "seedmaker_lab")).toBe(false);
+
+    state = buyUpgrade(state, "harvest_festival");
+    unlocked = getUnlockedUpgrades(state, "harvest_festival");
+    expect(unlocked).toContain("seedmaker_lab");
+    expect(isUpgradeUnlocked(state, "seedmaker_lab")).toBe(true);
   });
 
   it("should keep farming tree metadata aligned for tier-3 dual prerequisite", () => {

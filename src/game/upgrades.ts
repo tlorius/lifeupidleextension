@@ -310,6 +310,22 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
     scaling: 1.95,
     bonuses: [{ percentBonusType: "plantGrowth", percentBonusAmount: 0.15 }],
     prerequisites: ["greenhouse_design"],
+    linkedUpgrades: [{ upgradeId: "seedmaker_lab", unlocksAtLevel: 10 }],
+  },
+
+  // Harvest Festival (level 10) -> Seedmaker Lab
+  seedmaker_lab: {
+    id: "seedmaker_lab",
+    name: "Seedmaker Lab",
+    description:
+      "Unlocks the Seedmaker in the garden to convert crop resources into seeds",
+    type: "plantGrowth",
+    tree: "farming",
+    level: 0,
+    baseCost: 1250,
+    scaling: 2.1,
+    bonuses: [],
+    prerequisites: ["harvest_festival"],
     linkedUpgrades: [],
   },
 };
@@ -354,8 +370,26 @@ export function isUpgradeUnlocked(
     return true;
   }
 
-  // Check if all prerequisites are met
-  return areUpgradePrerequisitesMet(state, upgradeId);
+  // Check if all prerequisites are met and satisfy linked unlock thresholds.
+  return (upgradeDef.prerequisites ?? []).every((prerequisiteId) => {
+    const prerequisiteUpgrade = state.upgrades.find(
+      (u) => u.id === prerequisiteId,
+    );
+    const prerequisiteLevel = prerequisiteUpgrade?.level ?? 0;
+    if (prerequisiteLevel <= 0) return false;
+
+    const prerequisiteDef = getUpgradeDef(prerequisiteId);
+    const linkedRequirement = prerequisiteDef?.linkedUpgrades?.find(
+      (linked) => linked.upgradeId === upgradeId,
+    );
+
+    if (!linkedRequirement) {
+      return true;
+    }
+
+    const requiredLevel = linkedRequirement.unlocksAtLevel ?? 1;
+    return prerequisiteLevel >= requiredLevel;
+  });
 }
 
 /**
@@ -412,6 +446,9 @@ export function getUpgradeLevel(state: GameState, upgradeId: string): number {
 export function buyUpgrade(state: GameState, upgradeId: string): GameState {
   const def = getUpgradeDef(upgradeId);
   if (!def) return state;
+
+  // Prevent bypassing prerequisite or linked unlock rules.
+  if (!isUpgradeUnlocked(state, upgradeId)) return state;
 
   const currentLevel = getUpgradeLevel(state, upgradeId);
   const cost = Math.ceil(def.baseCost * Math.pow(def.scaling, currentLevel));
