@@ -76,6 +76,11 @@ export const defaultState: GameState = {
     automationTimers: {
       harvesterRemainderMs: 0,
       planterRemainderMs: 0,
+      seedMakerRemainderMs: 0,
+    },
+    seedMaker: {
+      isRunning: false,
+      selectedSeedId: null,
     },
   },
 };

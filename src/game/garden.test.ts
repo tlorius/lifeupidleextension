@@ -26,6 +26,8 @@ import {
   getCropDef,
   getGrowthProgress,
   getFieldUnlockCost,
+  craftSeedFromSeedMaker,
+  getSeedMakerDurationMs,
 } from "./garden";
 import type { GameState } from "./types";
 import { WATER_CONFIG } from "./gameConfig";
@@ -321,6 +323,59 @@ describe("Garden System - Unit Tests", () => {
       expect(newState.garden.crops["carrot_common"]).toBeDefined();
       expect(newState.garden.crops["carrot_common"]).toHaveLength(1);
       expect(newState.garden.crops["sunflower_common"]).toBeUndefined();
+    });
+  });
+
+  describe("Seedmaker Automation", () => {
+    it("should craft one seed by consuming gems and matching crop resource", () => {
+      testState.garden.cropStorage.current.vegetable = 10;
+      testState.resources.gems = 10;
+
+      const crafted = craftSeedFromSeedMaker(testState, "carrot_seed_common");
+
+      expect(crafted).toBe(true);
+      expect(testState.resources.gems).toBe(9);
+      expect(testState.garden.cropStorage.current.vegetable).toBe(9);
+      const seedEntry = testState.inventory.find(
+        (item) => item.itemId === "carrot_seed_common",
+      );
+      expect(seedEntry?.quantity).toBe(1);
+    });
+
+    it("should run seedmaker cycles during idle while auto mode is running", () => {
+      testState.resources.gems = 100;
+      testState.garden.cropStorage.current.flower = 100;
+      testState.upgrades.push({
+        id: "seedmaker_lab",
+        name: "Seedmaker Lab",
+        description: "",
+        level: 1,
+        baseCost: 0,
+        scaling: 1,
+        type: "plantGrowth",
+        tree: "farming",
+        bonuses: [],
+      });
+      testState.garden.seedMaker = {
+        isRunning: true,
+        selectedSeedId: "sunflower_seed_common",
+      };
+
+      applyGardenIdle(testState, 60_000);
+
+      const craftedSeeds = testState.inventory.find(
+        (item) => item.itemId === "sunflower_seed_common",
+      );
+      expect(craftedSeeds?.quantity).toBe(1);
+      expect(testState.resources.gems).toBe(99);
+      expect(testState.garden.cropStorage.current.flower).toBe(99);
+    });
+
+    it("should reduce seedmaker duration with higher seedmaker level", () => {
+      const level1Duration = getSeedMakerDurationMs(1);
+      const level5Duration = getSeedMakerDurationMs(5);
+
+      expect(level5Duration).toBeLessThan(level1Duration);
     });
   });
 

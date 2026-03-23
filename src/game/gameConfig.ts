@@ -33,6 +33,31 @@ export const WATER_CONFIG = {
 } as const;
 
 /**
+ * SEEDMAKER MECHANICS
+ */
+export const SEED_MAKER_CONFIG = {
+  baseDurationMs: 60_000, // 1 minute per seed at level 1
+  durationReductionPerLevel: 0.05, // 5% faster per additional level
+  minDurationMs: 5_000,
+  defaultCost: {
+    gemCost: 1,
+    resourceCost: 1,
+  },
+  costsBySeed: {
+    sunflower_seed_common: { gemCost: 1, resourceCost: 1 },
+    rose_seed_rare: { gemCost: 1, resourceCost: 1 },
+    carrot_seed_common: { gemCost: 1, resourceCost: 1 },
+    cabbage_seed_rare: { gemCost: 1, resourceCost: 1 },
+    apple_seed_common: { gemCost: 1, resourceCost: 1 },
+    berry_seed_rare: { gemCost: 1, resourceCost: 1 },
+    mint_seed_common: { gemCost: 1, resourceCost: 1 },
+    wheat_seed_common: { gemCost: 1, resourceCost: 1 },
+    corn_seed_rare: { gemCost: 1, resourceCost: 1 },
+    grape_seed_common: { gemCost: 1, resourceCost: 1 },
+  },
+} as const;
+
+/**
  * CROP DEFINITIONS - Growth times in minutes, yields are per-harvest amounts
  */
 export const CROP_CONFIG = {

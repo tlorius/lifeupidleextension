@@ -10,6 +10,7 @@ import {
   ROCK_CONFIG,
   ROCK_GENERATION_CONFIG,
   WATER_CONFIG,
+  SEED_MAKER_CONFIG,
 } from "./gameConfig";
 
 /**
@@ -30,6 +31,83 @@ const PLANTER_CHECK_INTERVAL_MS = 5000;
  * ROCK CONFIGURATION - Re-exported from game config
  */
 export const rockConfig = ROCK_CONFIG;
+
+function getUpgradeLevelInState(state: GameState, upgradeId: string): number {
+  return state.upgrades.find((u) => u.id === upgradeId)?.level ?? 0;
+}
+
+export function getSeedMakerCost(seedId: string): {
+  gemCost: number;
+  resourceCost: number;
+} {
+  const configured =
+    SEED_MAKER_CONFIG.costsBySeed[
+      seedId as keyof typeof SEED_MAKER_CONFIG.costsBySeed
+    ];
+  if (configured) {
+    return {
+      gemCost: configured.gemCost,
+      resourceCost: configured.resourceCost,
+    };
+  }
+
+  return {
+    gemCost: SEED_MAKER_CONFIG.defaultCost.gemCost,
+    resourceCost: SEED_MAKER_CONFIG.defaultCost.resourceCost,
+  };
+}
+
+export function getSeedMakerDurationMs(seedMakerLevel: number): number {
+  const effectiveLevel = Math.max(1, seedMakerLevel);
+  const reductionMultiplier = Math.max(
+    0,
+    1 - (effectiveLevel - 1) * SEED_MAKER_CONFIG.durationReductionPerLevel,
+  );
+  const reducedDuration = Math.round(
+    SEED_MAKER_CONFIG.baseDurationMs * reductionMultiplier,
+  );
+  return Math.max(SEED_MAKER_CONFIG.minDurationMs, reducedDuration);
+}
+
+function addSeedToInventory(state: GameState, seedId: string): void {
+  const existing = state.inventory.find((item) => item.itemId === seedId);
+  if (existing) {
+    existing.quantity += 1;
+    return;
+  }
+
+  state.inventory.push({
+    uid: crypto.randomUUID(),
+    itemId: seedId,
+    quantity: 1,
+    level: 1,
+  });
+}
+
+export function craftSeedFromSeedMaker(
+  state: GameState,
+  seedId: string,
+): boolean {
+  const cropDef = Object.values(cropDefinitions).find(
+    (crop) => crop.seedItemId === seedId,
+  );
+  if (!cropDef) return false;
+
+  const cost = getSeedMakerCost(seedId);
+  const currentGems = state.resources.gems ?? 0;
+  const currentCategoryAmount =
+    state.garden.cropStorage.current[cropDef.category] ?? 0;
+
+  if (currentGems < cost.gemCost) return false;
+  if (currentCategoryAmount < cost.resourceCost) return false;
+
+  state.resources.gems = currentGems - cost.gemCost;
+  state.garden.cropStorage.current[cropDef.category] =
+    currentCategoryAmount - cost.resourceCost;
+  addSeedToInventory(state, seedId);
+
+  return true;
+}
 
 function isProtectedStarterField(row: number, col: number): boolean {
   return row < 2 && col < 2;
@@ -809,6 +887,17 @@ function applyPlanterCycle(state: GameState): void {
   }
 }
 
+function applySeedMakerCycle(state: GameState): void {
+  const seedMaker = state.garden.seedMaker;
+  if (!seedMaker?.isRunning) return;
+
+  const selectedSeedId = seedMaker.selectedSeedId;
+  if (!selectedSeedId) return;
+
+  // If resources are unavailable, keep running and wait for resources.
+  craftSeedFromSeedMaker(state, selectedSeedId);
+}
+
 /**
  * Plant a seed at a position
  */
@@ -1148,18 +1237,24 @@ export function applyGardenIdle(state: GameState, deltaMs: number): void {
   const timers = state.garden.automationTimers ?? {
     harvesterRemainderMs: 0,
     planterRemainderMs: 0,
+    seedMakerRemainderMs: 0,
   };
 
   const harvesterTotalMs = (timers.harvesterRemainderMs ?? 0) + deltaMs;
   const planterTotalMs = (timers.planterRemainderMs ?? 0) + deltaMs;
+  const seedMakerTotalMs = (timers.seedMakerRemainderMs ?? 0) + deltaMs;
 
   const harvesterCycles = Math.floor(
     harvesterTotalMs / HARVESTER_CHECK_INTERVAL_MS,
   );
   const planterCycles = Math.floor(planterTotalMs / PLANTER_CHECK_INTERVAL_MS);
+  const seedMakerLevel = getUpgradeLevelInState(state, "seedmaker_lab");
+  const seedMakerIntervalMs = getSeedMakerDurationMs(seedMakerLevel);
+  const seedMakerCycles = Math.floor(seedMakerTotalMs / seedMakerIntervalMs);
 
   timers.harvesterRemainderMs = harvesterTotalMs % HARVESTER_CHECK_INTERVAL_MS;
   timers.planterRemainderMs = planterTotalMs % PLANTER_CHECK_INTERVAL_MS;
+  timers.seedMakerRemainderMs = seedMakerTotalMs % seedMakerIntervalMs;
   state.garden.automationTimers = timers;
 
   if (harvesterCycles > 0) {
@@ -1173,6 +1268,13 @@ export function applyGardenIdle(state: GameState, deltaMs: number): void {
     const cyclesToRun = Math.min(planterCycles, 240);
     for (let i = 0; i < cyclesToRun; i++) {
       applyPlanterCycle(state);
+    }
+  }
+
+  if (seedMakerCycles > 0) {
+    const cyclesToRun = Math.min(seedMakerCycles, 240);
+    for (let i = 0; i < cyclesToRun; i++) {
+      applySeedMakerCycle(state);
     }
   }
 }

@@ -181,6 +181,13 @@ export interface GardenState {
   automationTimers?: {
     harvesterRemainderMs?: number;
     planterRemainderMs?: number;
+    seedMakerRemainderMs?: number;
+  };
+
+  // Seedmaker automation state.
+  seedMaker?: {
+    isRunning?: boolean;
+    selectedSeedId?: string | null;
   };
 }
 
