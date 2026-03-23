@@ -36,8 +36,9 @@ function calculateItemTotalStats(item: any, def: any): number {
 }
 
 export function Inventory() {
-  const { state } = useGame();
+  const { state, setState } = useGame();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
+  const [selectedSellUids, setSelectedSellUids] = useState<string[]>([]);
   const [filter, setFilter] = useState<ItemType | "all">("all");
   const [potionToast, setPotionToast] = useState<PotionToastPayload | null>(
     null,
@@ -80,12 +81,19 @@ export function Inventory() {
     return def?.type === filter;
   });
 
+  // Keep selection in sync when inventory changes (sold/used/upgraded items).
+  useEffect(() => {
+    const existingUids = new Set(state.inventory.map((item) => item.uid));
+    setSelectedSellUids((prev) => prev.filter((uid) => existingUids.has(uid)));
+  }, [state.inventory]);
+
   type InventoryDisplayEntry = {
     uid: string;
     itemId: string;
     level: number;
     quantity: number;
     isGroupedSeed: boolean;
+    selectableUids: string[];
   };
 
   const seedGroups = new Map<string, InventoryDisplayEntry>();
@@ -108,6 +116,7 @@ export function Inventory() {
           level: item.level,
           quantity: item.quantity,
           isGroupedSeed: true,
+          selectableUids: [item.uid],
         });
       }
     } else {
@@ -117,7 +126,19 @@ export function Inventory() {
         level: item.level,
         quantity: item.quantity,
         isGroupedSeed: false,
+        selectableUids: [item.uid],
       });
+    }
+  }
+
+  for (const item of filteredInventory) {
+    const grouped = seedGroups.get(item.itemId);
+    if (
+      grouped &&
+      grouped.isGroupedSeed &&
+      !grouped.selectableUids.includes(item.uid)
+    ) {
+      grouped.selectableUids.push(item.uid);
     }
   }
 
@@ -134,6 +155,131 @@ export function Inventory() {
   });
 
   const selectedItem = state.inventory.find((i) => i.uid === selectedItemUid);
+
+  const getSellPriceByUid = (uid: string): number => {
+    const item = state.inventory.find((entry) => entry.uid === uid);
+    if (!item) return 0;
+    const def = getItemDefSafe(item.itemId);
+    return def?.sellPrice ?? 0;
+  };
+
+  const isEntrySelectable = (entry: InventoryDisplayEntry): boolean =>
+    entry.selectableUids.some((uid) => !isItemEquipped(state, uid));
+
+  const isEntryFullySelected = (entry: InventoryDisplayEntry): boolean => {
+    const selectable = entry.selectableUids.filter(
+      (uid) => !isItemEquipped(state, uid),
+    );
+    return (
+      selectable.length > 0 &&
+      selectable.every((uid) => selectedSellUids.includes(uid))
+    );
+  };
+
+  const toggleEntrySelection = (entry: InventoryDisplayEntry): void => {
+    const selectable = entry.selectableUids.filter(
+      (uid) => !isItemEquipped(state, uid),
+    );
+    if (selectable.length === 0) return;
+
+    setSelectedSellUids((prev) => {
+      const allSelected = selectable.every((uid) => prev.includes(uid));
+      if (allSelected) {
+        return prev.filter((uid) => !selectable.includes(uid));
+      }
+
+      const merged = new Set(prev);
+      for (const uid of selectable) merged.add(uid);
+      return Array.from(merged);
+    });
+  };
+
+  const selectableDisplayEntries = displayInventory.filter((entry) =>
+    isEntrySelectable(entry),
+  );
+  const selectableVisibleUids = Array.from(
+    new Set(
+      selectableDisplayEntries.flatMap((entry) =>
+        entry.selectableUids.filter((uid) => !isItemEquipped(state, uid)),
+      ),
+    ),
+  );
+  const allVisibleSelected =
+    selectableVisibleUids.length > 0 &&
+    selectableVisibleUids.every((uid) => selectedSellUids.includes(uid));
+  const selectedSellTotalGold = selectedSellUids.reduce(
+    (sum, uid) => sum + getSellPriceByUid(uid),
+    0,
+  );
+
+  const selectedUniqueItemNames = Array.from(
+    new Set(
+      selectedSellUids
+        .map((uid) => state.inventory.find((entry) => entry.uid === uid))
+        .filter((item): item is NonNullable<typeof item> => !!item)
+        .map((item) => getItemDefSafe(item.itemId))
+        .filter((def): def is NonNullable<typeof def> => !!def)
+        .filter((def) => def.rarity === "unique")
+        .map((def) => def.name),
+    ),
+  );
+
+  const toggleSelectAllVisible = () => {
+    if (selectableVisibleUids.length === 0) return;
+
+    setSelectedSellUids((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((uid) => !selectableVisibleUids.includes(uid));
+      }
+
+      const merged = new Set(prev);
+      for (const uid of selectableVisibleUids) merged.add(uid);
+      return Array.from(merged);
+    });
+  };
+
+  const sellSelectedItems = () => {
+    if (selectedSellUids.length === 0) return;
+
+    const baseMessage = `Sell ${selectedSellUids.length} selected item(s) for ${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold?`;
+    const uniqueWarning =
+      selectedUniqueItemNames.length > 0
+        ? `\n\nCareful are you sure you want to delete unique items ${selectedUniqueItemNames.join(", ")}`
+        : "";
+
+    const confirmed = window.confirm(`${baseMessage}${uniqueWarning}`);
+    if (!confirmed) return;
+
+    setState((prev) => {
+      const selectedSet = new Set(selectedSellUids);
+      const totalGold = prev.inventory
+        .filter(
+          (item) =>
+            selectedSet.has(item.uid) && !isItemEquipped(prev, item.uid),
+        )
+        .reduce((sum, item) => {
+          const def = getItemDefSafe(item.itemId);
+          return sum + (def?.sellPrice ?? 0);
+        }, 0);
+
+      return {
+        ...prev,
+        resources: {
+          ...prev.resources,
+          gold: prev.resources.gold + totalGold,
+        },
+        inventory: prev.inventory.filter(
+          (item) =>
+            !selectedSet.has(item.uid) || isItemEquipped(prev, item.uid),
+        ),
+      };
+    });
+
+    if (selectedItemUid && selectedSellUids.includes(selectedItemUid)) {
+      setSelectedItemUid(null);
+    }
+    setSelectedSellUids([]);
+  };
 
   const toastToneStyles: Record<
     PotionToastTone,
@@ -200,10 +346,76 @@ export function Inventory() {
         <p style={{ color: "#9eb0c2" }}>No items</p>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
+          <div
+            style={{
+              border: "1px solid #345068",
+              borderRadius: 8,
+              backgroundColor: "#142332",
+              padding: 10,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+                color: "#dce6f0",
+                cursor:
+                  selectableVisibleUids.length > 0 ? "pointer" : "not-allowed",
+                opacity: selectableVisibleUids.length > 0 ? 1 : 0.6,
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                disabled={selectableVisibleUids.length === 0}
+                style={{ width: 18, height: 18 }}
+              />
+              Select all non-equipped (visible)
+            </label>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "#9eb0c2" }}>
+                {selectedSellUids.length} selected • +
+                {formatCompactNumber(selectedSellTotalGold, {
+                  minCompactValue: 1000,
+                })}
+                🪙
+              </span>
+              <button
+                className="btn-danger"
+                style={{
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  borderRadius: 6,
+                  minHeight: 40,
+                  minWidth: 130,
+                  opacity: selectedSellUids.length > 0 ? 1 : 0.6,
+                  cursor:
+                    selectedSellUids.length > 0 ? "pointer" : "not-allowed",
+                }}
+                onClick={sellSelectedItems}
+                disabled={selectedSellUids.length === 0}
+              >
+                Sell Selected
+              </button>
+            </div>
+          </div>
+
           {displayInventory.map((item) => {
             const def = getItemDefSafe(item.itemId);
             const equipped = isItemEquipped(state, item.uid);
             const totalStats = calculateItemTotalStats(item, def);
+            const entrySelectable = isEntrySelectable(item);
+            const entrySelected = isEntryFullySelected(item);
 
             const itemStats: Partial<Stats> = {};
             if (def?.stats) {
@@ -256,6 +468,27 @@ export function Inventory() {
                     : "#2f4459";
                 }}
               >
+                <div
+                  style={{
+                    marginTop: 1,
+                    flexShrink: 0,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={entrySelected}
+                    disabled={!entrySelectable}
+                    onChange={() => toggleEntrySelection(item)}
+                    aria-label={`Select ${def?.name ?? item.itemId} for selling`}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      cursor: entrySelectable ? "pointer" : "not-allowed",
+                    }}
+                  />
+                </div>
+
                 {/* Item Icon */}
                 <div
                   style={{
@@ -352,6 +585,13 @@ export function Inventory() {
                       ? "Click to view one seed entry"
                       : "Click to view details"}
                   </div>
+                  {!entrySelectable && (
+                    <div
+                      style={{ fontSize: 11, color: "#b9c7d6", marginTop: 6 }}
+                    >
+                      Equipped items cannot be selected for mass sell.
+                    </div>
+                  )}
                 </div>
 
                 {/* Equipped Badge */}
