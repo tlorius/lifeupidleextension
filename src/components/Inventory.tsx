@@ -39,6 +39,7 @@ export function Inventory() {
   const { state, setState } = useGame();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
   const [selectedSellUids, setSelectedSellUids] = useState<string[]>([]);
+  const [isMassSelectMode, setIsMassSelectMode] = useState(false);
   const [filter, setFilter] = useState<ItemType | "all">("all");
   const [potionToast, setPotionToast] = useState<PotionToastPayload | null>(
     null,
@@ -86,6 +87,12 @@ export function Inventory() {
     const existingUids = new Set(state.inventory.map((item) => item.uid));
     setSelectedSellUids((prev) => prev.filter((uid) => existingUids.has(uid)));
   }, [state.inventory]);
+
+  useEffect(() => {
+    if (!isMassSelectMode && selectedSellUids.length > 0) {
+      setSelectedSellUids([]);
+    }
+  }, [isMassSelectMode, selectedSellUids.length]);
 
   type InventoryDisplayEntry = {
     uid: string;
@@ -339,6 +346,18 @@ export function Inventory() {
             {type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
         ))}
+        <button
+          className={isMassSelectMode ? "btn-selected" : ""}
+          style={{
+            padding: "8px 12px",
+            fontSize: "12px",
+            borderRadius: 4,
+            transition: "all 0.2s",
+          }}
+          onClick={() => setIsMassSelectMode((prev) => !prev)}
+        >
+          {isMassSelectMode ? "Exit Mass Select" : "Mass Select"}
+        </button>
       </div>
 
       {/* Inventory Items */}
@@ -346,69 +365,73 @@ export function Inventory() {
         <p style={{ color: "#9eb0c2" }}>No items</p>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
-          <div
-            style={{
-              border: "1px solid #345068",
-              borderRadius: 8,
-              backgroundColor: "#142332",
-              padding: 10,
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 10,
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <label
+          {isMassSelectMode && (
+            <div
               style={{
+                border: "1px solid #345068",
+                borderRadius: 8,
+                backgroundColor: "#142332",
+                padding: 10,
                 display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
                 alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-                color: "#dce6f0",
-                cursor:
-                  selectableVisibleUids.length > 0 ? "pointer" : "not-allowed",
-                opacity: selectableVisibleUids.length > 0 ? 1 : 0.6,
-                userSelect: "none",
+                justifyContent: "space-between",
               }}
             >
-              <input
-                type="checkbox"
-                checked={allVisibleSelected}
-                onChange={toggleSelectAllVisible}
-                disabled={selectableVisibleUids.length === 0}
-                style={{ width: 18, height: 18 }}
-              />
-              Select all non-equipped (visible)
-            </label>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 12, color: "#9eb0c2" }}>
-                {selectedSellUids.length} selected • +
-                {formatCompactNumber(selectedSellTotalGold, {
-                  minCompactValue: 1000,
-                })}
-                🪙
-              </span>
-              <button
-                className="btn-danger"
+              <label
                 style={{
-                  padding: "10px 12px",
-                  fontSize: 13,
-                  borderRadius: 6,
-                  minHeight: 40,
-                  minWidth: 130,
-                  opacity: selectedSellUids.length > 0 ? 1 : 0.6,
                   cursor:
-                    selectedSellUids.length > 0 ? "pointer" : "not-allowed",
+                    selectableVisibleUids.length > 0
+                      ? "pointer"
+                      : "not-allowed",
+                  opacity: selectableVisibleUids.length > 0 ? 1 : 0.6,
+                  userSelect: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 13,
+                  color: "#dce6f0",
                 }}
-                onClick={sellSelectedItems}
-                disabled={selectedSellUids.length === 0}
               >
-                Sell Selected
-              </button>
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  disabled={selectableVisibleUids.length === 0}
+                  style={{ width: 18, height: 18 }}
+                />
+                Select all non-equipped (visible)
+              </label>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#9eb0c2" }}>
+                  {selectedSellUids.length} selected • +
+                  {formatCompactNumber(selectedSellTotalGold, {
+                    minCompactValue: 1000,
+                  })}
+                  🪙
+                </span>
+                <button
+                  className="btn-danger"
+                  style={{
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    borderRadius: 6,
+                    minHeight: 40,
+                    minWidth: 130,
+                    opacity: selectedSellUids.length > 0 ? 1 : 0.6,
+                    cursor:
+                      selectedSellUids.length > 0 ? "pointer" : "not-allowed",
+                  }}
+                  onClick={sellSelectedItems}
+                  disabled={selectedSellUids.length === 0}
+                >
+                  Sell Selected
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {displayInventory.map((item) => {
             const def = getItemDefSafe(item.itemId);
@@ -468,26 +491,28 @@ export function Inventory() {
                     : "#2f4459";
                 }}
               >
-                <div
-                  style={{
-                    marginTop: 1,
-                    flexShrink: 0,
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    checked={entrySelected}
-                    disabled={!entrySelectable}
-                    onChange={() => toggleEntrySelection(item)}
-                    aria-label={`Select ${def?.name ?? item.itemId} for selling`}
+                {isMassSelectMode && (
+                  <div
                     style={{
-                      width: 20,
-                      height: 20,
-                      cursor: entrySelectable ? "pointer" : "not-allowed",
+                      marginTop: 1,
+                      flexShrink: 0,
                     }}
-                  />
-                </div>
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={entrySelected}
+                      disabled={!entrySelectable}
+                      onChange={() => toggleEntrySelection(item)}
+                      aria-label={`Select ${def?.name ?? item.itemId} for selling`}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        cursor: entrySelectable ? "pointer" : "not-allowed",
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* Item Icon */}
                 <div

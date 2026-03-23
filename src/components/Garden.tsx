@@ -4,7 +4,6 @@ import {
   getCropDef,
   cropDefinitions,
   getGrowthProgress,
-  generateRocksForGrid,
   getFieldUnlockCost,
   unlockField,
   plantCrop,
@@ -22,7 +21,7 @@ import {
   breakRock,
   reduceCropGrowthTime,
   moveCropArea,
-  sanitizeStarterZoneRocks,
+  reconcileGardenRocksForPreview,
   sprinklerCoversField,
   setCropSprinkler,
   placeSprinklerOnField,
@@ -271,46 +270,9 @@ export function Garden() {
     return 1;
   };
 
-  // Initialize rocks on first load
+  // Reconcile rocks on load to sanitize starter tiles and fill missing preview rocks.
   useEffect(() => {
-    const sanitizedRocks = sanitizeStarterZoneRocks(garden.rocks);
-    const starterRocksWerePresent =
-      sanitizedRocks.small.length !== garden.rocks.small.length ||
-      sanitizedRocks.medium.length !== garden.rocks.medium.length ||
-      sanitizedRocks.large.length !== garden.rocks.large.length;
-
-    if (starterRocksWerePresent) {
-      setState((prev) => ({
-        ...prev,
-        garden: {
-          ...prev.garden,
-          rocks: sanitizeStarterZoneRocks(prev.garden.rocks),
-        },
-      }));
-      return;
-    }
-
-    if (
-      garden.rocks.small.length === 0 &&
-      garden.rocks.medium.length === 0 &&
-      garden.rocks.large.length === 0
-    ) {
-      // Generate rocks for the preview area (gridSize + 2)
-      const previewRows = garden.gridSize.rows + 2;
-      const previewCols = garden.gridSize.cols + 2;
-      const generatedRocks = generateRocksForGrid(
-        previewRows,
-        previewCols,
-        Math.floor(Math.random() * 1000000),
-      );
-      setState((prev) => ({
-        ...prev,
-        garden: {
-          ...prev.garden,
-          rocks: generatedRocks,
-        },
-      }));
-    }
+    setState((prev) => reconcileGardenRocksForPreview(prev));
   }, []);
 
   useEffect(() => {
@@ -3968,16 +3930,17 @@ export function Garden() {
         >
           <div
             style={{
-              backgroundColor: "#162433",
+              background:
+                "linear-gradient(180deg, rgba(24, 36, 51, 0.98) 0%, rgba(14, 22, 34, 0.98) 100%)",
               color: "#e5edf5",
-              borderRadius: 8,
-              padding: isMobile ? 12 : 20,
+              borderRadius: 18,
+              padding: isMobile ? 16 : 22,
               maxHeight: isMobile ? "88vh" : "80vh",
-              maxWidth: "500px",
-              width: isMobile ? "94vw" : "500px",
+              maxWidth: "540px",
+              width: isMobile ? "94vw" : "540px",
               overflow: "auto",
-              border: "1px solid #35506a",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
+              border: "1px solid rgba(116, 192, 252, 0.22)",
+              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -3998,26 +3961,81 @@ export function Garden() {
 
               return (
                 <>
-                  <h3 style={{ margin: "0 0 16px 0" }}>⛏️ Break Rock</h3>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      marginBottom: 18,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.12em",
+                          color: "#8eb8de",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Rock obstacle
+                      </div>
+                      <h3
+                        style={{
+                          margin: 0,
+                          fontSize: isMobile ? 22 : 26,
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        ⛏️ Break Rock
+                      </h3>
+                    </div>
+                    <div
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 999,
+                        backgroundColor: "rgba(74, 144, 226, 0.14)",
+                        border: "1px solid rgba(74, 144, 226, 0.3)",
+                        color: "#b7d7f5",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        textTransform: "capitalize",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {tier} tier
+                    </div>
+                  </div>
 
                   {/* Rock Info */}
                   <div
                     style={{
-                      backgroundColor: "#1b2d3f",
-                      padding: 12,
-                      borderRadius: 6,
+                      background:
+                        "linear-gradient(135deg, rgba(47, 68, 89, 0.88) 0%, rgba(27, 45, 63, 0.88) 100%)",
+                      padding: 14,
+                      borderRadius: 14,
                       marginBottom: 16,
-                      border: "1px solid #2f4459",
+                      border: "1px solid rgba(143, 176, 194, 0.22)",
                     }}
                   >
-                    <div style={{ fontWeight: "bold", marginBottom: 8 }}>
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        marginBottom: 10,
+                        fontSize: 16,
+                      }}
+                    >
                       {tier?.charAt(0).toUpperCase() + tier?.slice(1)} Rock
                     </div>
                     <div
                       style={{
-                        fontSize: 12,
-                        color: "#9eb0c2",
-                        lineHeight: "1.6",
+                        fontSize: 13,
+                        color: "#c3d6e8",
+                        lineHeight: "1.7",
+                        display: "grid",
+                        gap: 6,
                       }}
                     >
                       <div>
@@ -4037,14 +4055,20 @@ export function Garden() {
                   {/* Requirements */}
                   <div
                     style={{
-                      backgroundColor: "#1f2b38",
-                      padding: 12,
-                      borderRadius: 6,
+                      backgroundColor: "rgba(18, 29, 41, 0.92)",
+                      padding: 14,
+                      borderRadius: 14,
                       marginBottom: 16,
-                      border: "1px solid #2f4459",
+                      border: "1px solid rgba(143, 176, 194, 0.18)",
                     }}
                   >
-                    <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+                    <div
+                      style={{
+                        fontWeight: "bold",
+                        marginBottom: 12,
+                        fontSize: 15,
+                      }}
+                    >
                       Requirements
                     </div>
                     <div
@@ -4053,19 +4077,19 @@ export function Garden() {
                         lineHeight: "1.8",
                         display: "flex",
                         flexDirection: "column",
-                        gap: 8,
+                        gap: 10,
                       }}
                     >
                       <div
                         style={{
-                          padding: 8,
+                          padding: 10,
                           backgroundColor: meetsRequirement
-                            ? "#E8F5E9"
-                            : "#FFEBEE",
-                          borderRadius: 4,
+                            ? "rgba(46, 125, 50, 0.16)"
+                            : "rgba(198, 40, 40, 0.16)",
+                          borderRadius: 10,
                           border: meetsRequirement
-                            ? "1px solid #4CAF50"
-                            : "1px solid #F44336",
+                            ? "1px solid rgba(76, 175, 80, 0.5)"
+                            : "1px solid rgba(244, 67, 54, 0.5)",
                         }}
                       >
                         <div style={{ fontWeight: "bold", marginBottom: 4 }}>
@@ -4081,7 +4105,7 @@ export function Garden() {
                           <span>Required: Level {config.minPickaxeLevel}</span>
                           <span
                             style={{
-                              color: meetsRequirement ? "#4CAF50" : "#F44336",
+                              color: meetsRequirement ? "#8dd694" : "#ff8a80",
                               fontWeight: "bold",
                             }}
                           >
@@ -4092,12 +4116,14 @@ export function Garden() {
 
                       <div
                         style={{
-                          padding: 8,
-                          backgroundColor: hasEnergy ? "#E3F2FD" : "#FFEBEE",
-                          borderRadius: 4,
+                          padding: 10,
+                          backgroundColor: hasEnergy
+                            ? "rgba(33, 150, 243, 0.16)"
+                            : "rgba(198, 40, 40, 0.16)",
+                          borderRadius: 10,
                           border: hasEnergy
-                            ? "1px solid #2196F3"
-                            : "1px solid #F44336",
+                            ? "1px solid rgba(33, 150, 243, 0.5)"
+                            : "1px solid rgba(244, 67, 54, 0.5)",
                         }}
                       >
                         <div style={{ fontWeight: "bold", marginBottom: 4 }}>
@@ -4116,7 +4142,7 @@ export function Garden() {
                           </span>
                           <span
                             style={{
-                              color: hasEnergy ? "#2196F3" : "#F44336",
+                              color: hasEnergy ? "#8ecbff" : "#ff8a80",
                               fontWeight: "bold",
                             }}
                           >
@@ -4132,13 +4158,14 @@ export function Garden() {
                   {(!meetsRequirement || !hasEnergy) && (
                     <div
                       style={{
-                        backgroundColor: "#FFF3E0",
-                        padding: 10,
-                        borderRadius: 6,
+                        backgroundColor: "rgba(255, 183, 77, 0.14)",
+                        padding: 12,
+                        borderRadius: 12,
                         marginBottom: 16,
                         fontSize: 12,
-                        color: "#E65100",
-                        border: "1px solid #FFB74D",
+                        color: "#ffd8a8",
+                        border: "1px solid rgba(255, 183, 77, 0.45)",
+                        lineHeight: 1.6,
                       }}
                     >
                       {!meetsRequirement && (
@@ -4165,16 +4192,14 @@ export function Garden() {
                       display: "flex",
                       gap: 8,
                       justifyContent: "flex-end",
+                      flexWrap: "wrap",
                     }}
                   >
                     <button
+                      className="btn-secondary"
                       style={{
                         padding: "10px 20px",
-                        backgroundColor: "#253649",
-                        border: "1px solid #3f546a",
-                        color: "#eaf2fb",
-                        borderRadius: 4,
-                        cursor: "pointer",
+                        borderRadius: 10,
                         fontWeight: "bold",
                       }}
                       onClick={() =>
@@ -4189,18 +4214,26 @@ export function Garden() {
                       Cancel
                     </button>
                     <button
+                      className={
+                        meetsRequirement && hasEnergy ? "btn-primary" : ""
+                      }
                       style={{
                         padding: "10px 20px",
                         backgroundColor:
-                          meetsRequirement && hasEnergy ? "#FF9800" : "#ccc",
-                        color: meetsRequirement && hasEnergy ? "white" : "#999",
+                          meetsRequirement && hasEnergy ? undefined : "#52606d",
+                        color:
+                          meetsRequirement && hasEnergy ? undefined : "#c7d0d9",
                         border: "none",
-                        borderRadius: 4,
+                        borderRadius: 10,
                         cursor:
                           meetsRequirement && hasEnergy
                             ? "pointer"
                             : "not-allowed",
                         fontWeight: "bold",
+                        boxShadow:
+                          meetsRequirement && hasEnergy
+                            ? "0 10px 20px rgba(0, 0, 0, 0.28)"
+                            : "none",
                       }}
                       disabled={!meetsRequirement || !hasEnergy}
                       onClick={() => {

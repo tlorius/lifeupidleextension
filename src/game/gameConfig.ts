@@ -13,16 +13,6 @@ export const ROCK_CONFIG = {
 } as const;
 
 /**
- * ROCK GENERATION - Distance tiers from center (Chebyshev distance)
- */
-export const ROCK_GENERATION_CONFIG = {
-  nearby: { smallChance: 0.05, mediumChance: 0, largeChance: 0 },
-  middle: { smallChance: 0.15, mediumChance: 0.1, largeChance: 0 },
-  far: { smallChance: 0.2, mediumChance: 0.25, largeChance: 0.05 },
-  veryFar: { smallChance: 0.15, mediumChance: 0.25, largeChance: 0.2 },
-} as const;
-
-/**
  * WATER MECHANICS
  */
 export const WATER_CONFIG = {

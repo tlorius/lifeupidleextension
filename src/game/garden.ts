@@ -8,7 +8,6 @@ import {
   CROP_CONFIG,
   TOOL_CONFIG,
   ROCK_CONFIG,
-  ROCK_GENERATION_CONFIG,
   WATER_CONFIG,
   SEED_MAKER_CONFIG,
 } from "./gameConfig";
@@ -137,7 +136,98 @@ export function canCraftSeedFromSeedMaker(
 }
 
 function isProtectedStarterField(row: number, col: number): boolean {
-  return row < 2 && col < 2;
+  return row >= 0 && col >= 0 && row < 3 && col < 3;
+}
+
+function getDistanceFromStarterZone(row: number, col: number): number {
+  if (isProtectedStarterField(row, col)) return 0;
+  const rowDistance = row >= 3 ? row - 2 : 0;
+  const colDistance = col >= 3 ? col - 2 : 0;
+  return Math.max(rowDistance, colDistance);
+}
+
+function getRockPatternScore(row: number, col: number): number {
+  return ((row + 1) * 13 + (col + 1) * 17 + (row - col) * 7) % 100;
+}
+
+export function hasRockPatternAtTile(row: number, col: number): boolean {
+  const distance = getDistanceFromStarterZone(row, col);
+  if (distance <= 0) return false;
+
+  const localRow = row % 12;
+  const localCol = col % 12;
+  const smileyPixels = new Set([
+    "3,2",
+    "3,3",
+    "3,8",
+    "4,3",
+    "4,8",
+    "7,3",
+    "8,4",
+    "8,5",
+    "8,6",
+    "8,7",
+    "7,8",
+  ]);
+
+  return smileyPixels.has(`${localRow},${localCol}`);
+}
+
+function getRockTierByDistance(
+  distance: number,
+  patternScore: number,
+): "small" | "medium" | "large" {
+  if (distance <= 2) {
+    return "small";
+  }
+
+  if (distance <= 5) {
+    return patternScore < 72 ? "small" : "medium";
+  }
+
+  if (distance <= 8) {
+    if (patternScore < 42) return "small";
+    if (patternScore < 82) return "medium";
+    return "large";
+  }
+
+  if (patternScore < 24) return "small";
+  if (patternScore < 64) return "medium";
+  return "large";
+}
+
+function getRockTierForTile(
+  row: number,
+  col: number,
+): "small" | "medium" | "large" | null {
+  if (!hasRockPatternAtTile(row, col)) return null;
+
+  const distance = getDistanceFromStarterZone(row, col);
+  const patternScore = getRockPatternScore(row, col);
+
+  return getRockTierByDistance(distance, patternScore);
+}
+
+function ensureRocksForPreviewArea(state: GameState): void {
+  const previewRows = state.garden.gridSize.rows + 2;
+  const previewCols = state.garden.gridSize.cols + 2;
+
+  for (let row = 0; row < previewRows; row++) {
+    for (let col = 0; col < previewCols; col++) {
+      const isCorner =
+        (row === 0 || row === previewRows - 1) &&
+        (col === 0 || col === previewCols - 1);
+      if (isCorner) continue;
+      if (isProtectedStarterField(row, col)) continue;
+      if (hasRockAtPosition(state.garden.rocks, row, col)) continue;
+      if (isFieldUnlocked(state, row, col)) continue;
+
+      const tier = getRockTierForTile(row, col);
+      if (!tier) continue;
+
+      state.garden.rocks[tier].push({ row, col });
+    }
+  }
 }
 
 function hasRockAtPosition(
@@ -170,6 +260,46 @@ export function sanitizeStarterZoneRocks(rocks: {
     medium: rocks.medium.filter((r) => !isProtectedStarterField(r.row, r.col)),
     large: rocks.large.filter((r) => !isProtectedStarterField(r.row, r.col)),
   };
+}
+
+export function reconcileGardenRocksForPreview(state: GameState): GameState {
+  const sanitizedRocks = sanitizeStarterZoneRocks(state.garden.rocks);
+  const removedStarterRocks =
+    sanitizedRocks.small.length !== state.garden.rocks.small.length ||
+    sanitizedRocks.medium.length !== state.garden.rocks.medium.length ||
+    sanitizedRocks.large.length !== state.garden.rocks.large.length;
+
+  const beforeSmallCount = sanitizedRocks.small.length;
+  const beforeMediumCount = sanitizedRocks.medium.length;
+  const beforeLargeCount = sanitizedRocks.large.length;
+
+  const nextState: GameState = {
+    ...state,
+    garden: {
+      ...state.garden,
+      rocks: {
+        small: [...sanitizedRocks.small],
+        medium: [...sanitizedRocks.medium],
+        large: [...sanitizedRocks.large],
+      },
+    },
+  };
+
+  ensureRocksForPreviewArea(nextState);
+
+  const afterSmallCount = nextState.garden.rocks.small.length;
+  const afterMediumCount = nextState.garden.rocks.medium.length;
+  const afterLargeCount = nextState.garden.rocks.large.length;
+  const rocksAdded =
+    afterSmallCount !== beforeSmallCount ||
+    afterMediumCount !== beforeMediumCount ||
+    afterLargeCount !== beforeLargeCount;
+
+  if (!removedStarterRocks && !rocksAdded) {
+    return state;
+  }
+
+  return nextState;
 }
 
 /**
@@ -1320,35 +1450,17 @@ export function applyGardenIdle(state: GameState, deltaMs: number): void {
  */
 
 /**
- * Configuration for rock generation based on distance from origin
- * Distance = max(abs(row - centerRow), abs(col - centerCol)) [Chebyshev distance]
- */
-export const rockGenerationConfig = ROCK_GENERATION_CONFIG;
-
-/**
- * Generate rocks for the garden grid using pseudorandom placement
- * based on distance from center
+ * Generate rocks for the garden grid using a fixed coordinate pattern.
  */
 export function generateRocksForGrid(
   gridRows: number,
   gridCols: number,
-  seed: number = 12345,
 ): { small: FieldPosition[]; medium: FieldPosition[]; large: FieldPosition[] } {
   const rocks = {
     small: [] as FieldPosition[],
     medium: [] as FieldPosition[],
     large: [] as FieldPosition[],
   };
-  const centerRow = Math.floor(gridRows / 2);
-  const centerCol = Math.floor(gridCols / 2);
-
-  // Seeded random number generator (simple)
-  let rng = seed;
-  const random = () => {
-    rng = (rng * 9301 + 49297) % 233280;
-    return rng / 233280;
-  };
-
   for (let row = 0; row < gridRows; row++) {
     for (let col = 0; col < gridCols; col++) {
       // Skip corners in the preview area
@@ -1359,31 +1471,9 @@ export function generateRocksForGrid(
 
       if (isProtectedStarterField(row, col)) continue;
 
-      // Calculate distance from center (Chebyshev distance)
-      const distance = Math.max(
-        Math.abs(row - centerRow),
-        Math.abs(col - centerCol),
-      );
-
-      // Determine rock configuration for this distance
-      let config: any = rockGenerationConfig.nearby;
-      if (distance <= 1) config = rockGenerationConfig.nearby;
-      else if (distance <= 5) config = rockGenerationConfig.middle;
-      else if (distance <= 10) config = rockGenerationConfig.far;
-      else config = rockGenerationConfig.veryFar;
-
-      // Determine if rock spawns here
-      const rand = random();
-      if (rand < config.smallChance) {
-        rocks.small.push({ row, col });
-      } else if (rand < config.smallChance + config.mediumChance) {
-        rocks.medium.push({ row, col });
-      } else if (
-        rand <
-        config.smallChance + config.mediumChance + config.largeChance
-      ) {
-        rocks.large.push({ row, col });
-      }
+      const tier = getRockTierForTile(row, col);
+      if (!tier) continue;
+      rocks[tier].push({ row, col });
     }
   }
 
@@ -1507,6 +1597,7 @@ export function unlockField(
     const newRows = Math.max(newState.garden.gridSize.rows, row + 1);
     const newCols = Math.max(newState.garden.gridSize.cols, col + 1);
     newState.garden.gridSize = { rows: newRows, cols: newCols };
+    ensureRocksForPreviewArea(newState);
 
     return newState;
   }
@@ -1549,6 +1640,7 @@ export function unlockField(
       const newCols = Math.max(newState.garden.gridSize.cols, col + 1);
       newState.garden.gridSize = { rows: newRows, cols: newCols };
     }
+    ensureRocksForPreviewArea(newState);
 
     return newState;
   }
@@ -1636,6 +1728,7 @@ export function breakRock(
     const newCols = Math.max(newState.garden.gridSize.cols, col + 1);
     newState.garden.gridSize = { rows: newRows, cols: newCols };
   }
+  ensureRocksForPreviewArea(newState);
 
   return { success: true, newState };
 }

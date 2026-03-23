@@ -1,5 +1,5 @@
 import type { GameState } from "./types";
-import { defaultState } from "./state";
+import { createDefaultState } from "./state";
 
 const KEY = "idle_save";
 
@@ -25,9 +25,11 @@ export function save(state: GameState): void {
  * This ensures backward compatibility when schema changes are made.
  */
 function migrateState(loaded: unknown): GameState {
+  const freshDefaultState = createDefaultState();
+
   // If we can't parse or load is invalid, return fresh default
   if (!loaded || typeof loaded !== "object") {
-    return structuredClone(defaultState);
+    return freshDefaultState;
   }
 
   const loadedObj = loaded as Record<string, unknown>;
@@ -71,7 +73,7 @@ function migrateState(loaded: unknown): GameState {
     return merged;
   }
 
-  const migrated = mergeWithDefaults(loadedObj, defaultState) as GameState;
+  const migrated = mergeWithDefaults(loadedObj, freshDefaultState) as GameState;
 
   const cropStorageCurrent = migrated.garden.cropStorage.current;
   const cropStorageLimits = migrated.garden.cropStorage.limits;
@@ -85,7 +87,7 @@ function migrateState(loaded: unknown): GameState {
   }
 
   // Ensure version is up-to-date
-  migrated.meta.version = defaultState.meta.version;
+  migrated.meta.version = freshDefaultState.meta.version;
   if (typeof migrated.meta.lastUpdate !== "number") {
     migrated.meta.lastUpdate = Date.now();
   }

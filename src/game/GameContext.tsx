@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from "react";
 import type { GameState } from "./types";
-import { defaultState } from "./state";
+import { createDefaultState } from "./state";
 import { load, save } from "./storage";
 import { applyIdle } from "./engine";
 import { applyGardenIdle } from "./garden";
@@ -30,7 +30,7 @@ type InitializationResult = {
 };
 
 function initializeGameState(): InitializationResult {
-  const initialState = load() ?? structuredClone(defaultState);
+  const initialState = load() ?? createDefaultState();
   const now = Date.now();
   const lastUpdate =
     typeof initialState.meta.lastUpdate === "number"

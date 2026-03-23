@@ -93,8 +93,11 @@ export function Upgrades() {
         ? `Requires: ${prerequisites
             .map((preqId) => {
               const preqDef = getUpgradeDef(preqId);
-              const preqLevel = getUpgradeLevel(state, preqId);
-              return `${preqDef?.name} (Lvl ${preqLevel})`;
+              const linkedRequirement = preqDef?.linkedUpgrades?.find(
+                (linked) => linked.upgradeId === upgradeDef.id,
+              );
+              const requiredLevel = linkedRequirement?.unlocksAtLevel ?? 1;
+              return `${preqDef?.name} (Lvl ${requiredLevel})`;
             })
             .join(", ")}`
         : "";

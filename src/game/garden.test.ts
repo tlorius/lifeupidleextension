@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { defaultState } from "./state";
+import { createDefaultState, defaultState } from "./state";
 import {
   plantCrop,
   harvestCrop,
@@ -27,6 +27,10 @@ import {
   cropDefinitions,
   getGrowthProgress,
   getFieldUnlockCost,
+  hasRockPatternAtTile,
+  generateRocksForGrid,
+  unlockField,
+  reconcileGardenRocksForPreview,
   craftSeedFromSeedMaker,
   canCraftSeedFromSeedMaker,
   getSeedMakerDurationMs,
@@ -443,7 +447,11 @@ describe("Garden System - Unit Tests", () => {
       const result = breakRock(testState, 0, 0, "pickaxe_common");
 
       expect(result.success).toBe(true);
-      expect(result.newState?.garden.rocks.small).toHaveLength(0);
+      expect(
+        result.newState?.garden.rocks.small.some(
+          (rock) => rock.row === 0 && rock.col === 0,
+        ),
+      ).toBe(false);
     });
 
     it("should cost energy to break rock", () => {
@@ -484,6 +492,92 @@ describe("Garden System - Unit Tests", () => {
   });
 
   describe("Field Unlocking", () => {
+    it("should never spawn rocks in the first 3x3 area", () => {
+      const rocks = generateRocksForGrid(12, 12);
+      const allRocks = [...rocks.small, ...rocks.medium, ...rocks.large];
+
+      const anyInStarter = allRocks.some(
+        (rock) => rock.row < 3 && rock.col < 3,
+      );
+      expect(anyInStarter).toBe(false);
+    });
+
+    it("should use the same predetermined rock pattern every time", () => {
+      expect(hasRockPatternAtTile(0, 0)).toBe(false);
+      expect(hasRockPatternAtTile(2, 2)).toBe(false);
+      expect(hasRockPatternAtTile(3, 2)).toBe(true);
+      expect(hasRockPatternAtTile(3, 3)).toBe(true);
+      expect(hasRockPatternAtTile(3, 8)).toBe(true);
+      expect(hasRockPatternAtTile(8, 5)).toBe(true);
+      expect(hasRockPatternAtTile(7, 2)).toBe(false);
+
+      const first = generateRocksForGrid(12, 12);
+      const second = generateRocksForGrid(12, 12);
+      expect(second).toEqual(first);
+    });
+
+    it("should reconcile missing preview rocks for existing non-empty rock saves", () => {
+      const generated = generateRocksForGrid(8, 8);
+
+      const allGenerated = [
+        ...generated.small.map((r) => ({ ...r, tier: "small" as const })),
+        ...generated.medium.map((r) => ({ ...r, tier: "medium" as const })),
+        ...generated.large.map((r) => ({ ...r, tier: "large" as const })),
+      ];
+      expect(allGenerated.length).toBeGreaterThanOrEqual(2);
+
+      const keepRock = allGenerated[0];
+      const missingRock = allGenerated[1];
+
+      const seededState: GameState = {
+        ...testState,
+        garden: {
+          ...testState.garden,
+          gridSize: { rows: 6, cols: 6 },
+          rocks: {
+            small:
+              keepRock.tier === "small"
+                ? [{ row: keepRock.row, col: keepRock.col }]
+                : [],
+            medium:
+              keepRock.tier === "medium"
+                ? [{ row: keepRock.row, col: keepRock.col }]
+                : [],
+            large:
+              keepRock.tier === "large"
+                ? [{ row: keepRock.row, col: keepRock.col }]
+                : [],
+          },
+        },
+      };
+
+      const reconciled = reconcileGardenRocksForPreview(seededState);
+      const missingNowExists =
+        reconciled.garden.rocks.small.some(
+          (r) => r.row === missingRock.row && r.col === missingRock.col,
+        ) ||
+        reconciled.garden.rocks.medium.some(
+          (r) => r.row === missingRock.row && r.col === missingRock.col,
+        ) ||
+        reconciled.garden.rocks.large.some(
+          (r) => r.row === missingRock.row && r.col === missingRock.col,
+        );
+
+      expect(missingNowExists).toBe(true);
+    });
+
+    it("should show at least one rock in the starting preview for a fresh save", () => {
+      const freshState = createDefaultState();
+      const reconciled = reconcileGardenRocksForPreview(freshState);
+      const previewRocks = [
+        ...reconciled.garden.rocks.small,
+        ...reconciled.garden.rocks.medium,
+        ...reconciled.garden.rocks.large,
+      ].filter((rock) => rock.row < 4 && rock.col < 4);
+
+      expect(previewRocks.length).toBeGreaterThan(0);
+    });
+
     it("should recognize free fields accessible within grid", () => {
       const cost = getFieldUnlockCost(testState, 0, 0);
       expect(cost.type).toBe("free");
@@ -501,6 +595,33 @@ describe("Garden System - Unit Tests", () => {
       const cost = getFieldUnlockCost(testState, 3, 3); // Outside 2x2 grid
       expect(cost.type).toBe("diamond");
       expect(cost.cost).toBeGreaterThan(0);
+    });
+
+    it("should generate blocking rocks in newly visible preview tiles", () => {
+      const previewRows = 5;
+      const previewCols = 4;
+      const expected = generateRocksForGrid(previewRows, previewCols);
+      const unlockedSet = new Set(["0,0", "0,1", "1,0", "1,1", "2,0"]);
+      const expectedRocks = [
+        ...expected.small,
+        ...expected.medium,
+        ...expected.large,
+      ].filter((r) => !unlockedSet.has(`${r.row},${r.col}`));
+
+      expect(expectedRocks.length).toBeGreaterThan(0);
+
+      const seededState: GameState = {
+        ...testState,
+      };
+
+      const afterUnlock = unlockField(seededState, 2, 0);
+      const firstRock = expectedRocks[0];
+      const cost = getFieldUnlockCost(
+        afterUnlock,
+        firstRock.row,
+        firstRock.col,
+      );
+      expect(cost.type).toBe("rock");
     });
   });
 

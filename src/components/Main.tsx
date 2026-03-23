@@ -1,6 +1,6 @@
 import { useGame } from "../game/GameContext";
 import { addDebugItems } from "../game/items";
-import { defaultState } from "../game/state";
+import { createDefaultState } from "../game/state";
 
 export function Main() {
   const { setState } = useGame();
@@ -154,7 +154,7 @@ export function Main() {
           if (
             confirm("Are you sure you want to reset the entire game state?")
           ) {
-            setState(defaultState);
+            setState(createDefaultState());
           }
         }}
       >
