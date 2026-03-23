@@ -23,6 +23,9 @@ export const cropDefinitions: Record<string, CropDefinition> =
  */
 export const toolDefinitions: Record<string, any> = TOOL_CONFIG as any;
 
+const HARVESTER_CHECK_INTERVAL_MS = 5000;
+const PLANTER_CHECK_INTERVAL_MS = 5000;
+
 /**
  * ROCK CONFIGURATION - Re-exported from game config
  */
@@ -274,14 +277,45 @@ export function waterField(
   return newState;
 }
 
-function getSprinklerAtPosition(state: GameState, row: number, col: number) {
-  for (const [sprinklerId, positions] of Object.entries(
-    state.garden.sprinklers,
-  )) {
+function getAutomationToolAtPosition(
+  map: Record<string, FieldPosition[]>,
+  row: number,
+  col: number,
+) {
+  for (const [toolId, positions] of Object.entries(map)) {
     if (positions.some((p) => p.row === row && p.col === col)) {
-      return sprinklerId;
+      return toolId;
     }
   }
+  return null;
+}
+
+function getSprinklerAtPosition(state: GameState, row: number, col: number) {
+  return getAutomationToolAtPosition(state.garden.sprinklers, row, col);
+}
+
+function getHarvesterAtPosition(state: GameState, row: number, col: number) {
+  return getAutomationToolAtPosition(state.garden.harvesters ?? {}, row, col);
+}
+
+function getPlanterAtPosition(state: GameState, row: number, col: number) {
+  return getAutomationToolAtPosition(state.garden.planters ?? {}, row, col);
+}
+
+function getAutomationPlacementOccupant(
+  state: GameState,
+  row: number,
+  col: number,
+): { type: "sprinkler" | "harvester" | "planter"; id: string } | null {
+  const sprinkler = getSprinklerAtPosition(state, row, col);
+  if (sprinkler) return { type: "sprinkler", id: sprinkler };
+
+  const harvester = getHarvesterAtPosition(state, row, col);
+  if (harvester) return { type: "harvester", id: harvester };
+
+  const planter = getPlanterAtPosition(state, row, col);
+  if (planter) return { type: "planter", id: planter };
+
   return null;
 }
 
@@ -291,18 +325,18 @@ type SprinklerCoverageProfile = {
 };
 
 export function getSprinklerCoverageProfile(
-  sprinklerId: string,
+  toolId: string,
 ): SprinklerCoverageProfile {
-  if (sprinklerId.includes("unique")) {
+  if (toolId.includes("unique")) {
     return { crossRange: 3, diagonalRange: 3 };
   }
-  if (sprinklerId.includes("legendary")) {
+  if (toolId.includes("legendary")) {
     return { crossRange: 2, diagonalRange: 2 };
   }
-  if (sprinklerId.includes("epic")) {
+  if (toolId.includes("epic")) {
     return { crossRange: 1, diagonalRange: 1 };
   }
-  if (sprinklerId.includes("rare")) {
+  if (toolId.includes("rare")) {
     return { crossRange: 1, diagonalRange: 0 };
   }
   // Common: only itself
@@ -337,18 +371,18 @@ export function sprinklerCoversField(
 }
 
 function applySprinklerMapUpdate(
-  sprinklers: Record<string, FieldPosition[]>,
+  map: Record<string, FieldPosition[]>,
   row: number,
   col: number,
-  sprinklerId: string | null,
+  toolId: string | null,
 ): Record<string, FieldPosition[]> {
   const updated: Record<string, FieldPosition[]> = {};
-  for (const [id, positions] of Object.entries(sprinklers)) {
+  for (const [id, positions] of Object.entries(map)) {
     updated[id] = positions.filter((p) => !(p.row === row && p.col === col));
   }
-  if (sprinklerId) {
-    if (!updated[sprinklerId]) updated[sprinklerId] = [];
-    updated[sprinklerId] = [...updated[sprinklerId], { row, col }];
+  if (toolId) {
+    if (!updated[toolId]) updated[toolId] = [];
+    updated[toolId] = [...updated[toolId], { row, col }];
   }
   return updated;
 }
@@ -362,6 +396,11 @@ export function setCropSprinkler(
   col: number,
   sprinklerId: string | null,
 ): GameState {
+  if (sprinklerId) {
+    const occupied = getAutomationPlacementOccupant(state, row, col);
+    if (occupied && occupied.type !== "sprinkler") return state;
+  }
+
   const newCrops = { ...state.garden.crops };
   let found = false;
 
@@ -413,6 +452,9 @@ export function placeSprinklerOnField(
   col: number,
   sprinklerId: string,
 ): GameState {
+  const occupied = getAutomationPlacementOccupant(state, row, col);
+  if (occupied && occupied.type !== "sprinkler") return state;
+
   // If there is a crop here, use crop-aware setter to keep both sources in sync.
   const updatedCropState = setCropSprinkler(state, row, col, sprinklerId);
   if (updatedCropState !== state) return updatedCropState;
@@ -464,6 +506,9 @@ export function toggleSprinkler(
   row: number,
   col: number,
 ): GameState {
+  const occupied = getAutomationPlacementOccupant(state, row, col);
+  if (occupied && occupied.type !== "sprinkler") return state;
+
   for (const [, list] of Object.entries(state.garden.crops)) {
     const found = list.find(
       (crop) => crop.position?.row === row && crop.position?.col === col,
@@ -481,6 +526,287 @@ export function toggleSprinkler(
   }
 
   return state;
+}
+
+export function placeHarvesterOnField(
+  state: GameState,
+  row: number,
+  col: number,
+  harvesterId: string,
+): GameState {
+  const occupied = getAutomationPlacementOccupant(state, row, col);
+  if (occupied && occupied.type !== "harvester") return state;
+
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      harvesters: applySprinklerMapUpdate(
+        state.garden.harvesters ?? {},
+        row,
+        col,
+        harvesterId,
+      ),
+    },
+  };
+}
+
+export function removeHarvesterFromField(
+  state: GameState,
+  row: number,
+  col: number,
+): GameState {
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      harvesters: applySprinklerMapUpdate(
+        state.garden.harvesters ?? {},
+        row,
+        col,
+        null,
+      ),
+    },
+  };
+}
+
+export function placePlanterOnField(
+  state: GameState,
+  row: number,
+  col: number,
+  planterId: string,
+  selectedSeedId?: string | null,
+): GameState {
+  const occupied = getAutomationPlacementOccupant(state, row, col);
+  if (occupied && occupied.type !== "planter") return state;
+
+  const planterSeedKey = `${row},${col}`;
+  const resolvedSeedId =
+    selectedSeedId ?? state.garden.selectedPlanterSeedId ?? null;
+  const nextPlanterSeedSelections = {
+    ...(state.garden.planterSeedSelections ?? {}),
+  };
+  if (resolvedSeedId) {
+    nextPlanterSeedSelections[planterSeedKey] = resolvedSeedId;
+  }
+
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      planters: applySprinklerMapUpdate(
+        state.garden.planters ?? {},
+        row,
+        col,
+        planterId,
+      ),
+      planterSeedSelections: nextPlanterSeedSelections,
+    },
+  };
+}
+
+export function removePlanterFromField(
+  state: GameState,
+  row: number,
+  col: number,
+): GameState {
+  const planterSeedKey = `${row},${col}`;
+  const nextPlanterSeedSelections = {
+    ...(state.garden.planterSeedSelections ?? {}),
+  };
+  delete nextPlanterSeedSelections[planterSeedKey];
+
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      planters: applySprinklerMapUpdate(
+        state.garden.planters ?? {},
+        row,
+        col,
+        null,
+      ),
+      planterSeedSelections: nextPlanterSeedSelections,
+    },
+  };
+}
+
+function resolveCropIdFromSeedItem(seedId: string): string | null {
+  const fromDefinition = Object.values(cropDefinitions).find(
+    (crop) => crop.seedItemId === seedId,
+  );
+  if (fromDefinition) return fromDefinition.id;
+
+  const seedMatch = seedId.match(
+    /^(.+)_seed(?:_(common|rare|epic|legendary|unique))?$/,
+  );
+  if (seedMatch) {
+    const [, base, rarity] = seedMatch;
+    if (rarity) {
+      const directCrop = `${base}_${rarity}`;
+      if (getCropDef(directCrop)) return directCrop;
+    }
+    const commonCrop = `${base}_common`;
+    if (getCropDef(commonCrop)) return commonCrop;
+  }
+
+  const fallbackCropId = seedId.replace("_seed", "");
+  return getCropDef(fallbackCropId) ? fallbackCropId : null;
+}
+
+function hasCropAtExactPosition(
+  state: GameState,
+  row: number,
+  col: number,
+): boolean {
+  for (const cropList of Object.values(state.garden.crops)) {
+    if (
+      cropList.some(
+        (crop) => crop.position.row === row && crop.position.col === col,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function consumeOneSeedFromInventory(
+  state: GameState,
+  seedId: string,
+): boolean {
+  const idx = state.inventory.findIndex(
+    (item) => item.itemId === seedId && item.quantity > 0,
+  );
+  if (idx < 0) return false;
+
+  const item = state.inventory[idx];
+  item.quantity -= 1;
+  if (item.quantity <= 0) {
+    state.inventory.splice(idx, 1);
+  }
+  return true;
+}
+
+function getToolCoverageTiles(
+  center: FieldPosition,
+  toolId: string,
+): FieldPosition[] {
+  const { crossRange, diagonalRange } = getSprinklerCoverageProfile(toolId);
+  const maxRange = Math.max(crossRange, diagonalRange);
+  const tiles: FieldPosition[] = [];
+
+  for (let dr = -maxRange; dr <= maxRange; dr++) {
+    for (let dc = -maxRange; dc <= maxRange; dc++) {
+      const absDr = Math.abs(dr);
+      const absDc = Math.abs(dc);
+      if (absDr === 0 && absDc === 0) {
+        tiles.push({ row: center.row, col: center.col });
+        continue;
+      }
+
+      const onCross = (dr === 0 || dc === 0) && absDr + absDc <= crossRange;
+      const onDiagonal = absDr === absDc && absDr <= diagonalRange;
+      if (!onCross && !onDiagonal) continue;
+
+      tiles.push({ row: center.row + dr, col: center.col + dc });
+    }
+  }
+
+  tiles.sort((a, b) => {
+    const ringA = Math.max(
+      Math.abs(a.row - center.row),
+      Math.abs(a.col - center.col),
+    );
+    const ringB = Math.max(
+      Math.abs(b.row - center.row),
+      Math.abs(b.col - center.col),
+    );
+    if (ringA !== ringB) return ringA - ringB;
+    if (a.row !== b.row) return a.row - b.row;
+    return a.col - b.col;
+  });
+
+  return tiles;
+}
+
+function applyHarvesterCycle(state: GameState): void {
+  const targets: Array<{ cropId: string; index: number }> = [];
+
+  for (const [cropId, cropList] of Object.entries(state.garden.crops)) {
+    const cropDef = getCropDef(cropId);
+    if (!cropDef) continue;
+
+    cropList.forEach((crop, index) => {
+      if (!isReadyToHarvest(crop, cropDef)) return;
+
+      let covered = false;
+      for (const [harvesterId, positions] of Object.entries(
+        state.garden.harvesters ?? {},
+      )) {
+        if (
+          positions.some((pos) =>
+            sprinklerCoversField(harvesterId, pos, crop.position),
+          )
+        ) {
+          covered = true;
+          break;
+        }
+      }
+
+      if (covered) {
+        targets.push({ cropId, index });
+      }
+    });
+  }
+
+  const grouped = new Map<string, number[]>();
+  for (const target of targets) {
+    const list = grouped.get(target.cropId) ?? [];
+    list.push(target.index);
+    grouped.set(target.cropId, list);
+  }
+
+  for (const [cropId, indexes] of grouped.entries()) {
+    indexes
+      .sort((a, b) => b - a)
+      .forEach((index) => {
+        const next = harvestCrop(state, cropId, index);
+        Object.assign(state, next);
+      });
+  }
+}
+
+function applyPlanterCycle(state: GameState): void {
+  for (const [planterId, positions] of Object.entries(
+    state.garden.planters ?? {},
+  )) {
+    for (const planterPos of positions) {
+      const planterSeedKey = `${planterPos.row},${planterPos.col}`;
+      const selectedSeedId =
+        state.garden.planterSeedSelections?.[planterSeedKey] ??
+        state.garden.selectedPlanterSeedId;
+      if (!selectedSeedId) continue;
+
+      const cropId = resolveCropIdFromSeedItem(selectedSeedId);
+      if (!cropId) continue;
+
+      const coverageTiles = getToolCoverageTiles(planterPos, planterId);
+
+      for (const tile of coverageTiles) {
+        if (!isFieldUnlocked(state, tile.row, tile.col)) continue;
+        if (hasRockAtPosition(state.garden.rocks, tile.row, tile.col)) continue;
+        if (hasCropAtExactPosition(state, tile.row, tile.col)) continue;
+        const consumed = consumeOneSeedFromInventory(state, selectedSeedId);
+        if (!consumed) {
+          return;
+        }
+
+        const next = plantCrop(state, cropId, tile.row, tile.col);
+        Object.assign(state, next);
+      }
+    }
+  }
 }
 
 /**
@@ -816,6 +1142,37 @@ export function applyGardenIdle(state: GameState, deltaMs: number): void {
         // Sprinklered fields and covered adjacent fields stay at 100%
         crop.waterLevel = WATER_CONFIG.fullWaterThreshold;
       }
+    }
+  }
+
+  const timers = state.garden.automationTimers ?? {
+    harvesterRemainderMs: 0,
+    planterRemainderMs: 0,
+  };
+
+  const harvesterTotalMs = (timers.harvesterRemainderMs ?? 0) + deltaMs;
+  const planterTotalMs = (timers.planterRemainderMs ?? 0) + deltaMs;
+
+  const harvesterCycles = Math.floor(
+    harvesterTotalMs / HARVESTER_CHECK_INTERVAL_MS,
+  );
+  const planterCycles = Math.floor(planterTotalMs / PLANTER_CHECK_INTERVAL_MS);
+
+  timers.harvesterRemainderMs = harvesterTotalMs % HARVESTER_CHECK_INTERVAL_MS;
+  timers.planterRemainderMs = planterTotalMs % PLANTER_CHECK_INTERVAL_MS;
+  state.garden.automationTimers = timers;
+
+  if (harvesterCycles > 0) {
+    const cyclesToRun = Math.min(harvesterCycles, 240);
+    for (let i = 0; i < cyclesToRun; i++) {
+      applyHarvesterCycle(state);
+    }
+  }
+
+  if (planterCycles > 0) {
+    const cyclesToRun = Math.min(planterCycles, 240);
+    for (let i = 0; i < cyclesToRun; i++) {
+      applyPlanterCycle(state);
     }
   }
 }

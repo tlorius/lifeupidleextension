@@ -374,8 +374,12 @@ export function equipItem(
   if (!def) return state;
 
   const newEquipment = { ...state.equipment };
-  const isSprinkler = def.type === "tool" && def.id.includes("sprinkler");
-  if (isSprinkler) return state;
+  const isPlacementTool =
+    def.type === "tool" &&
+    (def.id.includes("sprinkler") ||
+      def.id.includes("harvester") ||
+      def.id.includes("planter"));
+  if (isPlacementTool) return state;
 
   if (def.type === "accessory") {
     if (targetAccessorySlot) {

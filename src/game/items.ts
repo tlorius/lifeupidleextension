@@ -350,6 +350,80 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     sellPrice: 600,
   },
 
+  // Harvesters
+  harvester_common: {
+    id: "harvester_common",
+    name: "Basic Harvester",
+    type: "tool",
+    rarity: "common",
+    sellPrice: 30,
+  },
+  harvester_rare: {
+    id: "harvester_rare",
+    name: "Field Harvester",
+    type: "tool",
+    rarity: "rare",
+    sellPrice: 85,
+  },
+  harvester_epic: {
+    id: "harvester_epic",
+    name: "Pulse Harvester",
+    type: "tool",
+    rarity: "epic",
+    sellPrice: 220,
+  },
+  harvester_legendary: {
+    id: "harvester_legendary",
+    name: "Royal Harvester",
+    type: "tool",
+    rarity: "legendary",
+    sellPrice: 430,
+  },
+  harvester_unique: {
+    id: "harvester_unique",
+    name: "Celestial Harvester",
+    type: "tool",
+    rarity: "unique",
+    sellPrice: 900,
+  },
+
+  // Planters
+  planter_common: {
+    id: "planter_common",
+    name: "Basic Planter",
+    type: "tool",
+    rarity: "common",
+    sellPrice: 30,
+  },
+  planter_rare: {
+    id: "planter_rare",
+    name: "Field Planter",
+    type: "tool",
+    rarity: "rare",
+    sellPrice: 85,
+  },
+  planter_epic: {
+    id: "planter_epic",
+    name: "Pulse Planter",
+    type: "tool",
+    rarity: "epic",
+    sellPrice: 220,
+  },
+  planter_legendary: {
+    id: "planter_legendary",
+    name: "Royal Planter",
+    type: "tool",
+    rarity: "legendary",
+    sellPrice: 430,
+  },
+  planter_unique: {
+    id: "planter_unique",
+    name: "Celestial Planter",
+    type: "tool",
+    rarity: "unique",
+    sellPrice: 900,
+  },
+
   // Potions - Common
   health_potion: {
     id: "health_potion",
@@ -611,6 +685,16 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "sprinkler_epic");
   newState = addItem(newState, "sprinkler_legendary");
   newState = addItem(newState, "sprinkler_unique");
+  newState = addItem(newState, "harvester_common");
+  newState = addItem(newState, "harvester_rare");
+  newState = addItem(newState, "harvester_epic");
+  newState = addItem(newState, "harvester_legendary");
+  newState = addItem(newState, "harvester_unique");
+  newState = addItem(newState, "planter_common");
+  newState = addItem(newState, "planter_rare");
+  newState = addItem(newState, "planter_epic");
+  newState = addItem(newState, "planter_legendary");
+  newState = addItem(newState, "planter_unique");
   newState = addItem(newState, "wateringcan_legendary");
   newState = addItem(newState, "wateringcan_unique");
   newState = addItem(newState, "scythe_legendary");

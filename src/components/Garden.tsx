@@ -27,6 +27,10 @@ import {
   setCropSprinkler,
   placeSprinklerOnField,
   removeSprinklerFromField,
+  placeHarvesterOnField,
+  removeHarvesterFromField,
+  placePlanterOnField,
+  removePlanterFromField,
   rockConfig,
 } from "../game/garden";
 import { getItemDefSafe } from "../game/items";
@@ -67,7 +71,7 @@ interface TileDetailModalState {
   type: "empty" | "crop" | "rock" | null;
   cropId?: string;
   cropIndex?: number;
-  emptyMode?: "choice" | "sprinkler";
+  emptyMode?: "choice" | "automation";
 }
 
 interface ShovelMoveState {
@@ -80,6 +84,13 @@ interface SprinklerPreviewState {
   row: number;
   col: number;
   sprinklerId: string;
+}
+
+interface PendingPlanterActionState {
+  mode: "place" | "assign";
+  row: number;
+  col: number;
+  planterId: string;
 }
 
 export function Garden() {
@@ -122,6 +133,11 @@ export function Garden() {
   const [isToolEffectActive, setIsToolEffectActive] = useState(false);
   const [activateSeedBagAfterSelection, setActivateSeedBagAfterSelection] =
     useState(false);
+  const [seedSelectionTarget, setSeedSelectionTarget] = useState<
+    "seedbag" | "planter"
+  >("seedbag");
+  const [pendingPlanterAction, setPendingPlanterAction] =
+    useState<PendingPlanterActionState | null>(null);
   const [activeSeedBagSeedId, setActiveSeedBagSeedId] = useState<string | null>(
     null,
   );
@@ -210,6 +226,12 @@ export function Garden() {
 
   const isSeedBagTool = (toolId: string | null | undefined): boolean =>
     normalizeToolId(toolId).includes("seedbag");
+
+  const isHarvesterTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("harvester");
+
+  const isPlanterTool = (toolId: string | null | undefined): boolean =>
+    normalizeToolId(toolId).includes("planter");
 
   const getShovelAreaSize = (): number => {
     if (!isShovelTool(equippedToolId)) return 1;
@@ -341,6 +363,8 @@ export function Garden() {
     if (isShovelTool(toolId)) return "🪏";
     if (isWateringCanTool(toolId)) return "💧";
     if (isSprinklerTool(toolId)) return "🌊";
+    if (isHarvesterTool(toolId)) return "🤖";
+    if (isPlanterTool(toolId)) return "🌱";
     if (isScytheTool(toolId)) return "🔪";
     if (isSeedBagTool(toolId)) return "🎒";
     return "🔧";
@@ -363,7 +387,52 @@ export function Garden() {
     seedId: string,
     options?: { closeSeedBagModal?: boolean },
   ) => {
-    setActiveSeedBagSeedId(seedId);
+    if (seedSelectionTarget === "planter") {
+      const pendingAction = pendingPlanterAction;
+      setState((prev) => {
+        const next = {
+          ...prev,
+          garden: {
+            ...prev.garden,
+            selectedPlanterSeedId: seedId,
+          },
+        };
+
+        if (!pendingAction) return next;
+
+        const key = `${pendingAction.row},${pendingAction.col}`;
+        if (pendingAction.mode === "assign") {
+          return {
+            ...next,
+            garden: {
+              ...next.garden,
+              planterSeedSelections: {
+                ...(next.garden.planterSeedSelections ?? {}),
+                [key]: seedId,
+              },
+            },
+          };
+        }
+
+        return placePlanterOnField(
+          next,
+          pendingAction.row,
+          pendingAction.col,
+          pendingAction.planterId,
+          seedId,
+        );
+      });
+      if (activateSeedBagAfterSelection && !pendingAction) {
+        setIsToolEffectActive(true);
+      }
+      setPendingPlanterAction(null);
+      setTileDetailModal((prev) => ({ ...prev, isOpen: false }));
+      setShowSeedBag(false);
+      setActivateSeedBagAfterSelection(false);
+      return;
+    } else {
+      setActiveSeedBagSeedId(seedId);
+    }
 
     if (activateSeedBagAfterSelection && isSeedBagTool(equippedToolId)) {
       setIsToolEffectActive(true);
@@ -380,6 +449,23 @@ export function Garden() {
   const activeSeedBagSeedPresentation = activeSeedBagSeedId
     ? getSeedPresentation(activeSeedBagSeedId)
     : null;
+
+  const selectedPlanterSeedPresentation = state.garden.selectedPlanterSeedId
+    ? getSeedPresentation(state.garden.selectedPlanterSeedId)
+    : null;
+
+  const openPlanterSeedSelection = (
+    action: PendingPlanterActionState,
+    closeTileModal = false,
+  ) => {
+    setPendingPlanterAction(action);
+    setSeedSelectionTarget("planter");
+    setActivateSeedBagAfterSelection(false);
+    if (closeTileModal) {
+      setTileDetailModal((prev) => ({ ...prev, isOpen: false }));
+    }
+    setShowSeedBag(true);
+  };
 
   const getToolCoverageTiles = (
     centerRow: number,
@@ -692,12 +778,70 @@ export function Garden() {
     return Array.from(new Set(ids));
   };
 
+  const getOwnedHarvesterIds = (): string[] => {
+    const ids = state.inventory
+      .filter((item) => {
+        const def = getItemDefSafe(item.itemId);
+        return def?.type === "tool" && item.itemId.includes("harvester");
+      })
+      .map((item) => item.itemId);
+    return Array.from(new Set(ids));
+  };
+
+  const getOwnedPlanterIds = (): string[] => {
+    const ids = state.inventory
+      .filter((item) => {
+        const def = getItemDefSafe(item.itemId);
+        return def?.type === "tool" && item.itemId.includes("planter");
+      })
+      .map((item) => item.itemId);
+    return Array.from(new Set(ids));
+  };
+
   const getSprinklerAtField = (row: number, col: number): string | null => {
     for (const [sprinklerId, positions] of Object.entries(garden.sprinklers)) {
       if (positions.some((p) => p.row === row && p.col === col)) {
         return sprinklerId;
       }
     }
+    return null;
+  };
+
+  const getHarvesterAtField = (row: number, col: number): string | null => {
+    for (const [harvesterId, positions] of Object.entries(
+      garden.harvesters ?? {},
+    )) {
+      if (positions.some((p) => p.row === row && p.col === col)) {
+        return harvesterId;
+      }
+    }
+    return null;
+  };
+
+  const getPlanterAtField = (row: number, col: number): string | null => {
+    for (const [planterId, positions] of Object.entries(
+      garden.planters ?? {},
+    )) {
+      if (positions.some((p) => p.row === row && p.col === col)) {
+        return planterId;
+      }
+    }
+    return null;
+  };
+
+  const getAutomationToolAtField = (
+    row: number,
+    col: number,
+  ): { type: "sprinkler" | "harvester" | "planter"; id: string } | null => {
+    const sprinklerId = getSprinklerAtField(row, col);
+    if (sprinklerId) return { type: "sprinkler", id: sprinklerId };
+
+    const harvesterId = getHarvesterAtField(row, col);
+    if (harvesterId) return { type: "harvester", id: harvesterId };
+
+    const planterId = getPlanterAtField(row, col);
+    if (planterId) return { type: "planter", id: planterId };
+
     return null;
   };
 
@@ -957,6 +1101,8 @@ export function Garden() {
       const coveredByAdjacentSprinkler =
         !cropInstance.hasSprinkler &&
         isFieldCoveredBySprinklerNetwork(row, col, true);
+      const harvesterOnTile = getHarvesterAtField(row, col);
+      const planterOnTile = getPlanterAtField(row, col);
 
       return (
         <div
@@ -1008,6 +1154,47 @@ export function Garden() {
             // Handle sprinkler placement
             if (toolActive && isSprinklerTool(equippedTool)) {
               const newState = toggleSprinkler(state, row, col);
+              setState(newState);
+              return;
+            }
+
+            if (toolActive && isHarvesterTool(equippedTool)) {
+              const newState = harvesterOnTile
+                ? removeHarvesterFromField(state, row, col)
+                : placeHarvesterOnField(state, row, col, equippedTool ?? "");
+              if (newState === state) {
+                alert(
+                  "This tile already has another automation tool. Remove it first.",
+                );
+              }
+              setState(newState);
+              return;
+            }
+
+            if (toolActive && isPlanterTool(equippedTool)) {
+              if (!planterOnTile && !state.garden.selectedPlanterSeedId) {
+                openPlanterSeedSelection({
+                  mode: "place",
+                  row,
+                  col,
+                  planterId: equippedTool ?? "",
+                });
+                return;
+              }
+              const newState = planterOnTile
+                ? removePlanterFromField(state, row, col)
+                : placePlanterOnField(
+                    state,
+                    row,
+                    col,
+                    equippedTool ?? "",
+                    state.garden.selectedPlanterSeedId,
+                  );
+              if (newState === state) {
+                alert(
+                  "This tile already has another automation tool. Remove it first.",
+                );
+              }
               setState(newState);
               return;
             }
@@ -1145,6 +1332,44 @@ export function Garden() {
               ADJ
             </div>
           )}
+
+          {harvesterOnTile && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 2,
+                right: 2,
+                fontSize: 10,
+                backgroundColor: "#334155",
+                color: "#e2e8f0",
+                borderRadius: 8,
+                padding: "1px 4px",
+                fontWeight: "bold",
+              }}
+              aria-label="Harvester installed"
+            >
+              HARV
+            </div>
+          )}
+
+          {planterOnTile && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 2,
+                left: 2,
+                fontSize: 10,
+                backgroundColor: "#1b4332",
+                color: "#d8f3dc",
+                borderRadius: 8,
+                padding: "1px 4px",
+                fontWeight: "bold",
+              }}
+              aria-label="Planter installed"
+            >
+              PLAN
+            </div>
+          )}
         </div>
       );
     }
@@ -1268,7 +1493,13 @@ export function Garden() {
     }
 
     // Empty field in grid
-    const fieldSprinklerId = getSprinklerAtField(row, col);
+    const fieldAutomationTool = getAutomationToolAtField(row, col);
+    const fieldSprinklerId =
+      fieldAutomationTool?.type === "sprinkler" ? fieldAutomationTool.id : null;
+    const fieldHarvesterId =
+      fieldAutomationTool?.type === "harvester" ? fieldAutomationTool.id : null;
+    const fieldPlanterId =
+      fieldAutomationTool?.type === "planter" ? fieldAutomationTool.id : null;
     const fieldCoveredByAdjacentSprinkler =
       !fieldSprinklerId && isFieldCoveredBySprinklerNetwork(row, col, true);
     return (
@@ -1279,14 +1510,22 @@ export function Garden() {
           aspectRatio: "1",
           backgroundColor: fieldSprinklerId
             ? "#cfefff"
-            : fieldCoveredByAdjacentSprinkler
-              ? "#e6f6ff"
-              : "#8B7355",
+            : fieldHarvesterId
+              ? "#e2e8f0"
+              : fieldPlanterId
+                ? "#e6f4ea"
+                : fieldCoveredByAdjacentSprinkler
+                  ? "#e6f6ff"
+                  : "#8B7355",
           border: fieldSprinklerId
             ? "2px solid #74c0fc"
-            : fieldCoveredByAdjacentSprinkler
-              ? "2px solid #a5d8ff"
-              : "2px solid #654321",
+            : fieldHarvesterId
+              ? "2px solid #64748b"
+              : fieldPlanterId
+                ? "2px solid #2f9e44"
+                : fieldCoveredByAdjacentSprinkler
+                  ? "2px solid #a5d8ff"
+                  : "2px solid #654321",
           outline: isWithinSelectedMoveArea(row, col)
             ? "2px solid #ffd43b"
             : isSprinklerPreviewTarget
@@ -1300,9 +1539,13 @@ export function Garden() {
           fontSize: compactGridLabels ? 16 : 14,
           color: fieldSprinklerId
             ? "#0b4f75"
-            : fieldCoveredByAdjacentSprinkler
-              ? "#1864ab"
-              : "#555",
+            : fieldHarvesterId
+              ? "#334155"
+              : fieldPlanterId
+                ? "#1b4332"
+                : fieldCoveredByAdjacentSprinkler
+                  ? "#1864ab"
+                  : "#555",
           textAlign: "center",
           lineHeight: 1.1,
           padding: 2,
@@ -1378,6 +1621,47 @@ export function Garden() {
             return;
           }
 
+          if (isToolEffectActive && isHarvesterTool(equippedToolId)) {
+            const newState = fieldHarvesterId
+              ? removeHarvesterFromField(state, row, col)
+              : placeHarvesterOnField(state, row, col, equippedToolId ?? "");
+            if (newState === state) {
+              alert(
+                "This tile already has another automation tool. Remove it first.",
+              );
+            }
+            setState(newState);
+            return;
+          }
+
+          if (isToolEffectActive && isPlanterTool(equippedToolId)) {
+            if (!fieldPlanterId && !state.garden.selectedPlanterSeedId) {
+              openPlanterSeedSelection({
+                mode: "place",
+                row,
+                col,
+                planterId: equippedToolId ?? "",
+              });
+              return;
+            }
+            const newState = fieldPlanterId
+              ? removePlanterFromField(state, row, col)
+              : placePlanterOnField(
+                  state,
+                  row,
+                  col,
+                  equippedToolId ?? "",
+                  state.garden.selectedPlanterSeedId,
+                );
+            if (newState === state) {
+              alert(
+                "This tile already has another automation tool. Remove it first.",
+              );
+            }
+            setState(newState);
+            return;
+          }
+
           setTileDetailModal({
             isOpen: true,
             row,
@@ -1390,14 +1674,22 @@ export function Garden() {
         {compactGridLabels
           ? fieldSprinklerId
             ? "💧"
-            : fieldCoveredByAdjacentSprinkler
-              ? "💦"
-              : "+"
+            : fieldHarvesterId
+              ? "🤖"
+              : fieldPlanterId
+                ? "🌱"
+                : fieldCoveredByAdjacentSprinkler
+                  ? "💦"
+                  : "+"
           : fieldSprinklerId
             ? "💧 Sprinkler"
-            : fieldCoveredByAdjacentSprinkler
-              ? "💦 Adjacent Water"
-              : "Click to plant"}
+            : fieldHarvesterId
+              ? "🤖 Harvester"
+              : fieldPlanterId
+                ? "🌱 Planter"
+                : fieldCoveredByAdjacentSprinkler
+                  ? "💦 Adjacent Water"
+                  : "Plant / Automation"}
       </div>
     );
   };
@@ -1501,6 +1793,19 @@ export function Garden() {
                   isSeedBagTool(equippedToolId) &&
                   !activeSeedBagSeedId
                 ) {
+                  setSeedSelectionTarget("seedbag");
+                  setActivateSeedBagAfterSelection(true);
+                  setShowSeedBag(true);
+                  return;
+                }
+
+                if (
+                  willActivate &&
+                  isPlanterTool(equippedToolId) &&
+                  !state.garden.selectedPlanterSeedId
+                ) {
+                  setPendingPlanterAction(null);
+                  setSeedSelectionTarget("planter");
                   setActivateSeedBagAfterSelection(true);
                   setShowSeedBag(true);
                   return;
@@ -1586,12 +1891,46 @@ export function Garden() {
                 onClick={(event) => {
                   event.stopPropagation();
                   setActivateSeedBagAfterSelection(false);
+                  setSeedSelectionTarget("seedbag");
                   setShowSeedBag(true);
                 }}
               >
                 {activeSeedBagSeedPresentation.icon}
               </button>
             )}
+            {isPlanterTool(equippedToolId) &&
+              selectedPlanterSeedPresentation && (
+                <button
+                  type="button"
+                  style={{
+                    position: "absolute",
+                    top: isMobile ? -6 : -4,
+                    right: isMobile ? -6 : -4,
+                    width: toolbarBadgeSize,
+                    height: toolbarBadgeSize,
+                    borderRadius: "50%",
+                    backgroundColor: "#142131",
+                    border: "1px solid #4f6b84",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: isMobile ? 15 : 13,
+                    lineHeight: 1,
+                    padding: 0,
+                    cursor: "pointer",
+                  }}
+                  title={selectedPlanterSeedPresentation.label}
+                  aria-label={`Selected planter seed: ${selectedPlanterSeedPresentation.label}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setActivateSeedBagAfterSelection(false);
+                    setSeedSelectionTarget("planter");
+                    setShowSeedBag(true);
+                  }}
+                >
+                  {selectedPlanterSeedPresentation.icon}
+                </button>
+              )}
           </div>
         </div>
       </div>
@@ -1682,6 +2021,8 @@ export function Garden() {
                 "shovel",
                 "wateringcan",
                 "sprinkler",
+                "harvester",
+                "planter",
                 "scythe",
                 "seedbag",
               ].map((type) => (
@@ -1707,39 +2048,71 @@ export function Garden() {
             <div
               style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}
             >
-              {[
-                ...state.inventory
-                  .filter(
-                    (item) => getItemDefSafe(item.itemId)?.type === "tool",
-                  )
-                  .map((item) => ({
-                    key: item.uid,
-                    equipValue: item.uid,
-                    toolId: item.itemId,
-                    level: item.level,
-                    name: getItemDefSafe(item.itemId)?.name ?? item.itemId,
-                  })),
-              ]
-                .filter((tool) => {
-                  if (!toolTypeFilter) return true;
-                  if (toolTypeFilter === "wateringcan") {
-                    return isWateringCanTool(tool.toolId);
-                  }
-                  if (toolTypeFilter === "seedbag") {
-                    return isSeedBagTool(tool.toolId);
-                  }
-                  return normalizeToolId(tool.toolId).includes(toolTypeFilter);
-                })
-                .sort((a, b) => {
-                  const aRarity = getItemDefSafe(a.toolId)?.rarity ?? "common";
-                  const bRarity = getItemDefSafe(b.toolId)?.rarity ?? "common";
-                  const rarityDelta =
-                    getRaritySortValue(bRarity) - getRaritySortValue(aRarity);
-                  if (rarityDelta !== 0) return rarityDelta;
-                  if (a.level !== b.level) return b.level - a.level;
-                  return a.name.localeCompare(b.name);
-                })
-                .map((tool) => {
+              {(() => {
+                const filteredTools = [
+                  ...state.inventory
+                    .filter(
+                      (item) => getItemDefSafe(item.itemId)?.type === "tool",
+                    )
+                    .map((item) => ({
+                      key: item.uid,
+                      equipValue: item.uid,
+                      toolId: item.itemId,
+                      level: item.level,
+                      name: getItemDefSafe(item.itemId)?.name ?? item.itemId,
+                    })),
+                ]
+                  .filter((tool) => {
+                    if (!toolTypeFilter) return true;
+                    if (toolTypeFilter === "wateringcan") {
+                      return isWateringCanTool(tool.toolId);
+                    }
+                    if (toolTypeFilter === "seedbag") {
+                      return isSeedBagTool(tool.toolId);
+                    }
+                    return normalizeToolId(tool.toolId).includes(
+                      toolTypeFilter,
+                    );
+                  })
+                  .sort((a, b) => {
+                    const aRarity =
+                      getItemDefSafe(a.toolId)?.rarity ?? "common";
+                    const bRarity =
+                      getItemDefSafe(b.toolId)?.rarity ?? "common";
+                    const rarityDelta =
+                      getRaritySortValue(bRarity) - getRaritySortValue(aRarity);
+                    if (rarityDelta !== 0) return rarityDelta;
+                    if (a.level !== b.level) return b.level - a.level;
+                    return a.name.localeCompare(b.name);
+                  });
+
+                if (filteredTools.length === 0) {
+                  const message =
+                    toolTypeFilter === "harvester"
+                      ? "Acquire a harvester to use this function."
+                      : toolTypeFilter === "planter"
+                        ? "Acquire a planter to use this function."
+                        : toolTypeFilter === "sprinkler"
+                          ? "Acquire a sprinkler to use this function."
+                          : "No tools in inventory yet.";
+
+                  return (
+                    <div
+                      style={{
+                        padding: 10,
+                        border: "1px solid #34516a",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        color: "#9eb0c2",
+                        backgroundColor: "#1b2d3f",
+                      }}
+                    >
+                      {message}
+                    </div>
+                  );
+                }
+
+                return filteredTools.map((tool) => {
                   let description = "";
                   let icon = "🔧";
 
@@ -1757,6 +2130,14 @@ export function Garden() {
                   } else if (isSprinklerTool(tool.toolId)) {
                     icon = "🌊";
                     description = "Click crops to place/remove sprinklers";
+                  } else if (isHarvesterTool(tool.toolId)) {
+                    icon = "🤖";
+                    description =
+                      "Auto-harvests finished crops in sprinkler-style range";
+                  } else if (isPlanterTool(tool.toolId)) {
+                    icon = "🌱";
+                    description =
+                      "Auto-plants selected seed in sprinkler-style range";
                   } else if (isWateringCanTool(tool.toolId)) {
                     icon = "💧";
                     description = "Click crops to water them (10 energy)";
@@ -1823,7 +2204,8 @@ export function Garden() {
                       </div>
                     </button>
                   );
-                })}
+                });
+              })()}
             </div>
 
             {isSeedBagTool(equippedToolId) && (
@@ -1874,6 +2256,72 @@ export function Garden() {
                             gap: 6,
                           }}
                           onClick={() => handleSeedBagSeedSelect(seed.seedId)}
+                          title={seedPresentation.label}
+                        >
+                          <span>{seedPresentation.icon}</span>
+                          <span>
+                            {seedPresentation.label} x{seed.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isPlanterTool(equippedToolId) && (
+              <div
+                style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid #2a3a4c",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "bold",
+                    color: "#e5edf5",
+                    marginBottom: 8,
+                  }}
+                >
+                  Planter Tool: Select Seed
+                </div>
+                {seedBag.length === 0 ? (
+                  <div style={{ fontSize: 11, color: "#9eb0c2" }}>
+                    No seeds available.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {seedBag.map((seed) => {
+                      const seedPresentation = getSeedPresentation(seed.seedId);
+
+                      return (
+                        <button
+                          key={`planter-${seed.seedId}`}
+                          className={
+                            state.garden.selectedPlanterSeedId === seed.seedId
+                              ? "btn-selected"
+                              : ""
+                          }
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: 11,
+                            border: "1px solid #3f546a",
+                            borderRadius: 3,
+                            backgroundColor: "#1b2a39",
+                            color: "#e5edf5",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                          onClick={() => {
+                            setPendingPlanterAction(null);
+                            setSeedSelectionTarget("planter");
+                            handleSeedBagSeedSelect(seed.seedId);
+                          }}
                           title={seedPresentation.label}
                         >
                           <span>{seedPresentation.icon}</span>
@@ -1951,11 +2399,12 @@ export function Garden() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
+            zIndex: 1200,
           }}
           onClick={() => {
             setShowSeedBag(false);
             setActivateSeedBagAfterSelection(false);
+            setPendingPlanterAction(null);
           }}
         >
           <div
@@ -1982,7 +2431,10 @@ export function Garden() {
                 alignItems: "center",
               }}
             >
-              <span>Seed Bag</span>
+              <span>
+                Seed Bag{" "}
+                {seedSelectionTarget === "planter" ? "(Planter Seed)" : ""}
+              </span>
               <button
                 style={{
                   padding: "4px 8px",
@@ -1996,6 +2448,7 @@ export function Garden() {
                 onClick={() => {
                   setShowSeedBag(false);
                   setActivateSeedBagAfterSelection(false);
+                  setPendingPlanterAction(null);
                 }}
               >
                 Close
@@ -2011,51 +2464,67 @@ export function Garden() {
                   gap: 8,
                 }}
               >
-                {seedBag.map((seed) => {
-                  const seedPresentation = getSeedPresentation(seed.seedId);
-                  const isSelected = activeSeedBagSeedId === seed.seedId;
+                {(() => {
+                  const pendingKey = pendingPlanterAction
+                    ? `${pendingPlanterAction.row},${pendingPlanterAction.col}`
+                    : null;
+                  const selectedPlanterSeedForModal =
+                    seedSelectionTarget === "planter" &&
+                    pendingPlanterAction?.mode === "assign" &&
+                    pendingKey
+                      ? (state.garden.planterSeedSelections?.[pendingKey] ??
+                        state.garden.selectedPlanterSeedId)
+                      : state.garden.selectedPlanterSeedId;
 
-                  return (
-                    <button
-                      key={seed.seedId}
-                      type="button"
-                      className={isSelected ? "btn-selected" : ""}
-                      style={{
-                        padding: 8,
-                        backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
-                        border: isSelected
-                          ? "2px solid #2f9e44"
-                          : "1px solid #34516a",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        fontSize: 11,
-                        textAlign: "left",
-                        color: "#e5edf5",
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 8,
-                      }}
-                      onClick={() =>
-                        handleSeedBagSeedSelect(seed.seedId, {
-                          closeSeedBagModal: true,
-                        })
-                      }
-                      title={seedPresentation.label}
-                    >
-                      <span style={{ fontSize: 18, lineHeight: 1.1 }}>
-                        {seedPresentation.icon}
-                      </span>
-                      <span>
-                        <div style={{ fontWeight: "bold" }}>
-                          {seedPresentation.label}
-                        </div>
-                        <div style={{ fontSize: 10, color: "#9eb0c2" }}>
-                          x {seed.count}
-                        </div>
-                      </span>
-                    </button>
-                  );
-                })}
+                  return seedBag.map((seed) => {
+                    const seedPresentation = getSeedPresentation(seed.seedId);
+                    const isSelected =
+                      seedSelectionTarget === "planter"
+                        ? selectedPlanterSeedForModal === seed.seedId
+                        : activeSeedBagSeedId === seed.seedId;
+
+                    return (
+                      <button
+                        key={seed.seedId}
+                        type="button"
+                        className={isSelected ? "btn-selected" : ""}
+                        style={{
+                          padding: 8,
+                          backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
+                          border: isSelected
+                            ? "2px solid #2f9e44"
+                            : "1px solid #34516a",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          fontSize: 11,
+                          textAlign: "left",
+                          color: "#e5edf5",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 8,
+                        }}
+                        onClick={() =>
+                          handleSeedBagSeedSelect(seed.seedId, {
+                            closeSeedBagModal: true,
+                          })
+                        }
+                        title={seedPresentation.label}
+                      >
+                        <span style={{ fontSize: 18, lineHeight: 1.1 }}>
+                          {seedPresentation.icon}
+                        </span>
+                        <span>
+                          <div style={{ fontWeight: "bold" }}>
+                            {seedPresentation.label}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#9eb0c2" }}>
+                            x {seed.count}
+                          </div>
+                        </span>
+                      </button>
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -2149,6 +2618,33 @@ export function Garden() {
                     maxHeight: "50vh",
                   }}
                 >
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      fontSize: 11,
+                      color: "#b8cadb",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Automation inventory: sprinkler{" "}
+                    {getOwnedSprinklerIds().length}, harvester{" "}
+                    {getOwnedHarvesterIds().length}, planter{" "}
+                    {getOwnedPlanterIds().length}
+                  </div>
+                  {getOwnedSprinklerIds().length === 0 &&
+                    getOwnedHarvesterIds().length === 0 &&
+                    getOwnedPlanterIds().length === 0 && (
+                      <div
+                        style={{
+                          marginBottom: 12,
+                          fontSize: 11,
+                          color: "#9eb0c2",
+                        }}
+                      >
+                        Acquire a sprinkler, planter, or harvester to use
+                        automation on empty fields.
+                      </div>
+                    )}
                   <div
                     style={{
                       fontWeight: "bold",
@@ -3347,6 +3843,21 @@ export function Garden() {
                   tileDetailModal.cropId,
                   cropDef,
                 );
+                const cropRow = tileDetailModal.row;
+                const cropCol = tileDetailModal.col;
+                const harvesterOnTile = getHarvesterAtField(cropRow, cropCol);
+                const planterOnTile = getPlanterAtField(cropRow, cropCol);
+                const ownedSprinklerIds = getOwnedSprinklerIds();
+                const ownedHarvesterIds = getOwnedHarvesterIds();
+                const ownedPlanterIds = getOwnedPlanterIds();
+                const planterSeedKey = `${cropRow},${cropCol}`;
+                const planterSeedForTile =
+                  state.garden.planterSeedSelections?.[planterSeedKey] ??
+                  state.garden.selectedPlanterSeedId ??
+                  null;
+                const planterSeedForTilePresentation = planterSeedForTile
+                  ? getSeedPresentation(planterSeedForTile)
+                  : null;
 
                 return (
                   <>
@@ -3446,101 +3957,329 @@ export function Garden() {
                       }}
                     >
                       <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-                        Sprinkler Controls
+                        Automation Tool Controls
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 6,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        {cropInstance.hasSprinkler ? (
-                          <button
-                            style={{
-                              padding: "6px 10px",
-                              backgroundColor: "#ffebe8",
-                              color: "#c62828",
-                              border: "1px solid #f1998e",
-                              borderRadius: 4,
-                              cursor: "pointer",
-                              fontWeight: "bold",
-                              fontSize: 11,
-                            }}
-                            onClick={() => {
-                              const newState = setCropSprinkler(
-                                state,
-                                tileDetailModal.row,
-                                tileDetailModal.col,
-                                null,
+                      <div style={{ marginBottom: 8, color: "#9eb0c2" }}>
+                        Manage sprinkler, harvester, and planter directly on
+                        this planted tile.
+                      </div>
+
+                      <div style={{ marginBottom: 10 }}>
+                        <div
+                          style={{
+                            fontWeight: "bold",
+                            marginBottom: 6,
+                            color: "#9ed3ff",
+                          }}
+                        >
+                          Sprinkler
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {cropInstance.hasSprinkler ? (
+                            <button
+                              style={{
+                                padding: "6px 10px",
+                                backgroundColor: "#ffebe8",
+                                color: "#c62828",
+                                border: "1px solid #f1998e",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: 11,
+                              }}
+                              onClick={() => {
+                                const newState = setCropSprinkler(
+                                  state,
+                                  cropRow,
+                                  cropCol,
+                                  null,
+                                );
+                                setState(newState);
+                              }}
+                            >
+                              Remove Sprinkler
+                            </button>
+                          ) : ownedSprinklerIds.length > 0 ? (
+                            ownedSprinklerIds.map((sprinklerId) => {
+                              const sprinklerDef = getItemDefSafe(sprinklerId);
+                              return (
+                                <button
+                                  key={sprinklerId}
+                                  style={{
+                                    padding: "6px 10px",
+                                    backgroundColor: "#e3f2fd",
+                                    color: "#0d47a1",
+                                    border: "1px solid #90caf9",
+                                    borderRadius: 4,
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: 11,
+                                  }}
+                                  onClick={() => {
+                                    if (
+                                      isFieldCoveredBySprinklerNetwork(
+                                        cropRow,
+                                        cropCol,
+                                        true,
+                                      )
+                                    ) {
+                                      const proceed = window.confirm(
+                                        "This field is already covered by another sprinkler. Install anyway?",
+                                      );
+                                      if (!proceed) return;
+                                    }
+                                    const newState = setCropSprinkler(
+                                      state,
+                                      cropRow,
+                                      cropCol,
+                                      sprinklerId,
+                                    );
+                                    if (newState === state) {
+                                      alert(
+                                        "This tile already has another automation tool. Remove it first.",
+                                      );
+                                      return;
+                                    }
+                                    setState(newState);
+                                  }}
+                                  onMouseEnter={() =>
+                                    setSprinklerPreview({
+                                      row: cropRow,
+                                      col: cropCol,
+                                      sprinklerId,
+                                    })
+                                  }
+                                  onMouseLeave={() => setSprinklerPreview(null)}
+                                >
+                                  Install {sprinklerDef?.name ?? sprinklerId}
+                                </button>
                               );
-                              setState(newState);
-                            }}
-                          >
-                            Remove Sprinkler
-                          </button>
-                        ) : getOwnedSprinklerIds().length > 0 ? (
-                          getOwnedSprinklerIds().map((sprinklerId) => {
-                            const sprinklerDef = getItemDefSafe(sprinklerId);
-                            return (
+                            })
+                          ) : (
+                            <span style={{ color: "#9eb0c2" }}>
+                              Acquire a sprinkler to use this function.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: 10 }}>
+                        <div
+                          style={{
+                            fontWeight: "bold",
+                            marginBottom: 6,
+                            color: "#d1d5db",
+                          }}
+                        >
+                          Harvester
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {harvesterOnTile ? (
+                            <button
+                              style={{
+                                padding: "6px 10px",
+                                backgroundColor: "#ffebe8",
+                                color: "#c62828",
+                                border: "1px solid #f1998e",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                fontSize: 11,
+                              }}
+                              onClick={() => {
+                                const newState = removeHarvesterFromField(
+                                  state,
+                                  cropRow,
+                                  cropCol,
+                                );
+                                setState(newState);
+                              }}
+                            >
+                              Remove Harvester
+                            </button>
+                          ) : ownedHarvesterIds.length > 0 ? (
+                            ownedHarvesterIds.map((harvesterId) => {
+                              const harvesterDef = getItemDefSafe(harvesterId);
+                              return (
+                                <button
+                                  key={harvesterId}
+                                  style={{
+                                    padding: "6px 10px",
+                                    backgroundColor: "#334155",
+                                    color: "#e2e8f0",
+                                    border: "1px solid #64748b",
+                                    borderRadius: 4,
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: 11,
+                                  }}
+                                  onClick={() => {
+                                    const newState = placeHarvesterOnField(
+                                      state,
+                                      cropRow,
+                                      cropCol,
+                                      harvesterId,
+                                    );
+                                    if (newState === state) {
+                                      alert(
+                                        "This tile already has another automation tool. Remove it first.",
+                                      );
+                                      return;
+                                    }
+                                    setState(newState);
+                                  }}
+                                >
+                                  Install {harvesterDef?.name ?? harvesterId}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <span style={{ color: "#9eb0c2" }}>
+                              Acquire a harvester to use this function.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: "bold",
+                            marginBottom: 6,
+                            color: "#b7efc5",
+                          }}
+                        >
+                          Planter
+                        </div>
+                        {planterOnTile && (
+                          <div style={{ marginBottom: 6, color: "#9eb0c2" }}>
+                            Seed: {planterSeedForTilePresentation?.icon}{" "}
+                            {planterSeedForTilePresentation?.label ?? "None"}
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {planterOnTile ? (
+                            <>
                               <button
-                                key={sprinklerId}
                                 style={{
                                   padding: "6px 10px",
-                                  backgroundColor: "#e3f2fd",
-                                  color: "#0d47a1",
-                                  border: "1px solid #90caf9",
+                                  backgroundColor: "#ffebe8",
+                                  color: "#c62828",
+                                  border: "1px solid #f1998e",
                                   borderRadius: 4,
                                   cursor: "pointer",
                                   fontWeight: "bold",
                                   fontSize: 11,
                                 }}
                                 onClick={() => {
-                                  if (
-                                    isFieldCoveredBySprinklerNetwork(
-                                      tileDetailModal.row,
-                                      tileDetailModal.col,
-                                      true,
-                                    )
-                                  ) {
-                                    const proceed = window.confirm(
-                                      "This field is already covered by another sprinkler. Install anyway?",
-                                    );
-                                    if (!proceed) return;
-                                  }
-                                  const newState = setCropSprinkler(
+                                  const newState = removePlanterFromField(
                                     state,
-                                    tileDetailModal.row,
-                                    tileDetailModal.col,
-                                    sprinklerId,
+                                    cropRow,
+                                    cropCol,
                                   );
                                   setState(newState);
                                 }}
-                                onMouseEnter={() =>
-                                  setSprinklerPreview({
-                                    row: tileDetailModal.row,
-                                    col: tileDetailModal.col,
-                                    sprinklerId,
+                              >
+                                Remove Planter
+                              </button>
+                              <button
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#31572c",
+                                  color: "#d8f3dc",
+                                  border: "1px solid #4f772d",
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                  fontWeight: "bold",
+                                  fontSize: 11,
+                                }}
+                                onClick={() =>
+                                  openPlanterSeedSelection({
+                                    mode: "assign",
+                                    row: cropRow,
+                                    col: cropCol,
+                                    planterId: planterOnTile,
                                   })
                                 }
-                                onMouseLeave={() => setSprinklerPreview(null)}
                               >
-                                Install {sprinklerDef?.name ?? sprinklerId}
+                                Set This Planter's Seed
                               </button>
-                            );
-                          })
-                        ) : (
-                          <span style={{ color: "#9eb0c2" }}>
-                            No sprinkler tool in inventory.
-                          </span>
-                        )}
+                            </>
+                          ) : ownedPlanterIds.length > 0 ? (
+                            ownedPlanterIds.map((planterId) => {
+                              const planterDef = getItemDefSafe(planterId);
+                              return (
+                                <button
+                                  key={planterId}
+                                  style={{
+                                    padding: "6px 10px",
+                                    backgroundColor: "#1b4332",
+                                    color: "#d8f3dc",
+                                    border: "1px solid #2f9e44",
+                                    borderRadius: 4,
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: 11,
+                                  }}
+                                  onClick={() => {
+                                    if (!state.garden.selectedPlanterSeedId) {
+                                      openPlanterSeedSelection({
+                                        mode: "place",
+                                        row: cropRow,
+                                        col: cropCol,
+                                        planterId,
+                                      });
+                                      return;
+                                    }
+
+                                    const newState = placePlanterOnField(
+                                      state,
+                                      cropRow,
+                                      cropCol,
+                                      planterId,
+                                      state.garden.selectedPlanterSeedId,
+                                    );
+                                    if (newState === state) {
+                                      alert(
+                                        "This tile already has another automation tool. Remove it first.",
+                                      );
+                                      return;
+                                    }
+                                    setState(newState);
+                                  }}
+                                >
+                                  Install {planterDef?.name ?? planterId}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <span style={{ color: "#9eb0c2" }}>
+                              Acquire a planter to use this function.
+                            </span>
+                          )}
+                        </div>
                       </div>
+
                       <div style={{ marginTop: 8, color: "#9eb0c2" }}>
-                        Coverage:{" "}
-                        {fieldCoverageText(
-                          tileDetailModal.row,
-                          tileDetailModal.col,
-                        )}
+                        Coverage: {fieldCoverageText(cropRow, cropCol)}
                       </div>
                     </div>
 
@@ -3789,17 +4528,39 @@ export function Garden() {
               (() => {
                 const emptyRow = tileDetailModal.row;
                 const emptyCol = tileDetailModal.col;
-                const fieldSprinklerId = getSprinklerAtField(
+                const fieldAutomationTool = getAutomationToolAtField(
                   emptyRow,
                   emptyCol,
                 );
+                const fieldSprinklerId =
+                  fieldAutomationTool?.type === "sprinkler"
+                    ? fieldAutomationTool.id
+                    : null;
+                const fieldHarvesterId =
+                  fieldAutomationTool?.type === "harvester"
+                    ? fieldAutomationTool.id
+                    : null;
+                const fieldPlanterId =
+                  fieldAutomationTool?.type === "planter"
+                    ? fieldAutomationTool.id
+                    : null;
                 const ownedSprinklerIds = getOwnedSprinklerIds();
+                const ownedHarvesterIds = getOwnedHarvesterIds();
+                const ownedPlanterIds = getOwnedPlanterIds();
+                const planterSeedKey = `${emptyRow},${emptyCol}`;
+                const selectedSeedForTile = fieldPlanterId
+                  ? (state.garden.planterSeedSelections?.[planterSeedKey] ??
+                    state.garden.selectedPlanterSeedId)
+                  : null;
+                const selectedSeedForTilePresentation = selectedSeedForTile
+                  ? getSeedPresentation(selectedSeedForTile)
+                  : null;
 
-                if (tileDetailModal.emptyMode === "sprinkler") {
+                if (tileDetailModal.emptyMode === "automation") {
                   return (
                     <>
                       <h3 style={{ margin: "0 0 16px 0" }}>
-                        Sprinkler Options @ ({emptyRow}, {emptyCol})
+                        Automation Tools @ ({emptyRow}, {emptyCol})
                       </h3>
 
                       <div
@@ -3821,11 +4582,29 @@ export function Garden() {
                         >
                           {fieldSprinklerId
                             ? `Installed: ${getItemDefSafe(fieldSprinklerId)?.name ?? fieldSprinklerId}`
-                            : "No sprinkler installed on this field"}
+                            : fieldHarvesterId
+                              ? `Installed: ${getItemDefSafe(fieldHarvesterId)?.name ?? fieldHarvesterId}`
+                              : fieldPlanterId
+                                ? `Installed: ${getItemDefSafe(fieldPlanterId)?.name ?? fieldPlanterId}`
+                                : "No automation tool installed on this field"}
                         </div>
                         <div style={{ fontSize: 11, color: "#b8cadb" }}>
-                          Place a sprinkler now, or remove the current one.
+                          Place a sprinkler, harvester, or planter. Only one
+                          automation tool can exist on a tile.
                         </div>
+                        {fieldPlanterId && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 11,
+                              color: "#b8cadb",
+                            }}
+                          >
+                            Planter seed:{" "}
+                            {selectedSeedForTilePresentation?.icon}{" "}
+                            {selectedSeedForTilePresentation?.label ?? "None"}
+                          </div>
+                        )}
                         <div
                           style={{
                             marginTop: 6,
@@ -3910,6 +4689,128 @@ export function Garden() {
                             No sprinkler tool in inventory.
                           </span>
                         )}
+
+                        {ownedHarvesterIds.length > 0 ? (
+                          ownedHarvesterIds.map((harvesterId) => {
+                            const harvesterDef = getItemDefSafe(harvesterId);
+                            return (
+                              <button
+                                key={harvesterId}
+                                style={{
+                                  padding: "8px 12px",
+                                  backgroundColor: "#334155",
+                                  color: "#e2e8f0",
+                                  border: "1px solid #64748b",
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                  fontWeight: "bold",
+                                }}
+                                onClick={() => {
+                                  const newState = placeHarvesterOnField(
+                                    state,
+                                    emptyRow,
+                                    emptyCol,
+                                    harvesterId,
+                                  );
+                                  if (newState === state) {
+                                    alert(
+                                      "Tile already occupied by another automation tool.",
+                                    );
+                                    return;
+                                  }
+                                  setState(newState);
+                                }}
+                              >
+                                Place {harvesterDef?.name ?? harvesterId}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <span style={{ color: "#9eb0c2", fontSize: 12 }}>
+                            No harvester tool in inventory.
+                          </span>
+                        )}
+
+                        {ownedPlanterIds.length > 0 ? (
+                          ownedPlanterIds.map((planterId) => {
+                            const planterDef = getItemDefSafe(planterId);
+                            return (
+                              <button
+                                key={planterId}
+                                style={{
+                                  padding: "8px 12px",
+                                  backgroundColor: "#1b4332",
+                                  color: "#d8f3dc",
+                                  border: "1px solid #2f9e44",
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                  fontWeight: "bold",
+                                }}
+                                onClick={() => {
+                                  if (!state.garden.selectedPlanterSeedId) {
+                                    openPlanterSeedSelection(
+                                      {
+                                        mode: "place",
+                                        row: emptyRow,
+                                        col: emptyCol,
+                                        planterId,
+                                      },
+                                      true,
+                                    );
+                                    return;
+                                  }
+                                  const newState = placePlanterOnField(
+                                    state,
+                                    emptyRow,
+                                    emptyCol,
+                                    planterId,
+                                    state.garden.selectedPlanterSeedId,
+                                  );
+                                  if (newState === state) {
+                                    alert(
+                                      "Tile already occupied by another automation tool.",
+                                    );
+                                    return;
+                                  }
+                                  setState(newState);
+                                }}
+                              >
+                                Place {planterDef?.name ?? planterId}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <span style={{ color: "#9eb0c2", fontSize: 12 }}>
+                            No planter tool in inventory.
+                          </span>
+                        )}
+
+                        {fieldPlanterId && (
+                          <button
+                            style={{
+                              padding: "8px 12px",
+                              backgroundColor: "#31572c",
+                              color: "#d8f3dc",
+                              border: "1px solid #4f772d",
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                            }}
+                            onClick={() =>
+                              openPlanterSeedSelection(
+                                {
+                                  mode: "assign",
+                                  row: emptyRow,
+                                  col: emptyCol,
+                                  planterId: fieldPlanterId,
+                                },
+                                true,
+                              )
+                            }
+                          >
+                            Set This Planter's Seed
+                          </button>
+                        )}
                       </div>
 
                       <div
@@ -3938,7 +4839,9 @@ export function Garden() {
                         >
                           Back
                         </button>
-                        {fieldSprinklerId && (
+                        {(fieldSprinklerId ||
+                          fieldHarvesterId ||
+                          fieldPlanterId) && (
                           <button
                             style={{
                               padding: "10px 20px",
@@ -3950,15 +4853,27 @@ export function Garden() {
                               fontWeight: "bold",
                             }}
                             onClick={() => {
-                              const newState = removeSprinklerFromField(
-                                state,
-                                emptyRow,
-                                emptyCol,
-                              );
+                              const newState = fieldSprinklerId
+                                ? removeSprinklerFromField(
+                                    state,
+                                    emptyRow,
+                                    emptyCol,
+                                  )
+                                : fieldHarvesterId
+                                  ? removeHarvesterFromField(
+                                      state,
+                                      emptyRow,
+                                      emptyCol,
+                                    )
+                                  : removePlanterFromField(
+                                      state,
+                                      emptyRow,
+                                      emptyCol,
+                                    );
                               setState(newState);
                             }}
                           >
-                            Remove Sprinkler
+                            Remove Tool
                           </button>
                         )}
                         <button
@@ -4008,7 +4923,7 @@ export function Garden() {
                           fontWeight: "bold",
                         }}
                       >
-                        Do you want to plant a crop or place a sprinkler?
+                        Do you want to plant a crop or place an automation tool?
                       </div>
                     </div>
 
@@ -4051,11 +4966,11 @@ export function Garden() {
                         onClick={() =>
                           setTileDetailModal({
                             ...tileDetailModal,
-                            emptyMode: "sprinkler",
+                            emptyMode: "automation",
                           })
                         }
                       >
-                        Sprinkler
+                        Automation
                       </button>
                       <button
                         style={{

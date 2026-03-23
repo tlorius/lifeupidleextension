@@ -11,8 +11,11 @@ import {
   setCropSprinkler,
   placeSprinklerOnField,
   removeSprinklerFromField,
+  placeHarvesterOnField,
+  placePlanterOnField,
   sprinklerCoversField,
   getSprinklerCoverageProfile,
+  applyGardenIdle,
   prestigeCropType,
   getCropXpForNextLevel,
   getCropYieldMultiplier,
@@ -226,6 +229,98 @@ describe("Garden System - Unit Tests", () => {
 
       const crop = newState.garden.crops["sunflower_common"][0];
       expect(crop.hasSprinkler).toBe(false);
+    });
+  });
+
+  describe("Automation Tools", () => {
+    it("should enforce one automation tool per tile across sprinkler/harvester/planter", () => {
+      let newState = placeHarvesterOnField(testState, 0, 0, "harvester_common");
+
+      newState = placeSprinklerOnField(newState, 0, 0, "sprinkler_common");
+
+      const hasHarvester =
+        (newState.garden.harvesters?.harvester_common ?? []).length === 1;
+      const hasSprinkler =
+        (newState.garden.sprinklers?.sprinkler_common ?? []).length === 1;
+
+      expect(hasHarvester).toBe(true);
+      expect(hasSprinkler).toBe(false);
+    });
+
+    it("should auto-harvest finished crops within harvester range at interval", () => {
+      let newState = plantCrop(testState, "sunflower_common", 0, 0);
+      newState.garden.crops["sunflower_common"][0].plantedAt =
+        Date.now() - 31 * 60 * 1000;
+
+      newState = placeHarvesterOnField(newState, 0, 0, "harvester_common");
+      const initialGold = newState.resources.gold;
+
+      applyGardenIdle(newState, 5000);
+
+      expect(newState.garden.crops["sunflower_common"]).toBeUndefined();
+      expect(newState.resources.gold).toBeGreaterThan(initialGold);
+    });
+
+    it("should not run harvester cycle before configured interval", () => {
+      let newState = plantCrop(testState, "sunflower_common", 0, 0);
+      newState.garden.crops["sunflower_common"][0].plantedAt =
+        Date.now() - 31 * 60 * 1000;
+      newState = placeHarvesterOnField(newState, 0, 0, "harvester_common");
+
+      applyGardenIdle(newState, 4000);
+
+      expect(newState.garden.crops["sunflower_common"]).toBeDefined();
+      expect(newState.garden.crops["sunflower_common"]).toHaveLength(1);
+    });
+
+    it("should auto-plant selected seed within planter range when seeds are available", () => {
+      testState.inventory = [
+        {
+          uid: "seed-1",
+          itemId: "sunflower_seed_common",
+          quantity: 2,
+          level: 1,
+        },
+      ];
+      testState.garden.selectedPlanterSeedId = "sunflower_seed_common";
+
+      let newState = placePlanterOnField(testState, 0, 0, "planter_common");
+      applyGardenIdle(newState, 5000);
+
+      expect(newState.garden.crops["sunflower_common"]).toBeDefined();
+      expect(newState.garden.crops["sunflower_common"]).toHaveLength(1);
+      expect(newState.inventory[0].quantity).toBe(1);
+    });
+
+    it("should use per-planter seed assignment over global planter seed", () => {
+      testState.inventory = [
+        {
+          uid: "seed-1",
+          itemId: "sunflower_seed_common",
+          quantity: 1,
+          level: 1,
+        },
+        {
+          uid: "seed-2",
+          itemId: "carrot_seed_common",
+          quantity: 1,
+          level: 1,
+        },
+      ];
+      testState.garden.selectedPlanterSeedId = "sunflower_seed_common";
+
+      const newState = placePlanterOnField(
+        testState,
+        0,
+        0,
+        "planter_common",
+        "carrot_seed_common",
+      );
+      applyGardenIdle(newState, 5000);
+
+      expect(newState.garden.crops["carrot_common"]).toBeDefined();
+      expect(newState.garden.crops["carrot_common"]).toHaveLength(1);
+      expect(newState.garden.crops["sunflower_common"]).toBeUndefined();
     });
   });
 

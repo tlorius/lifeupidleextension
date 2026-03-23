@@ -70,6 +70,8 @@ export type ToolType =
   | "shovel"
   | "wateringCan"
   | "sprinkler"
+  | "harvester"
+  | "planter"
   | "scythe";
 
 export interface ToolDefinition {
@@ -162,6 +164,24 @@ export interface GardenState {
 
   // Sprinkler placements grouped by tier
   sprinklers: Record<string, FieldPosition[]>; // "sprinkler_common" -> [[row, col], ...]
+
+  // Harvester placements grouped by tier
+  harvesters: Record<string, FieldPosition[]>;
+
+  // Planter placements grouped by tier
+  planters: Record<string, FieldPosition[]>;
+
+  // Seed used by planter automation
+  selectedPlanterSeedId?: string | null;
+
+  // Optional per-planter seed assignment keyed by "row,col".
+  planterSeedSelections?: Record<string, string>;
+
+  // Keeps interval remainders so periodic automation checks stay stable across ticks.
+  automationTimers?: {
+    harvesterRemainderMs?: number;
+    planterRemainderMs?: number;
+  };
 }
 
 export interface TemporaryEffects {

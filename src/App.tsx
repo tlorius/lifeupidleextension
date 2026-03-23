@@ -6,6 +6,7 @@ import { Upgrades } from "./components/Upgrades";
 import { Garden } from "./components/Garden";
 import { ResourcesDisplay } from "./components/ResourcesDisplay";
 import { TokenRewardModal } from "./components/TokenRewardModal";
+import { IdleEarningsModal } from "./components/IdleEarningsModal";
 
 type Screen = "main" | "inventory" | "equipment" | "upgrades" | "garden";
 
@@ -79,6 +80,7 @@ function App() {
       {screen === "garden" && <Garden />}
       {screen === "main" && <Main />}
 
+      <IdleEarningsModal />
       <TokenRewardModal />
     </div>
   );

@@ -3,6 +3,7 @@ import type { GameState } from "./types";
 import { defaultState } from "./state";
 import { load, save } from "./storage";
 import { applyIdle } from "./engine";
+import { applyGardenIdle } from "./garden";
 import {
   applyTokenRewards,
   extractRewardToken,
@@ -15,25 +16,89 @@ import {
   toGrantedTokenRewards,
 } from "./tokenRewards";
 
+export interface IdleEarningItem {
+  resourceId: string;
+  label: string;
+  amount: number;
+  icon: string;
+}
+
+type InitializationResult = {
+  state: GameState;
+  idleEarnings: IdleEarningItem[];
+  idleDurationMs: number;
+};
+
+function initializeGameState(): InitializationResult {
+  const initialState = load() ?? structuredClone(defaultState);
+  const now = Date.now();
+  const lastUpdate =
+    typeof initialState.meta.lastUpdate === "number"
+      ? initialState.meta.lastUpdate
+      : now;
+  const delta = Math.max(0, now - lastUpdate);
+  const beforeGold = initialState.resources.gold;
+
+  if (delta > 0) {
+    applyIdle(initialState, delta);
+    applyGardenIdle(initialState, delta);
+  }
+
+  initialState.meta.lastUpdate = now;
+
+  const earnedGold = Math.max(0, initialState.resources.gold - beforeGold);
+  const idleEarnings: IdleEarningItem[] =
+    earnedGold > 0
+      ? [
+          {
+            resourceId: "gold",
+            label: "Gold",
+            amount: earnedGold,
+            icon: "🪙",
+          },
+        ]
+      : [];
+
+  return {
+    state: initialState,
+    idleEarnings,
+    idleDurationMs: delta,
+  };
+}
+
 const GameContext = createContext<{
   state: GameState;
   setState: React.Dispatch<React.SetStateAction<GameState>>;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
+  idleEarningsModalItems: IdleEarningItem[];
+  idleDurationMs: number;
+  dismissIdleEarningsModal: () => void;
 } | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<GameState>(() => {
-    let s = load() ?? structuredClone(defaultState);
-    const delta = Date.now() - s.meta.lastUpdate;
-    applyIdle(s, delta);
-    return s;
-  });
+  const initializationRef = useRef<InitializationResult | null>(null);
+  if (!initializationRef.current) {
+    initializationRef.current = initializeGameState();
+  }
+
+  const [state, setState] = useState<GameState>(
+    initializationRef.current.state,
+  );
 
   const stateRef = useRef(state);
   const [tokenRewardModalItems, setTokenRewardModalItems] = useState<
     GrantedTokenRewardItem[]
   >([]);
+  const [idleEarningsModalItems, setIdleEarningsModalItems] = useState<
+    IdleEarningItem[]
+  >(initializationRef.current.idleEarnings);
+  const [idleDurationMs, setIdleDurationMs] = useState<number>(
+    initializationRef.current.idleDurationMs,
+  );
+  const [pendingRewardToken, setPendingRewardToken] = useState<string | null>(
+    () => extractRewardToken(window.location.search),
+  );
 
   useEffect(() => {
     stateRef.current = state;
@@ -44,6 +109,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setState((prev) => {
         const next = structuredClone(prev);
         applyIdle(next, 1000);
+        applyGardenIdle(next, 1000);
         save(next);
         return next;
       });
@@ -67,14 +133,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const token = extractRewardToken(window.location.search);
+    const token = pendingRewardToken;
     if (!token) return;
+    if (idleEarningsModalItems.length > 0) return;
 
     const processedTokens = loadProcessedTokens(localStorage);
     if (processedTokens.has(token)) {
       const nextSearch = removeRewardTokenFromUrl(window.location.search);
       const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
       window.history.replaceState({}, "", nextUrl);
+      setPendingRewardToken(null);
       return;
     }
 
@@ -101,12 +169,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const nextSearch = removeRewardTokenFromUrl(window.location.search);
         const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
         window.history.replaceState({}, "", nextUrl);
+        setPendingRewardToken(null);
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pendingRewardToken, idleEarningsModalItems.length]);
 
   return (
     <GameContext.Provider
@@ -115,6 +184,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setState,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
+        idleEarningsModalItems,
+        idleDurationMs,
+        dismissIdleEarningsModal: () => {
+          setIdleEarningsModalItems([]);
+          setIdleDurationMs(0);
+        },
       }}
     >
       {children}

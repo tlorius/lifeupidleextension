@@ -86,7 +86,9 @@ function migrateState(loaded: unknown): GameState {
 
   // Ensure version is up-to-date
   migrated.meta.version = defaultState.meta.version;
-  migrated.meta.lastUpdate = Date.now();
+  if (typeof migrated.meta.lastUpdate !== "number") {
+    migrated.meta.lastUpdate = Date.now();
+  }
 
   return migrated;
 }

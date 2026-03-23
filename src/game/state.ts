@@ -69,5 +69,13 @@ export const defaultState: GameState = {
     },
     cropMastery: {},
     sprinklers: {},
+    harvesters: {},
+    planters: {},
+    selectedPlanterSeedId: null,
+    planterSeedSelections: {},
+    automationTimers: {
+      harvesterRemainderMs: 0,
+      planterRemainderMs: 0,
+    },
   },
 };

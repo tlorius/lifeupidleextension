@@ -253,6 +253,58 @@ export const TOOL_CONFIG = {
     stats: { waterRange: 5, harvestRange: 0, waterAmount: 0 },
   },
 
+  // Harvesters
+  harvester_common: {
+    id: "harvester_common",
+    name: "Basic Harvester",
+    type: "harvester" as const,
+    rarity: "common" as const,
+    level: 1,
+    stats: { waterRange: 1, harvestRange: 0, waterAmount: 0 },
+  },
+  harvester_rare: {
+    id: "harvester_rare",
+    name: "Field Harvester",
+    type: "harvester" as const,
+    rarity: "rare" as const,
+    level: 5,
+    stats: { waterRange: 3, harvestRange: 0, waterAmount: 0 },
+  },
+  harvester_epic: {
+    id: "harvester_epic",
+    name: "Pulse Harvester",
+    type: "harvester" as const,
+    rarity: "epic" as const,
+    level: 15,
+    stats: { waterRange: 5, harvestRange: 0, waterAmount: 0 },
+  },
+
+  // Planters
+  planter_common: {
+    id: "planter_common",
+    name: "Basic Planter",
+    type: "planter" as const,
+    rarity: "common" as const,
+    level: 1,
+    stats: { waterRange: 1, harvestRange: 0, waterAmount: 0 },
+  },
+  planter_rare: {
+    id: "planter_rare",
+    name: "Field Planter",
+    type: "planter" as const,
+    rarity: "rare" as const,
+    level: 5,
+    stats: { waterRange: 3, harvestRange: 0, waterAmount: 0 },
+  },
+  planter_epic: {
+    id: "planter_epic",
+    name: "Pulse Planter",
+    type: "planter" as const,
+    rarity: "epic" as const,
+    level: 15,
+    stats: { waterRange: 5, harvestRange: 0, waterAmount: 0 },
+  },
+
   // Scythes
   scythe_common: {
     id: "scythe_common",

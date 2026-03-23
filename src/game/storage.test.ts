@@ -104,6 +104,24 @@ describe("storage", () => {
       defaultState.garden.cropStorage.current.vegetable,
     );
     expect(loaded?.meta.version).toBe(defaultState.meta.version);
+    expect(loaded?.meta.lastUpdate).toBe(1);
+  });
+
+  it("sets lastUpdate to now when migrated save has invalid timestamp", () => {
+    const now = 1_700_000_123_456;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    localStorage.setItem(
+      "idle_save",
+      JSON.stringify({
+        meta: {
+          version: 0,
+          lastUpdate: "bad-value",
+        },
+      }),
+    );
+
+    const loaded = load();
     expect(loaded?.meta.lastUpdate).toBe(now);
   });
 });
