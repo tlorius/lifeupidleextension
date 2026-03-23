@@ -162,15 +162,18 @@ export function Garden() {
   const seedMakerUpgradeId = "seedmaker_lab";
   const seedMakerLevel = getUpgradeLevel(state, seedMakerUpgradeId);
   const isSeedMakerUnlocked = seedMakerLevel > 0;
-  const seedMakerCycleMs = getSeedMakerDurationMs(seedMakerLevel);
+  const selectedSeedMakerSeedId =
+    state.garden.seedMaker?.selectedSeedId ?? null;
+  const seedMakerCycleMs = getSeedMakerDurationMs(
+    seedMakerLevel,
+    selectedSeedMakerSeedId,
+  );
   const seedMakerRemainderMs =
     state.garden.automationTimers?.seedMakerRemainderMs ?? 0;
   const seedMakerRemainingMs =
     (state.garden.seedMaker?.isRunning ?? false)
       ? Math.max(0, seedMakerCycleMs - seedMakerRemainderMs)
       : seedMakerCycleMs;
-  const selectedSeedMakerSeedId =
-    state.garden.seedMaker?.selectedSeedId ?? null;
   const isSeedMakerRunning = state.garden.seedMaker?.isRunning ?? false;
   const [toolTypeFilter, setToolTypeFilter] = useState<string | null>(null);
   const equippedToolItem = state.equipment.tool
@@ -398,6 +401,10 @@ export function Garden() {
       ...prev,
       garden: {
         ...prev.garden,
+        automationTimers: {
+          ...(prev.garden.automationTimers ?? {}),
+          seedMakerRemainderMs: 0,
+        },
         seedMaker: {
           ...(prev.garden.seedMaker ?? {}),
           isRunning: true,
@@ -412,6 +419,10 @@ export function Garden() {
       ...prev,
       garden: {
         ...prev.garden,
+        automationTimers: {
+          ...(prev.garden.automationTimers ?? {}),
+          seedMakerRemainderMs: 0,
+        },
         seedMaker: {
           ...(prev.garden.seedMaker ?? {}),
           isRunning: false,
@@ -2876,6 +2887,7 @@ export function Garden() {
                     availableResource >= cost.resourceCost &&
                     availableGems >= cost.gemCost;
                   const isSelected = selectedSeedMakerSeedId === recipe.seedId;
+                  const canSelectRecipe = !isSeedMakerRunning || isSelected;
 
                   return (
                     <button
@@ -2889,8 +2901,11 @@ export function Garden() {
                           ? "2px solid #2f9e44"
                           : "1px solid #34516a",
                         borderRadius: 4,
-                        cursor: canCraft ? "pointer" : "not-allowed",
-                        opacity: canCraft ? 1 : 0.68,
+                        cursor:
+                          canCraft && canSelectRecipe
+                            ? "pointer"
+                            : "not-allowed",
+                        opacity: canCraft && canSelectRecipe ? 1 : 0.68,
                         fontSize: 11,
                         textAlign: "left",
                         color: "#e5edf5",
@@ -2899,6 +2914,13 @@ export function Garden() {
                         gap: 4,
                       }}
                       onClick={() => {
+                        if (!canSelectRecipe) {
+                          alert(
+                            "Seedmaker is currently crafting. Stop it before changing the selected seed.",
+                          );
+                          return;
+                        }
+
                         setState((prev) => ({
                           ...prev,
                           garden: {

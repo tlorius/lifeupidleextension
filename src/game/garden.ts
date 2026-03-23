@@ -57,15 +57,24 @@ export function getSeedMakerCost(seedId: string): {
   };
 }
 
-export function getSeedMakerDurationMs(seedMakerLevel: number): number {
+export function getSeedMakerDurationMs(
+  seedMakerLevel: number,
+  seedId?: string | null,
+): number {
+  const seedCropDef = seedId
+    ? Object.values(cropDefinitions).find((crop) => crop.seedItemId === seedId)
+    : null;
+  const baseDurationMs =
+    seedCropDef?.category === "special"
+      ? SEED_MAKER_CONFIG.baseSpecialDurationMs
+      : SEED_MAKER_CONFIG.baseDurationMs;
+
   const effectiveLevel = Math.max(1, seedMakerLevel);
   const reductionMultiplier = Math.max(
     0,
     1 - (effectiveLevel - 1) * SEED_MAKER_CONFIG.durationReductionPerLevel,
   );
-  const reducedDuration = Math.round(
-    SEED_MAKER_CONFIG.baseDurationMs * reductionMultiplier,
-  );
+  const reducedDuration = Math.round(baseDurationMs * reductionMultiplier);
   return Math.max(SEED_MAKER_CONFIG.minDurationMs, reducedDuration);
 }
 
@@ -1242,15 +1251,24 @@ export function applyGardenIdle(state: GameState, deltaMs: number): void {
 
   const harvesterTotalMs = (timers.harvesterRemainderMs ?? 0) + deltaMs;
   const planterTotalMs = (timers.planterRemainderMs ?? 0) + deltaMs;
-  const seedMakerTotalMs = (timers.seedMakerRemainderMs ?? 0) + deltaMs;
+  const isSeedMakerRunning = state.garden.seedMaker?.isRunning ?? false;
+  const seedMakerTotalMs = isSeedMakerRunning
+    ? (timers.seedMakerRemainderMs ?? 0) + deltaMs
+    : (timers.seedMakerRemainderMs ?? 0);
 
   const harvesterCycles = Math.floor(
     harvesterTotalMs / HARVESTER_CHECK_INTERVAL_MS,
   );
   const planterCycles = Math.floor(planterTotalMs / PLANTER_CHECK_INTERVAL_MS);
   const seedMakerLevel = getUpgradeLevelInState(state, "seedmaker_lab");
-  const seedMakerIntervalMs = getSeedMakerDurationMs(seedMakerLevel);
-  const seedMakerCycles = Math.floor(seedMakerTotalMs / seedMakerIntervalMs);
+  const selectedSeedId = state.garden.seedMaker?.selectedSeedId;
+  const seedMakerIntervalMs = getSeedMakerDurationMs(
+    seedMakerLevel,
+    selectedSeedId,
+  );
+  const seedMakerCycles = isSeedMakerRunning
+    ? Math.floor(seedMakerTotalMs / seedMakerIntervalMs)
+    : 0;
 
   timers.harvesterRemainderMs = harvesterTotalMs % HARVESTER_CHECK_INTERVAL_MS;
   timers.planterRemainderMs = planterTotalMs % PLANTER_CHECK_INTERVAL_MS;

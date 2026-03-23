@@ -37,8 +37,9 @@ export const WATER_CONFIG = {
  */
 export const SEED_MAKER_CONFIG = {
   baseDurationMs: 60_000, // 1 minute per seed at level 1
+  baseSpecialDurationMs: 300_000, // 5 minutes per special seed at level 1
   durationReductionPerLevel: 0.05, // 5% faster per additional level
-  minDurationMs: 5_000,
+  minDurationMs: 1_000,
   defaultCost: {
     gemCost: 1,
     resourceCost: 1,

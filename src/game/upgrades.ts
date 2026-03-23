@@ -318,7 +318,7 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
     id: "seedmaker_lab",
     name: "Seedmaker Lab",
     description:
-      "Unlocks the Seedmaker in the garden to convert crop resources into seeds",
+      "Unlocks the Seedmaker in the garden and reduces seed crafting time each level",
     type: "plantGrowth",
     tree: "farming",
     level: 0,

@@ -24,6 +24,7 @@ import {
   CROP_MAX_LEVEL,
   breakRock,
   getCropDef,
+  cropDefinitions,
   getGrowthProgress,
   getFieldUnlockCost,
   craftSeedFromSeedMaker,
@@ -376,6 +377,38 @@ describe("Garden System - Unit Tests", () => {
       const level5Duration = getSeedMakerDurationMs(5);
 
       expect(level5Duration).toBeLessThan(level1Duration);
+    });
+
+    it("should cap seedmaker duration at 1 second minimum", () => {
+      const highLevelDuration = getSeedMakerDurationMs(999);
+
+      expect(highLevelDuration).toBe(1000);
+    });
+
+    it("should use 5 minute base duration for special seeds", () => {
+      // Inject a special-category crop definition for deterministic coverage.
+      // This mirrors future special crops without coupling test to specific content.
+      const tempCropId = "test_special_crop";
+      cropDefinitions[tempCropId] = {
+        id: tempCropId,
+        name: "Test Special",
+        seedItemId: "test_special_seed",
+        category: "special",
+        growthTimeMinutes: 1,
+        baseYield: 1,
+        baseXP: 1,
+        baseGold: 1,
+        isPerennial: false,
+        rarity: "common",
+        spriteStages: 1,
+      };
+
+      try {
+        const duration = getSeedMakerDurationMs(1, "test_special_seed");
+        expect(duration).toBe(300000);
+      } finally {
+        delete cropDefinitions[tempCropId];
+      }
     });
   });
 
