@@ -233,6 +233,8 @@ export interface CombatState {
   enemy: CombatEnemySnapshot;
   playerAttackRemainderMs: number;
   enemyAttackRemainderMs: number;
+  spellCooldowns?: Record<string, number>;
+  consumableCooldowns?: Record<string, number>;
 }
 
 export interface GameState {

@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { getPlayerAttacksPerSecond, getPlayerCritChance } from "../game/combat";
+import {
+  COMBAT_SPELL_DEFINITIONS,
+  getPlayerAttacksPerSecond,
+  getPlayerCritChance,
+} from "../game/combat";
 import { getTotalStats } from "../game/engine";
 import { getItemDefSafe } from "../game/items";
 import { useGame } from "../game/GameContext";
+import { formatCompactNumber } from "../game/numberFormat";
 import { PlayerProgressTile } from "./PlayerProgressTile";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
@@ -29,15 +34,71 @@ interface CombatToast {
   color: string;
 }
 
+interface DamagePoint {
+  timestamp: number;
+  damage: number;
+  source: "auto" | "click" | "spell";
+}
+
+interface ConsumableSummary {
+  itemId: string;
+  itemUid: string;
+  name: string;
+  quantity: number;
+  rarity: string;
+}
+
 function nextBossLevel(currentLevel: number): number {
   return Math.ceil(currentLevel / 5) * 5;
 }
 
+function getConsumableEffectText(itemId: string): string {
+  if (itemId === "health_potion") return "Restore 35% combat HP and 50 mana";
+  if (itemId === "mana_potion") return "25% gold income boost for 10m";
+  if (itemId === "elixir")
+    return "Restore 20% combat HP, 30 mana, and 60% gold income for 20m";
+  if (itemId === "immortal_brew")
+    return "Full heal, full mana, +2 all core stats, 100% gold income for 30m";
+  if (itemId === "swift_tonic") return "200% gold income boost for 5m";
+  if (itemId === "fortitude_brew") return "+3 defense and full mana";
+  if (itemId === "scholars_draught")
+    return "+5 intelligence and 50% gold income for 15m";
+  if (itemId === "berserkers_tonic") return "+10 attack, -3 defense";
+  if (itemId === "chaos_potion") return "Unstable effect with high upside";
+  return "Consumable effect";
+}
+
+function getRarityTint(rarity: string): string {
+  if (rarity === "unique") return "#ff9ad9";
+  if (rarity === "legendary") return "#ffd36f";
+  if (rarity === "epic") return "#8bc7ff";
+  if (rarity === "rare") return "#7cf0c4";
+  return "#d8e2ee";
+}
+
+function formatRemainingMs(remainingMs: number): string {
+  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const leftoverSeconds = seconds % 60;
+  if (minutes <= 0) return `${leftoverSeconds}s`;
+  return `${minutes}m ${leftoverSeconds}s`;
+}
+
 export function Fight() {
-  const { state, combatEvents, performCombatClickAttack } = useGame();
+  const {
+    state,
+    combatEvents,
+    performCombatClickAttack,
+    useCombatConsumable,
+    castCombatSpell,
+  } = useGame();
   const [floatingDamage, setFloatingDamage] = useState<FloatingDamage[]>([]);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [toasts, setToasts] = useState<CombatToast[]>([]);
+  const [damageHistory, setDamageHistory] = useState<DamagePoint[]>([]);
+  const [dpsWindowMs, setDpsWindowMs] = useState<number>(30_000);
+  const [isDpsExpanded, setIsDpsExpanded] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const combat = state.combat;
   const totalStats = getTotalStats(state);
@@ -49,6 +110,8 @@ export function Fight() {
     0,
     Math.min(100, (combat.playerCurrentHp / playerMaxHp) * 100),
   );
+  const playerMana = Math.max(0, Math.min(100, state.resources.energy ?? 100));
+  const playerManaPercent = Math.max(0, Math.min(100, playerMana));
   const enemyHpPercent = Math.max(
     0,
     Math.min(
@@ -68,6 +131,154 @@ export function Fight() {
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
+  const activeGoldBuffRemainingMs = Math.max(
+    0,
+    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) - clockNow,
+  );
+  const activeGoldBuffPercent =
+    activeGoldBuffRemainingMs > 0
+      ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
+      : 0;
+  const spellCooldowns = combat.spellCooldowns ?? {};
+  const consumableCooldowns = combat.consumableCooldowns ?? {};
+  const potionSummaries = useMemo(() => {
+    const grouped = new Map<string, ConsumableSummary>();
+
+    for (const item of state.inventory) {
+      const itemDef = getItemDefSafe(item.itemId);
+      if (!itemDef || itemDef.type !== "potion") continue;
+
+      const existing = grouped.get(item.itemId);
+      if (existing) {
+        existing.quantity += item.quantity ?? 1;
+        continue;
+      }
+
+      grouped.set(item.itemId, {
+        itemId: item.itemId,
+        itemUid: item.uid,
+        name: itemDef.name,
+        quantity: item.quantity ?? 1,
+        rarity: itemDef.rarity,
+      });
+    }
+
+    return Array.from(grouped.values()).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
+  }, [state.inventory]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClockNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (combatEvents.length === 0) return;
+
+    const now = Date.now();
+    const hits = combatEvents
+      .filter((event) => event.type === "playerHit")
+      .map((event) => ({
+        timestamp: now,
+        damage: Math.max(0, event.value ?? 0),
+        source: event.attackSource ?? "auto",
+      }));
+
+    if (hits.length > 0) {
+      setDamageHistory((prev) =>
+        [...prev, ...hits].filter((entry) => now - entry.timestamp <= 300_000),
+      );
+    }
+  }, [combatEvents]);
+
+  useEffect(() => {
+    setDamageHistory((prev) =>
+      prev.filter((entry) => clockNow - entry.timestamp <= 300_000),
+    );
+  }, [clockNow]);
+
+  const dpsBuckets = useMemo(() => {
+    const bucketCount = 12;
+    const bucketWidthMs = dpsWindowMs / bucketCount;
+    const start = clockNow - dpsWindowMs;
+    const values = Array.from({ length: bucketCount }, () => 0);
+
+    for (const point of damageHistory) {
+      if (point.timestamp < start || point.timestamp > clockNow) continue;
+      const offset = point.timestamp - start;
+      const index = Math.min(
+        bucketCount - 1,
+        Math.max(0, Math.floor(offset / bucketWidthMs)),
+      );
+      values[index] += point.damage;
+    }
+
+    return values.map((value) => value / (bucketWidthMs / 1000));
+  }, [clockNow, damageHistory, dpsWindowMs]);
+
+  const currentDps = useMemo(() => {
+    const windowStart = clockNow - dpsWindowMs;
+    const totalDamage = damageHistory.reduce((sum, point) => {
+      return point.timestamp >= windowStart ? sum + point.damage : sum;
+    }, 0);
+    return totalDamage / Math.max(1, dpsWindowMs / 1000);
+  }, [clockNow, damageHistory, dpsWindowMs]);
+
+  const getSourceDps = (
+    source: DamagePoint["source"],
+    start: number,
+    end: number,
+  ) => {
+    const totalDamage = damageHistory.reduce((sum, point) => {
+      return point.source === source &&
+        point.timestamp >= start &&
+        point.timestamp < end
+        ? sum + point.damage
+        : sum;
+    }, 0);
+    return totalDamage / Math.max(1, (end - start) / 1000);
+  };
+
+  const previousDps = useMemo(() => {
+    const previousStart = clockNow - dpsWindowMs * 2;
+    const previousEnd = clockNow - dpsWindowMs;
+    const totalDamage = damageHistory.reduce((sum, point) => {
+      return point.timestamp >= previousStart && point.timestamp < previousEnd
+        ? sum + point.damage
+        : sum;
+    }, 0);
+    return totalDamage / Math.max(1, dpsWindowMs / 1000);
+  }, [clockNow, damageHistory, dpsWindowMs]);
+  const currentAutoDps = useMemo(
+    () => getSourceDps("auto", clockNow - dpsWindowMs, clockNow),
+    [clockNow, damageHistory, dpsWindowMs],
+  );
+  const currentClickDps = useMemo(
+    () => getSourceDps("click", clockNow - dpsWindowMs, clockNow),
+    [clockNow, damageHistory, dpsWindowMs],
+  );
+  const currentSpellDps = useMemo(
+    () => getSourceDps("spell", clockNow - dpsWindowMs, clockNow),
+    [clockNow, damageHistory, dpsWindowMs],
+  );
+
+  const dpsDelta = currentDps - previousDps;
+  const dpsDeltaPercent =
+    previousDps > 0 ? (dpsDelta / previousDps) * 100 : currentDps > 0 ? 100 : 0;
+  const dpsGraphPoints = useMemo(() => {
+    const maxValue = Math.max(1, ...dpsBuckets);
+    return dpsBuckets
+      .map((value, index) => {
+        const x = (index / Math.max(1, dpsBuckets.length - 1)) * 100;
+        const y = 100 - (value / maxValue) * 100;
+        return `${x},${y}`;
+      })
+      .join(" ");
+  }, [dpsBuckets]);
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -126,7 +337,9 @@ export function Fight() {
           event.type === "playerDefeated" ||
           event.type === "lootGranted" ||
           event.type === "levelUp" ||
-          event.type === "systemUnlocked",
+          event.type === "systemUnlocked" ||
+          event.type === "spellCast" ||
+          event.type === "consumableUsed",
       )
       .map((event, index) => {
         if (event.type === "enemyDefeated") {
@@ -167,6 +380,30 @@ export function Fight() {
           };
         }
 
+        if (event.type === "spellCast") {
+          const spellName =
+            COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === event.spellId)
+              ?.name ?? event.spellId;
+          return {
+            id: `${now}-c-${index}`,
+            text:
+              event.spellId === "second_wind"
+                ? `Cast ${spellName} and restored ${Math.round(event.value ?? 0)} HP`
+                : `Cast ${spellName}`,
+            color: "#9fd2ff",
+          };
+        }
+
+        if (event.type === "consumableUsed") {
+          const itemName =
+            getItemDefSafe(event.itemId ?? "")?.name ?? event.itemId;
+          return {
+            id: `${now}-cu-${index}`,
+            text: `Used ${itemName}`,
+            color: "#b9f7d8",
+          };
+        }
+
         return {
           id: `${now}-s-${index}`,
           text: `System unlocked: ${event.systemId}`,
@@ -189,7 +426,9 @@ export function Fight() {
           event.type === "lootGranted" ||
           event.type === "levelUp" ||
           event.type === "systemUnlocked" ||
-          event.type === "playerDefeated",
+          event.type === "playerDefeated" ||
+          event.type === "spellCast" ||
+          event.type === "consumableUsed",
       )
       .map((event, index) => {
         if (event.type === "lootGranted") {
@@ -219,6 +458,27 @@ export function Fight() {
             id: `${now}-toast-unlock-${index}`,
             text: `Unlocked ${event.systemId}`,
             color: "#c9b7ff",
+          } as CombatToast;
+        }
+
+        if (event.type === "spellCast") {
+          const spellName =
+            COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === event.spellId)
+              ?.name ?? event.spellId;
+          return {
+            id: `${now}-toast-spell-${index}`,
+            text: `Cast ${spellName}`,
+            color: "#9fd2ff",
+          } as CombatToast;
+        }
+
+        if (event.type === "consumableUsed") {
+          const itemName =
+            getItemDefSafe(event.itemId ?? "")?.name ?? event.itemId;
+          return {
+            id: `${now}-toast-consumable-${index}`,
+            text: `Used ${itemName}`,
+            color: "#b9f7d8",
           } as CombatToast;
         }
 
@@ -295,10 +555,224 @@ export function Fight() {
             <div>AGI: {(totalStats.agility ?? 0).toFixed(2)}</div>
             <div>APS: {attacksPerSecond.toFixed(2)}</div>
             <div>Crit: {critChance.toFixed(1)}%</div>
+            <div>Mana: {formatCompactNumber(playerMana)} / 100</div>
+            <div>
+              Mana Regen:{" "}
+              {formatCompactNumber(
+                2 * (1 + (totalStats.energyRegeneration ?? 0) / 100),
+                { smallValueDecimals: 1 },
+              )}
+              /s
+            </div>
             <div>
               Checkpoint: Lv {Math.max(1, combat.lastBossCheckpointLevel || 1)}
             </div>
           </div>
+          <div
+            style={{
+              marginTop: 10,
+              height: 8,
+              borderRadius: 999,
+              backgroundColor: "rgba(8, 13, 19, 0.55)",
+              overflow: "hidden",
+              border: "1px solid rgba(120, 176, 236, 0.28)",
+            }}
+          >
+            <div
+              style={{
+                width: `${playerManaPercent}%`,
+                height: "100%",
+                background:
+                  "linear-gradient(90deg, #4c8cff 0%, #68c2ff 55%, #b1ebff 100%)",
+                transition: "width 180ms linear",
+              }}
+            />
+          </div>
+        </div>
+
+        <div
+          style={{
+            borderRadius: 12,
+            border: "1px solid #30465b",
+            background: "linear-gradient(155deg, #162432 0%, #223447 100%)",
+            padding: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Consumables</div>
+            <div style={{ fontSize: 11, opacity: 0.72 }}>Combat use</div>
+          </div>
+          {potionSummaries.length === 0 ? (
+            <div style={{ fontSize: 12, opacity: 0.72 }}>
+              No consumables in inventory.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {activeGoldBuffRemainingMs > 0 && (
+                <div
+                  style={{
+                    borderRadius: 8,
+                    border: "1px solid rgba(110, 154, 190, 0.28)",
+                    background: "rgba(12, 23, 33, 0.5)",
+                    padding: "8px 10px",
+                    fontSize: 12,
+                    color: "#f8d984",
+                  }}
+                >
+                  Active buff: +{activeGoldBuffPercent}% gold income for{" "}
+                  {formatRemainingMs(activeGoldBuffRemainingMs)}
+                </div>
+              )}
+              {potionSummaries.map((potion) =>
+                (() => {
+                  const cooldownMs = consumableCooldowns[potion.itemId] ?? 0;
+                  const isOnCooldown = cooldownMs > 0;
+                  return (
+                    <button
+                      key={potion.itemUid}
+                      onClick={() => useCombatConsumable(potion.itemUid)}
+                      disabled={isOnCooldown}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto",
+                        gap: 8,
+                        alignItems: "center",
+                        textAlign: "left",
+                        background: "rgba(17, 29, 40, 0.78)",
+                        border: "1px solid rgba(109, 144, 173, 0.35)",
+                        padding: "10px 12px",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            color: getRarityTint(potion.rarity),
+                            fontWeight: 700,
+                            fontSize: 13,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {potion.name}
+                        </div>
+                        <div style={{ fontSize: 11, opacity: 0.78 }}>
+                          {getConsumableEffectText(potion.itemId)}
+                        </div>
+                        <div
+                          style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}
+                        >
+                          {isOnCooldown
+                            ? `Cooldown: ${formatRemainingMs(cooldownMs)}`
+                            : "Ready"}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>
+                        x{potion.quantity}
+                      </div>
+                    </button>
+                  );
+                })(),
+              )}
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            borderRadius: 12,
+            border: "1px solid #30465b",
+            background: "linear-gradient(150deg, #1c2233 0%, #2a3048 100%)",
+            padding: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Spell System</div>
+            <div style={{ fontSize: 11, opacity: 0.72 }}>
+              {state.playerProgress.unlockedSystems?.spells
+                ? "Unlocked"
+                : "Locked"}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.84, lineHeight: 1.5 }}>
+            {state.playerProgress.unlockedSystems?.spells
+              ? "Starter spells are live. Future spell slots and specializations can extend this panel."
+              : "Spells unlock through progression. The UI is in place and will activate once unlocked."}
+          </div>
+          {state.playerProgress.unlockedSystems?.spells ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {COMBAT_SPELL_DEFINITIONS.map((spell) => {
+                const cooldownMs = spellCooldowns[spell.id] ?? 0;
+                const canCast = cooldownMs <= 0 && playerMana >= spell.manaCost;
+                return (
+                  <button
+                    key={spell.id}
+                    onClick={() => castCombatSpell(spell.id)}
+                    disabled={!canCast}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      alignItems: "center",
+                      gap: 8,
+                      textAlign: "left",
+                      background: "rgba(24, 32, 48, 0.78)",
+                      borderColor: "rgba(109, 144, 173, 0.32)",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 13,
+                          marginBottom: 3,
+                        }}
+                      >
+                        {spell.name}
+                      </div>
+                      <div style={{ fontSize: 11, opacity: 0.76 }}>
+                        {spell.description}
+                      </div>
+                      <div
+                        style={{ fontSize: 11, opacity: 0.62, marginTop: 4 }}
+                      >
+                        Mana {spell.manaCost} •{" "}
+                        {cooldownMs > 0
+                          ? `Cooldown ${formatRemainingMs(cooldownMs)}`
+                          : "Ready"}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>Cast</div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <button
+              disabled
+              style={{
+                marginTop: 10,
+                width: "100%",
+                background: "rgba(28, 38, 52, 0.78)",
+                borderColor: "rgba(109, 144, 173, 0.28)",
+              }}
+            >
+              Spellbook Locked
+            </button>
+          )}
         </div>
       </div>
 
@@ -516,6 +990,161 @@ export function Fight() {
           Enemy rewards: +{combat.enemy.goldReward} Gold, +
           {combat.enemy.gemsReward} Gems, +{combat.enemy.xpReward} XP
         </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          borderRadius: 12,
+          border: "1px solid #30465b",
+          background: "linear-gradient(160deg, #121c26 0%, #1e3141 100%)",
+          padding: 12,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>DPS Meter</div>
+            <div style={{ fontSize: 12, opacity: 0.76 }}>
+              {formatCompactNumber(currentDps)} DPS over the last{" "}
+              {dpsWindowMs / 1000}s
+            </div>
+          </div>
+          <button onClick={() => setIsDpsExpanded((value) => !value)}>
+            {isDpsExpanded ? "Hide Graph" : "Show Graph"}
+          </button>
+        </div>
+
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 8,
+            flexWrap: "wrap",
+            fontSize: 12,
+          }}
+        >
+          <div>
+            Current: <strong>{formatCompactNumber(currentDps)}</strong>
+          </div>
+          <div>
+            Previous: <strong>{formatCompactNumber(previousDps)}</strong>
+          </div>
+          <div style={{ color: dpsDelta >= 0 ? "#74f5b3" : "#ff9d9d" }}>
+            {dpsDelta >= 0 ? "+" : ""}
+            {formatCompactNumber(dpsDelta)} DPS ({dpsDelta >= 0 ? "+" : ""}
+            {dpsDeltaPercent.toFixed(1)}%)
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 8,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: 8,
+            fontSize: 12,
+          }}
+        >
+          <div>
+            Auto DPS: <strong>{formatCompactNumber(currentAutoDps)}</strong>
+          </div>
+          <div>
+            Click DPS: <strong>{formatCompactNumber(currentClickDps)}</strong>
+          </div>
+          <div>
+            Spell DPS: <strong>{formatCompactNumber(currentSpellDps)}</strong>
+          </div>
+        </div>
+
+        {isDpsExpanded && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {[10_000, 30_000, 60_000].map((windowMs) => (
+                <button
+                  key={windowMs}
+                  className={dpsWindowMs === windowMs ? "btn-selected" : ""}
+                  onClick={() => setDpsWindowMs(windowMs)}
+                >
+                  {windowMs / 1000}s
+                </button>
+              ))}
+            </div>
+
+            {damageHistory.length === 0 ? (
+              <div style={{ fontSize: 12, opacity: 0.72 }}>
+                No damage recorded yet. Start attacking to populate the meter.
+              </div>
+            ) : (
+              <div
+                style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(109, 144, 173, 0.3)",
+                  background: "rgba(8, 14, 20, 0.45)",
+                  padding: 10,
+                }}
+              >
+                <svg
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  style={{ width: "100%", height: 140, display: "block" }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="fightDpsFill"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="0%" stopColor="rgba(86, 224, 153, 0.7)" />
+                      <stop
+                        offset="100%"
+                        stopColor="rgba(86, 224, 153, 0.05)"
+                      />
+                    </linearGradient>
+                  </defs>
+                  <polyline
+                    fill="none"
+                    stroke="rgba(120, 208, 255, 0.25)"
+                    strokeWidth="0.8"
+                    points="0,100 100,100"
+                  />
+                  <polygon
+                    fill="url(#fightDpsFill)"
+                    points={`0,100 ${dpsGraphPoints} 100,100`}
+                  />
+                  <polyline
+                    fill="none"
+                    stroke="#72f2a4"
+                    strokeWidth="1.8"
+                    points={dpsGraphPoints}
+                  />
+                </svg>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 11,
+                    opacity: 0.7,
+                    marginTop: 6,
+                  }}
+                >
+                  <span>{dpsWindowMs / 1000}s ago</span>
+                  <span>now</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div

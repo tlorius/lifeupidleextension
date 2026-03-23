@@ -119,7 +119,7 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
           <span>{formatCompactNumber(state.resources.gems ?? 0)}</span>
         </div>
 
-        <div style={resourceChipStyle} title="Energy">
+        <div style={resourceChipStyle} title="Mana">
           <span>⚡</span>
           <span>{formatCompactNumber(state.resources.energy ?? 100)}</span>
         </div>
@@ -238,7 +238,7 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 </div>
                 {(total.energyRegeneration ?? 0) > 0 && (
                   <div>
-                    <span style={{ color: "#9eb0c2" }}>Energy Regen:</span>{" "}
+                    <span style={{ color: "#9eb0c2" }}>Mana Regen:</span>{" "}
                     <strong>+{formatStat(total.energyRegeneration)}%</strong>
                   </div>
                 )}
@@ -448,7 +448,7 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
               {(total.energyRegeneration ?? 0) > 0 && (
                 <div style={{ marginBottom: 4 }}>
                   <span>
-                    Energy Regen = Upgrades(
+                    Mana Regen = Upgrades(
                     {formatStat(upgradeStats.energyRegeneration)}%) + Pets(
                     {formatStat(petStats.energyRegeneration)}%)
                   </span>

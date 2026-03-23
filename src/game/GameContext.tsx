@@ -5,9 +5,11 @@ import { load, save } from "./storage";
 import { applyIdle } from "./engine";
 import { applyGardenIdle } from "./garden";
 import {
+  castCombatSpell,
   performClickAttack,
   resolveOfflineCombatExpected,
   runCombatTick,
+  useCombatConsumable as applyCombatConsumable,
   type CombatEvent,
 } from "./combat";
 import {
@@ -133,6 +135,8 @@ const GameContext = createContext<{
   dismissIdleEarningsModal: () => void;
   combatEvents: CombatEvent[];
   performCombatClickAttack: () => void;
+  useCombatConsumable: (itemUid: string) => void;
+  castCombatSpell: (spellId: string) => void;
 } | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -223,6 +227,52 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setCombatEvents(clickCombatEvents);
   };
 
+  const useCombatConsumable = (itemUid: string) => {
+    let consumableEvents: CombatEvent[] = [];
+
+    setState((prev) => {
+      const result = applyCombatConsumable(prev.combat, prev, itemUid);
+      consumableEvents = result.events;
+
+      if (result.state === prev && result.runtime === prev.combat) {
+        return prev;
+      }
+
+      const next: GameState = {
+        ...result.state,
+        combat: result.runtime,
+      };
+
+      save(next);
+      return next;
+    });
+
+    setCombatEvents(consumableEvents);
+  };
+
+  const castCombatSpellAction = (spellId: string) => {
+    let spellEvents: CombatEvent[] = [];
+
+    setState((prev) => {
+      const result = castCombatSpell(prev.combat, prev, spellId);
+      spellEvents = result.events;
+
+      if (result.state === prev && result.runtime === prev.combat) {
+        return prev;
+      }
+
+      const next: GameState = {
+        ...result.state,
+        combat: result.runtime,
+      };
+
+      save(next);
+      return next;
+    });
+
+    setCombatEvents(spellEvents);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -287,6 +337,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         },
         combatEvents,
         performCombatClickAttack,
+        useCombatConsumable,
+        castCombatSpell: castCombatSpellAction,
       }}
     >
       {children}

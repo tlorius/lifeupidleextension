@@ -1697,7 +1697,7 @@ export function breakRock(
   if ((state.resources.energy ?? 0) < config.energyCost) {
     return {
       success: false,
-      reason: `Not enough energy. You need ${config.energyCost} energy, but only have ${state.resources.energy ?? 0}.`,
+      reason: `Not enough mana. You need ${config.energyCost} mana, but only have ${state.resources.energy ?? 0}.`,
     };
   }
 

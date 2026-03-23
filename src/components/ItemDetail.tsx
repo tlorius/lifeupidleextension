@@ -159,7 +159,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
     const energyDelta =
       (next.resources.energy ?? 0) - (previous.resources.energy ?? 0);
     if (energyDelta > 0) {
-      parts.push(`Energy ${formatDelta(energyDelta)}`);
+      parts.push(`Mana ${formatDelta(energyDelta)}`);
       positiveCount += 1;
     }
 
@@ -427,17 +427,17 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 fontSize: 12,
               }}
             >
-              {def.id === "health_potion" && "Use: Restore 50 energy."}
+              {def.id === "health_potion" && "Use: Restore 50 mana."}
               {def.id === "mana_potion" &&
                 "Use: +25% gold income for 10 minutes."}
               {def.id === "elixir" &&
-                "Use: Restore 30 energy and +60% gold income for 20 minutes."}
+                "Use: Restore 30 mana and +60% gold income for 20 minutes."}
               {def.id === "immortal_brew" &&
-                "Use: Full energy, permanent +2 to attack/defense/intelligence, and +100% gold income for 30 minutes."}
+                "Use: Full mana, permanent +2 to attack/defense/intelligence, and +100% gold income for 30 minutes."}
               {def.id === "swift_tonic" &&
                 "Use: +200% gold income for 5 minutes. Short but powerful burst."}
               {def.id === "fortitude_brew" &&
-                "Use: Restore full energy and permanently gain +3 defense."}
+                "Use: Restore full mana and permanently gain +3 defense."}
               {def.id === "scholars_draught" &&
                 "Use: Permanently gain +5 intelligence and +50% gold income for 15 minutes."}
               {def.id === "berserkers_tonic" &&

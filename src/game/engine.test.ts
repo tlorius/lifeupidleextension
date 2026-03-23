@@ -7,6 +7,7 @@ import {
   calculateItemStat,
   equipItem,
   getGoldIncome,
+  getManaRegenPerSecond,
   getPetStats,
   getTotalStats,
   upgradeItem,
@@ -154,6 +155,34 @@ describe("engine", () => {
     expect(state.resources.gold).toBeCloseTo(30, 8);
   });
 
+  it("regenerates mana over time and respects mana regen bonuses", () => {
+    const state = makeState();
+    state.resources.energy = 50;
+    state.upgrades = [
+      {
+        id: "mana_regen_test",
+        name: "Mana Flow",
+        level: 1,
+        baseCost: 10,
+        scaling: 1.1,
+        type: "energyRegen",
+        tree: "resource",
+        bonuses: [
+          {
+            percentBonusType: "energyRegeneration",
+            percentBonusAmount: 0.5,
+          },
+        ],
+      },
+    ];
+
+    expect(getManaRegenPerSecond(state)).toBeCloseTo(3, 8);
+
+    applyIdle(state, 5_000);
+
+    expect(state.resources.energy).toBeCloseTo(65, 8);
+  });
+
   it("calculates item stats with rarity and level scaling", () => {
     const stat = calculateItemStat(10, 11, "rare");
 
@@ -198,6 +227,26 @@ describe("engine", () => {
     expect(next.temporaryEffects?.goldIncomeBoostUntil).toBe(
       now + 10 * 60 * 1000,
     );
+  });
+
+  it("consumes health potion and restores combat hp", () => {
+    const state = makeState();
+    state.inventory = [
+      {
+        uid: "potion-health",
+        itemId: "health_potion",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+    state.combat.playerCurrentHp = 25;
+    state.stats.hp = 100;
+
+    const next = usePotion(state, "potion-health");
+
+    expect(next.inventory).toHaveLength(0);
+    expect(next.combat.playerCurrentHp).toBe(60);
+    expect(next.resources.energy).toBe(100);
   });
 
   it("equips accessories into the first free accessory slot", () => {

@@ -126,7 +126,7 @@ export function Main() {
           }));
         }}
       >
-        +1000 Energy
+        +1000 Mana
       </button>
 
       <button

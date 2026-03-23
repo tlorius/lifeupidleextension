@@ -8,12 +8,51 @@ import {
   type CombatLevelConfig,
   type CombatLootEntry,
 } from "./combatConfig";
-import { addItem, getTotalStats } from "./engine";
+import { addItem, getTotalStats, usePotion } from "./engine";
 import { getItemDefSafe } from "./items";
 import { grantPlayerXp } from "./progression";
 import type { GameState } from "./types";
 
 export type CombatRng = () => number;
+export type CombatAttackSource = "auto" | "click" | "spell";
+
+export interface CombatSpellDefinition {
+  id: string;
+  name: string;
+  description: string;
+  manaCost: number;
+  cooldownMs: number;
+}
+
+export const COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
+  {
+    id: "arcane_bolt",
+    name: "Arcane Bolt",
+    description:
+      "Fire a focused bolt that scales with attack and intelligence.",
+    manaCost: 25,
+    cooldownMs: 6000,
+  },
+  {
+    id: "second_wind",
+    name: "Second Wind",
+    description: "Restore a chunk of combat HP using mana.",
+    manaCost: 35,
+    cooldownMs: 12000,
+  },
+] as const;
+
+const COMBAT_CONSUMABLE_COOLDOWNS_MS: Record<string, number> = {
+  health_potion: 12000,
+  mana_potion: 18000,
+  elixir: 25000,
+  immortal_brew: 45000,
+  swift_tonic: 18000,
+  fortitude_brew: 20000,
+  scholars_draught: 22000,
+  berserkers_tonic: 18000,
+  chaos_potion: 30000,
+};
 
 export interface CombatEnemyInstance {
   level: number;
@@ -38,6 +77,8 @@ export interface CombatRuntimeState {
   enemy: CombatEnemyInstance;
   playerAttackRemainderMs: number;
   enemyAttackRemainderMs: number;
+  spellCooldowns?: Record<string, number>;
+  consumableCooldowns?: Record<string, number>;
 }
 
 export interface CombatEvent {
@@ -48,13 +89,17 @@ export interface CombatEvent {
     | "playerDefeated"
     | "lootGranted"
     | "levelUp"
-    | "systemUnlocked";
+    | "systemUnlocked"
+    | "spellCast"
+    | "consumableUsed";
   value?: number;
   isCrit?: boolean;
   itemId?: string;
   quantity?: number;
   itemLevel?: number;
   systemId?: string;
+  spellId?: string;
+  attackSource?: CombatAttackSource;
 }
 
 export interface CombatTickResult {
@@ -82,6 +127,33 @@ const MAX_COMBAT_ACTIONS_PER_TICK = 5000;
 
 function clampPercent(input: number): number {
   return Math.min(100, Math.max(0, input));
+}
+
+function tickCooldownMap(
+  cooldowns: Record<string, number> | undefined,
+  deltaMs: number,
+): Record<string, number> {
+  const next: Record<string, number> = {};
+  for (const [key, value] of Object.entries(cooldowns ?? {})) {
+    const remaining = Math.max(0, value - deltaMs);
+    if (remaining > 0) {
+      next[key] = remaining;
+    }
+  }
+  return next;
+}
+
+function reduceCombatCooldowns(
+  runtime: CombatRuntimeState,
+  deltaMs: number,
+): CombatRuntimeState {
+  if (deltaMs <= 0) return runtime;
+
+  return {
+    ...runtime,
+    spellCooldowns: tickCooldownMap(runtime.spellCooldowns, deltaMs),
+    consumableCooldowns: tickCooldownMap(runtime.consumableCooldowns, deltaMs),
+  };
 }
 
 function pickWeightedEntry(
@@ -121,6 +193,16 @@ function isEquipmentItem(itemId: string): boolean {
 function getBossEquipmentItemLevel(enemy: CombatEnemyInstance): number {
   const tierBonus = Math.max(1, Math.floor(enemy.level / 5));
   return 1 + tierBonus;
+}
+
+export function getCombatConsumableCooldownMs(itemId: string): number {
+  return COMBAT_CONSUMABLE_COOLDOWNS_MS[itemId] ?? 0;
+}
+
+export function getCombatSpellDefinition(
+  spellId: string,
+): CombatSpellDefinition | null {
+  return COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === spellId) ?? null;
 }
 
 function applyLootDrops(state: GameState, drops: CombatLootDrop[]): GameState {
@@ -442,6 +524,8 @@ export function createInitialCombatRuntime(
     enemy: createEnemyInstance(1),
     playerAttackRemainderMs: 0,
     enemyAttackRemainderMs: 0,
+    spellCooldowns: {},
+    consumableCooldowns: {},
   };
 }
 
@@ -468,6 +552,7 @@ function applyPlayerAttack(
   runtime: CombatRuntimeState,
   state: GameState,
   rng: CombatRng,
+  attackSource: CombatAttackSource = "auto",
 ): CombatTickResult {
   const { damage, isCrit } = calculatePlayerHit(state, rng);
   const nextEnemyHp = Math.max(0, runtime.enemy.currentHp - damage);
@@ -480,7 +565,9 @@ function applyPlayerAttack(
     },
   };
 
-  const events: CombatEvent[] = [{ type: "playerHit", value: damage, isCrit }];
+  const events: CombatEvent[] = [
+    { type: "playerHit", value: damage, isCrit, attackSource },
+  ];
   if (nextEnemyHp > 0) {
     return {
       runtime: attackedRuntime,
@@ -530,7 +617,130 @@ export function performClickAttack(
   state: GameState,
   rng: CombatRng = Math.random,
 ): CombatTickResult {
-  return applyPlayerAttack(runtime, state, rng);
+  return applyPlayerAttack(runtime, state, rng, "click");
+}
+
+export function useCombatConsumable(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  itemUid: string,
+): CombatTickResult {
+  const item = state.inventory.find((entry) => entry.uid === itemUid);
+  if (!item) return { runtime, state, events: [] };
+
+  const itemDef = getItemDefSafe(item.itemId);
+  if (!itemDef || itemDef.type !== "potion") {
+    return { runtime, state, events: [] };
+  }
+
+  const remainingCooldown = runtime.consumableCooldowns?.[item.itemId] ?? 0;
+  if (remainingCooldown > 0) {
+    return { runtime, state, events: [] };
+  }
+
+  const nextState = usePotion(state, itemUid);
+  if (nextState === state) {
+    return { runtime, state, events: [] };
+  }
+
+  const cooldownMs = getCombatConsumableCooldownMs(item.itemId);
+  return {
+    runtime: {
+      ...runtime,
+      consumableCooldowns: {
+        ...(runtime.consumableCooldowns ?? {}),
+        [item.itemId]: cooldownMs,
+      },
+    },
+    state: nextState,
+    events: [{ type: "consumableUsed", itemId: item.itemId }],
+  };
+}
+
+export function castCombatSpell(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  spellId: string,
+  rng: CombatRng = Math.random,
+): CombatTickResult {
+  const spell = getCombatSpellDefinition(spellId);
+  if (!spell || !state.playerProgress.unlockedSystems?.spells) {
+    return { runtime, state, events: [] };
+  }
+
+  const mana = state.resources.energy ?? 100;
+  const cooldownMs = runtime.spellCooldowns?.[spellId] ?? 0;
+  if (mana < spell.manaCost || cooldownMs > 0) {
+    return { runtime, state, events: [] };
+  }
+
+  const events: CombatEvent[] = [{ type: "spellCast", spellId }];
+  let nextState: GameState = {
+    ...state,
+    resources: {
+      ...state.resources,
+      energy: Math.max(0, mana - spell.manaCost),
+    },
+  };
+  let nextRuntime: CombatRuntimeState = {
+    ...runtime,
+    spellCooldowns: {
+      ...(runtime.spellCooldowns ?? {}),
+      [spellId]: spell.cooldownMs,
+    },
+  };
+
+  if (spellId === "arcane_bolt") {
+    const totalStats = getTotalStats(nextState);
+    const baseDamage = Math.max(
+      1,
+      Math.round(
+        (totalStats.attack ?? 1) * 1.2 + (totalStats.intelligence ?? 0) * 2.4,
+      ),
+    );
+    const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - baseDamage);
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: baseDamage,
+      attackSource: "spell",
+      spellId,
+    });
+
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
+  } else if (spellId === "second_wind") {
+    const maxHp = getPlayerMaxHp(nextState);
+    const totalStats = getTotalStats(nextState);
+    const healAmount = Math.max(
+      12,
+      Math.round(maxHp * 0.3 + (totalStats.intelligence ?? 0) * 1.5),
+    );
+    nextRuntime = {
+      ...nextRuntime,
+      playerCurrentHp: Math.min(
+        maxHp,
+        nextRuntime.playerCurrentHp + healAmount,
+      ),
+    };
+    events[0].value = healAmount;
+  }
+
+  return {
+    runtime: nextRuntime,
+    state: nextState,
+    events,
+  };
 }
 
 export function runCombatTick(
@@ -547,11 +757,14 @@ export function runCombatTick(
   const playerIntervalMs = 1000 / playerAps;
   const enemyIntervalMs = 1000 / Math.max(0.2, runtime.enemy.attacksPerSecond);
 
-  let nextRuntime: CombatRuntimeState = {
-    ...runtime,
-    playerAttackRemainderMs: runtime.playerAttackRemainderMs + deltaMs,
-    enemyAttackRemainderMs: runtime.enemyAttackRemainderMs + deltaMs,
-  };
+  let nextRuntime: CombatRuntimeState = reduceCombatCooldowns(
+    {
+      ...runtime,
+      playerAttackRemainderMs: runtime.playerAttackRemainderMs + deltaMs,
+      enemyAttackRemainderMs: runtime.enemyAttackRemainderMs + deltaMs,
+    },
+    deltaMs,
+  );
   let nextState = state;
   const events: CombatEvent[] = [];
 
@@ -567,7 +780,7 @@ export function runCombatTick(
         playerAttackRemainderMs:
           nextRuntime.playerAttackRemainderMs - playerIntervalMs,
       };
-      const attacked = applyPlayerAttack(nextRuntime, nextState, rng);
+      const attacked = applyPlayerAttack(nextRuntime, nextState, rng, "auto");
       nextRuntime = attacked.runtime;
       nextState = attacked.state;
       events.push(...attacked.events);
@@ -636,6 +849,7 @@ export function resolveOfflineCombatExpected(
   }
 
   let nextRuntime = { ...runtime };
+  nextRuntime = reduceCombatCooldowns(nextRuntime, remainingMs);
   let nextState = state;
   let levelsCleared = 0;
   let defeatedByEnemy = false;

@@ -133,11 +133,11 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
     linkedUpgrades: [],
   },
 
-  // Root: Energy Conservation
+  // Root: Mana Conservation
   energy_conservation: {
     id: "energy_conservation",
-    name: "Energy Conservation",
-    description: "Increase energy regeneration by 10% per level",
+    name: "Mana Conservation",
+    description: "Increase mana regeneration by 10% per level",
     type: "energyRegen",
     tree: "resource",
     level: 0,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  castCombatSpell,
   calculatePlayerHit,
   createEnemyInstance,
   createInitialCombatRuntime,
@@ -9,6 +10,7 @@ import {
   resolveBossLootDrops,
   resolveOfflineCombatExpected,
   runCombatTick,
+  useCombatConsumable,
 } from "./combat";
 import { getItemDefSafe } from "./items";
 import { createDefaultState } from "./state";
@@ -103,6 +105,60 @@ describe("combat engine", () => {
     expect(result.events.some((event) => event.type === "playerHit")).toBe(
       true,
     );
+  });
+
+  it("casts arcane bolt, spends mana, and starts spell cooldown", () => {
+    const state = createDefaultState();
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.resources.energy = 100;
+    state.stats.attack = 20;
+    state.stats.intelligence = 10;
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 200;
+
+    const result = castCombatSpell(runtime, state, "arcane_bolt", () => 0.5);
+
+    expect(result.state.resources.energy).toBe(75);
+    expect(result.runtime.spellCooldowns?.arcane_bolt).toBe(6000);
+    expect(
+      result.events.some(
+        (event) => event.type === "playerHit" && event.attackSource === "spell",
+      ),
+    ).toBe(true);
+    expect(result.runtime.enemy.currentHp).toBeLessThan(
+      runtime.enemy.currentHp,
+    );
+  });
+
+  it("prevents combat consumables from being used again while on cooldown", () => {
+    const state = createDefaultState();
+    state.inventory = [
+      {
+        uid: "health-1",
+        itemId: "health_potion",
+        quantity: 2,
+        level: 1,
+      },
+    ];
+    state.combat.playerCurrentHp = 20;
+    const runtime = createInitialCombatRuntime(state);
+
+    const firstUse = useCombatConsumable(runtime, state, "health-1");
+    const secondUse = useCombatConsumable(
+      firstUse.runtime,
+      firstUse.state,
+      "health-1",
+    );
+
+    expect(
+      firstUse.events.some((event) => event.type === "consumableUsed"),
+    ).toBe(true);
+    expect(firstUse.runtime.consumableCooldowns?.health_potion).toBe(12000);
+    expect(secondUse.events).toHaveLength(0);
+    expect(secondUse.state.inventory[0]?.quantity).toBe(1);
   });
 
   it("resolves boss loot with guaranteed equipment and improved rewards", () => {

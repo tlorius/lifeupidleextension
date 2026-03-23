@@ -1,6 +1,9 @@
 import { getItemDefSafe } from "./items";
 import type { GameState, ItemInstance, Stats } from "./types";
 
+export const MAX_MANA = 100;
+const BASE_MANA_REGEN_PER_SECOND = 2;
+
 /**
  * Calculate gold income per second based on player stats and upgrades
  */
@@ -19,10 +22,23 @@ export function getGoldIncome(state: GameState): number {
   return baseGoldPerSecond * (1 + (goldIncomeBonus + tempGoldBoost) / 100);
 }
 
+export function getManaRegenPerSecond(state: GameState): number {
+  const totalStats = getTotalStats(state);
+  const manaRegenBonus = totalStats.energyRegeneration ?? 0;
+  return BASE_MANA_REGEN_PER_SECOND * (1 + manaRegenBonus / 100);
+}
+
 export function applyIdle(state: GameState, deltaMs: number): void {
   const seconds = deltaMs / 1000;
   const goldPerSecond = getGoldIncome(state);
   state.resources.gold += goldPerSecond * seconds;
+
+  const currentMana = state.resources.energy ?? MAX_MANA;
+  const manaRegenPerSecond = getManaRegenPerSecond(state);
+  state.resources.energy = Math.min(
+    MAX_MANA,
+    currentMana + manaRegenPerSecond * seconds,
+  );
 }
 
 /**
@@ -187,14 +203,22 @@ export function usePotion(state: GameState, itemUid: string): GameState {
     ...state,
     inventory: consumed.inventory,
   };
+  const combatMaxHp = Math.max(1, Math.round(getTotalStats(nextState).hp ?? 1));
 
   if (def.id === "health_potion") {
-    const currentEnergy = nextState.resources.energy ?? 100;
+    const currentEnergy = nextState.resources.energy ?? MAX_MANA;
     nextState = {
       ...nextState,
+      combat: {
+        ...nextState.combat,
+        playerCurrentHp: Math.min(
+          combatMaxHp,
+          nextState.combat.playerCurrentHp + Math.round(combatMaxHp * 0.35),
+        ),
+      },
       resources: {
         ...nextState.resources,
-        energy: Math.min(100, currentEnergy + 50),
+        energy: Math.min(MAX_MANA, currentEnergy + 50),
       },
     };
   } else if (def.id === "mana_potion") {
@@ -207,12 +231,19 @@ export function usePotion(state: GameState, itemUid: string): GameState {
       now + 10 * 60 * 1000,
     );
   } else if (def.id === "elixir") {
-    const currentEnergy = nextState.resources.energy ?? 100;
+    const currentEnergy = nextState.resources.energy ?? MAX_MANA;
     nextState = {
       ...nextState,
+      combat: {
+        ...nextState.combat,
+        playerCurrentHp: Math.min(
+          combatMaxHp,
+          nextState.combat.playerCurrentHp + Math.round(combatMaxHp * 0.2),
+        ),
+      },
       resources: {
         ...nextState.resources,
-        energy: Math.min(100, currentEnergy + 30),
+        energy: Math.min(MAX_MANA, currentEnergy + 30),
       },
     };
     tempEffects.goldIncomeBoostPercent = Math.max(
@@ -226,6 +257,10 @@ export function usePotion(state: GameState, itemUid: string): GameState {
   } else if (def.id === "immortal_brew") {
     nextState = {
       ...nextState,
+      combat: {
+        ...nextState.combat,
+        playerCurrentHp: combatMaxHp,
+      },
       stats: {
         ...nextState.stats,
         attack: (nextState.stats.attack ?? 0) + 2,
@@ -234,7 +269,7 @@ export function usePotion(state: GameState, itemUid: string): GameState {
       },
       resources: {
         ...nextState.resources,
-        energy: 100,
+        energy: MAX_MANA,
       },
     };
     tempEffects.goldIncomeBoostPercent = Math.max(
@@ -263,7 +298,7 @@ export function usePotion(state: GameState, itemUid: string): GameState {
       },
       resources: {
         ...nextState.resources,
-        energy: 100,
+        energy: MAX_MANA,
       },
     };
   } else if (def.id === "scholars_draught") {

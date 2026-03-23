@@ -1085,7 +1085,7 @@ export function Garden() {
               ? `Need pickaxe level ${config.minPickaxeLevel} (missing ${needsPickaxeLevel})`
               : null,
             missingRockEnergy > 0
-              ? `Need ${missingRockEnergy} more energy`
+              ? `Need ${missingRockEnergy} more mana`
               : null,
           ]
             .filter(Boolean)
@@ -1113,7 +1113,7 @@ export function Garden() {
               ? "drop-shadow(0 0 6px rgba(255, 200, 0, 0.6))"
               : "none",
           }}
-          aria-label={`${tier} rock - requires pickaxe (Level ${config.minPickaxeLevel}+, ${config.energyCost} energy)`}
+          aria-label={`${tier} rock - requires pickaxe (Level ${config.minPickaxeLevel}+, ${config.energyCost} mana)`}
           onClick={() => {
             if (pickaxeActive) {
               setRockBreakModal({
@@ -1326,7 +1326,7 @@ export function Garden() {
               if (result.wateredTiles > 0) {
                 setState(result.nextState);
               } else if (result.lackedEnergy) {
-                alert("Not enough energy to water crops in range.");
+                alert("Not enough mana to water crops in range.");
               }
               return;
             }
@@ -1358,7 +1358,7 @@ export function Garden() {
               if (result.plantedTiles > 0) {
                 setState(result.nextState);
               } else if (result.lackedEnergy) {
-                alert("Not enough energy to plant in range.");
+                alert("Not enough mana to plant in range.");
               } else if (result.lackedSeeds) {
                 alert("Not enough seeds to plant in range.");
               }
@@ -1524,7 +1524,7 @@ export function Garden() {
                   ? `Need pickaxe level ${rockUnlockConfig!.minPickaxeLevel} (missing ${needsUnlockPickaxeLevel})`
                   : null,
                 missingUnlockEnergy > 0
-                  ? `Need ${missingUnlockEnergy} more energy`
+                  ? `Need ${missingUnlockEnergy} more mana`
                   : null,
               ]
                 .filter(Boolean)
@@ -1699,7 +1699,7 @@ export function Garden() {
             if (result.wateredTiles > 0) {
               setState(result.nextState);
             } else if (result.lackedEnergy) {
-              alert("Not enough energy to water crops in range.");
+              alert("Not enough mana to water crops in range.");
             }
             return;
           }
@@ -1730,7 +1730,7 @@ export function Garden() {
             if (result.plantedTiles > 0) {
               setState(result.nextState);
             } else if (result.lackedEnergy) {
-              alert("Not enough energy to plant in range.");
+              alert("Not enough mana to plant in range.");
             } else if (result.lackedSeeds) {
               alert("Not enough seeds to plant in range.");
             }
@@ -2310,7 +2310,7 @@ export function Garden() {
 
                   if (isPickaxeTool(tool.toolId)) {
                     icon = "⛏️";
-                    description = "Click rocks to break them (costs energy)";
+                    description = "Click rocks to break them (costs mana)";
                   } else if (isShovelTool(tool.toolId)) {
                     icon = "🪏";
                     const areaSize = tool.toolId.includes("mithril")
@@ -2332,7 +2332,7 @@ export function Garden() {
                       "Auto-plants selected seed in sprinkler-style range";
                   } else if (isWateringCanTool(tool.toolId)) {
                     icon = "💧";
-                    description = "Click crops to water them (10 energy)";
+                    description = "Click crops to water them (10 mana)";
                   } else if (isScytheTool(tool.toolId)) {
                     icon = "🔪";
                     description = "For future use";
@@ -4127,7 +4127,7 @@ export function Garden() {
                         }}
                       >
                         <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-                          Energy Cost
+                          Mana Cost
                         </div>
                         <div
                           style={{
@@ -4176,7 +4176,7 @@ export function Garden() {
                       )}
                       {!hasEnergy && (
                         <div>
-                          ⚠️ Not enough energy. You need{" "}
+                          ⚠️ Not enough mana. You need{" "}
                           {formatCompactNumber(
                             config.energyCost - (state.resources.energy ?? 0),
                           )}{" "}
@@ -4951,7 +4951,7 @@ export function Garden() {
                           <strong>Requirements:</strong>
                         </div>
                         <div>• Pickaxe Level: {config.minPickaxeLevel}+</div>
-                        <div>• Energy Cost: {config.energyCost} ⚡</div>
+                        <div>• Mana Cost: {config.energyCost} ⚡</div>
                       </div>
                     </div>
 

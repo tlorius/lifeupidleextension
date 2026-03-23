@@ -39,6 +39,8 @@ export function createDefaultState(): GameState {
       enemy: createEnemyInstance(1),
       playerAttackRemainderMs: 0,
       enemyAttackRemainderMs: 0,
+      spellCooldowns: {},
+      consumableCooldowns: {},
     },
     temporaryEffects: {
       goldIncomeBoostPercent: 0,
