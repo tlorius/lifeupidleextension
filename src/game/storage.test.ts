@@ -99,6 +99,10 @@ describe("storage", () => {
     expect(loaded).not.toBeNull();
     expect(loaded?.resources.gold).toBe(77);
     expect(loaded?.resources.gems).toBe(defaultState.resources.gems);
+    expect(loaded?.playerProgress.level).toBe(
+      defaultState.playerProgress.level,
+    );
+    expect(loaded?.stats.hp).toBe(defaultState.stats.hp);
     expect(loaded?.garden.cropStorage.current.flower).toBe(10);
     expect(loaded?.garden.cropStorage.current.vegetable).toBe(
       defaultState.garden.cropStorage.current.vegetable,

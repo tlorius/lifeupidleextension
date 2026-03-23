@@ -572,9 +572,23 @@ export function getTotalStats(state: GameState): Partial<Stats> {
       (baseStats.attack ?? 0) +
       (equipmentStats.attack ?? 0) +
       (upgradeStats.attack ?? 0),
-    defense: (equipmentStats.defense ?? 0) + (upgradeStats.defense ?? 0),
+    hp: (baseStats.hp ?? 0) + (equipmentStats.hp ?? 0) + (upgradeStats.hp ?? 0),
+    agility:
+      (baseStats.agility ?? 0) +
+      (equipmentStats.agility ?? 0) +
+      (upgradeStats.agility ?? 0),
+    critChance:
+      (baseStats.critChance ?? 0) +
+      (equipmentStats.critChance ?? 0) +
+      (upgradeStats.critChance ?? 0),
+    defense:
+      (baseStats.defense ?? 0) +
+      (equipmentStats.defense ?? 0) +
+      (upgradeStats.defense ?? 0),
     intelligence:
-      (equipmentStats.intelligence ?? 0) + (upgradeStats.intelligence ?? 0),
+      (baseStats.intelligence ?? 0) +
+      (equipmentStats.intelligence ?? 0) +
+      (upgradeStats.intelligence ?? 0),
     gardening:
       (baseStats.gardening ?? 0) +
       (equipmentStats.gardening ?? 0) +

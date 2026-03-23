@@ -13,6 +13,9 @@ export type rarity = "common" | "rare" | "epic" | "legendary" | "unique";
 
 export interface Stats {
   attack: number;
+  hp?: number;
+  agility?: number;
+  critChance?: number;
   intelligence?: number;
   defense?: number;
   gardening?: number;
@@ -196,6 +199,17 @@ export interface TemporaryEffects {
   goldIncomeBoostUntil?: number;
 }
 
+export interface PlayerProgress {
+  level: number;
+  xp: number;
+  totalXpEarned: number;
+  unspentPoints?: number;
+  unlockedSystems?: {
+    spells?: boolean;
+  };
+  lastLevelUpAt?: number;
+}
+
 export interface GameState {
   meta: {
     version: number;
@@ -204,6 +218,7 @@ export interface GameState {
 
   resources: Resources;
   stats: Stats;
+  playerProgress: PlayerProgress;
   temporaryEffects?: TemporaryEffects;
 
   inventory: ItemInstance[];

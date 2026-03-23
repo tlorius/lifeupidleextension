@@ -1,11 +1,15 @@
 import type { GameState } from "./types";
+import {
+  STARTING_PLAYER_PROGRESS,
+  STARTING_PLAYER_STATS,
+} from "./progressionConfig";
 
 export function createDefaultState(): GameState {
   const now = Date.now();
 
   return {
     meta: {
-      version: 1,
+      version: 2,
       lastUpdate: now,
     },
     resources: {
@@ -24,9 +28,8 @@ export function createDefaultState(): GameState {
     },
     upgrades: [],
     pets: [],
-    stats: {
-      attack: 10,
-    },
+    stats: { ...STARTING_PLAYER_STATS },
+    playerProgress: { ...STARTING_PLAYER_PROGRESS },
     temporaryEffects: {
       goldIncomeBoostPercent: 0,
       goldIncomeBoostUntil: 0,
