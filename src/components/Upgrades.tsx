@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGame } from "../game/GameContext";
 import {
   getUpgradeTrees,
@@ -20,6 +20,9 @@ export function Upgrades() {
   const [treeModalUpgradeId, setTreeModalUpgradeId] = useState<string | null>(
     null,
   );
+  const [viewportWidth, setViewportWidth] = useState<number>(
+    typeof window !== "undefined" ? window.innerWidth : 1024,
+  );
 
   const trees = getUpgradeTrees();
   const hasItems = state.inventory.length > 0;
@@ -29,6 +32,13 @@ export function Upgrades() {
     borderRadius: 10,
     boxShadow: "0 8px 24px rgba(0, 0, 0, 0.24)",
   };
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const getTreeIcon = (tree: string): string => {
     switch (tree) {
@@ -178,11 +188,17 @@ export function Upgrades() {
     const selectedModalPresentation = selectedModalUpgrade
       ? getUpgradePresentation(selectedModalUpgrade)
       : null;
-    const treeNodeWidth = 220;
-    const treeColumnGap = 26;
-    const treeNodeHeight = 188;
-    const treeRowGap = 54;
-    const treeHeaderHeight = 34;
+    const isMobileTree = viewportWidth <= 768;
+    const treeNodeWidth = isMobileTree ? 160 : 220;
+    const treeColumnGap = isMobileTree ? 12 : 26;
+    const treeNodeHeight = isMobileTree ? 170 : 188;
+    const treeRowGap = isMobileTree ? 32 : 54;
+    const treeHeaderHeight = isMobileTree ? 28 : 34;
+    const treeNodePadding = isMobileTree ? 10 : 12;
+    const treeTitleFontSize = isMobileTree ? 12 : 13;
+    const treeMetaFontSize = isMobileTree ? 10 : 11;
+    const treeBadgeFontSize = isMobileTree ? 9 : 10;
+    const treeIconSize = isMobileTree ? 20 : 24;
     const maxTierSize = Math.max(
       1,
       ...tierEntries.map((tierEntry) => tierEntry.upgrades.length),
@@ -347,7 +363,9 @@ export function Upgrades() {
             <div
               style={{
                 overflowX: "auto",
+                overflowY: "hidden",
                 paddingBottom: 4,
+                marginInline: isMobileTree ? -4 : 0,
               }}
             >
               <div
@@ -419,7 +437,7 @@ export function Upgrades() {
                       <div
                         style={{
                           height: treeHeaderHeight,
-                          fontSize: 11,
+                          fontSize: isMobileTree ? 10 : 11,
                           fontWeight: "bold",
                           letterSpacing: 0.6,
                           textTransform: "uppercase",
@@ -458,7 +476,7 @@ export function Upgrades() {
                               style={{
                                 ...panelStyle,
                                 position: "relative",
-                                padding: 12,
+                                padding: treeNodePadding,
                                 backgroundColor: presentation.isUnlocked
                                   ? "#1b2d3f"
                                   : "#26171b",
@@ -488,12 +506,12 @@ export function Upgrades() {
                                   gap: 8,
                                 }}
                               >
-                                <span style={{ fontSize: 24 }}>
+                                <span style={{ fontSize: treeIconSize }}>
                                   {getUpgradeIcon(upgradeDef)}
                                 </span>
                                 <span
                                   style={{
-                                    fontSize: 11,
+                                    fontSize: treeMetaFontSize,
                                     fontWeight: "bold",
                                     padding: "2px 8px",
                                     borderRadius: 999,
@@ -514,7 +532,7 @@ export function Upgrades() {
                               <div>
                                 <div
                                   style={{
-                                    fontSize: 13,
+                                    fontSize: treeTitleFontSize,
                                     fontWeight: "bold",
                                     color: "#f3f7fb",
                                     marginBottom: 4,
@@ -522,7 +540,12 @@ export function Upgrades() {
                                 >
                                   {upgradeDef.name}
                                 </div>
-                                <div style={{ fontSize: 11, color: "#9eb0c2" }}>
+                                <div
+                                  style={{
+                                    fontSize: treeMetaFontSize,
+                                    color: "#9eb0c2",
+                                  }}
+                                >
                                   Next: {formatCompactNumber(presentation.cost)}
                                   🪙
                                 </div>
@@ -548,7 +571,7 @@ export function Upgrades() {
                                       <span
                                         key={name}
                                         style={{
-                                          fontSize: 10,
+                                          fontSize: treeBadgeFontSize,
                                           color: "#c8d7e5",
                                           backgroundColor:
                                             "rgba(116, 192, 252, 0.14)",
@@ -564,7 +587,7 @@ export function Upgrades() {
                                   ) : (
                                     <span
                                       style={{
-                                        fontSize: 10,
+                                        fontSize: treeBadgeFontSize,
                                         color: "#7fdc8b",
                                         backgroundColor:
                                           "rgba(127, 220, 139, 0.12)",
@@ -591,7 +614,7 @@ export function Upgrades() {
                                       <span
                                         key={name}
                                         style={{
-                                          fontSize: 10,
+                                          fontSize: treeBadgeFontSize,
                                           color: "#d9f8de",
                                           backgroundColor:
                                             "rgba(127, 220, 139, 0.12)",
@@ -607,7 +630,7 @@ export function Upgrades() {
                                   ) : (
                                     <span
                                       style={{
-                                        fontSize: 10,
+                                        fontSize: treeBadgeFontSize,
                                         color: "#9eb0c2",
                                         backgroundColor:
                                           "rgba(63, 84, 106, 0.24)",
