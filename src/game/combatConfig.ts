@@ -24,6 +24,7 @@ export interface CombatLootEntry {
 export interface CombatLootTable {
   guaranteed?: CombatLootEntry[];
   weighted: CombatLootEntry[];
+  weightedRolls?: number;
 }
 
 export const COMBAT_PLAYER_CONFIG = {
@@ -351,8 +352,15 @@ export const COMBAT_LEVELS: CombatLevelConfig[] = [
 export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
   boss_tier_1: {
     guaranteed: [
-      { itemId: "health_potion", weight: 1, quantityMin: 1, quantityMax: 1 },
+      { itemId: "health_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+      {
+        itemId: "sunflower_seed_common",
+        weight: 1,
+        quantityMin: 4,
+        quantityMax: 7,
+      },
     ],
+    weightedRolls: 2,
     weighted: [
       { itemId: "sword_1", weight: 24 },
       { itemId: "armor_1", weight: 24 },
@@ -375,9 +383,10 @@ export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
   },
   boss_tier_2: {
     guaranteed: [
-      { itemId: "health_potion", weight: 1, quantityMin: 1, quantityMax: 1 },
-      { itemId: "mana_potion", weight: 1, quantityMin: 1, quantityMax: 1 },
+      { itemId: "health_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+      { itemId: "mana_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
     ],
+    weightedRolls: 2,
     weighted: [
       { itemId: "hammer_1", weight: 18 },
       { itemId: "shield_1", weight: 18 },
@@ -397,9 +406,10 @@ export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
   },
   boss_tier_3: {
     guaranteed: [
-      { itemId: "mana_potion", weight: 1, quantityMin: 1, quantityMax: 1 },
-      { itemId: "corn_seed_rare", weight: 1, quantityMin: 3, quantityMax: 5 },
+      { itemId: "mana_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+      { itemId: "corn_seed_rare", weight: 1, quantityMin: 4, quantityMax: 6 },
     ],
+    weightedRolls: 2,
     weighted: [
       { itemId: "greataxe_1", weight: 14 },
       { itemId: "plate_armor", weight: 14 },
@@ -415,8 +425,10 @@ export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
   },
   boss_tier_4: {
     guaranteed: [
-      { itemId: "elixir", weight: 1, quantityMin: 1, quantityMax: 1 },
+      { itemId: "elixir", weight: 1, quantityMin: 2, quantityMax: 2 },
+      { itemId: "immortal_brew", weight: 1, quantityMin: 1, quantityMax: 1 },
     ],
+    weightedRolls: 3,
     weighted: [
       { itemId: "excalibur", weight: 10 },
       { itemId: "excalibur_armor", weight: 10 },
@@ -448,6 +460,6 @@ export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
 
 export const COMBAT_CHASE_DROP_CONFIG = {
   unlocksAtLevel: 25,
-  chance: 0.02,
+  chance: 0.03,
   lootTableId: "boss_unique_chase",
 } as const;

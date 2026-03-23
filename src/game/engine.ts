@@ -133,6 +133,7 @@ export function addItem(
   state: GameState,
   itemId: string,
   quantity: number = 1,
+  itemLevel: number = 1,
 ): GameState {
   return {
     ...state,
@@ -142,7 +143,7 @@ export function addItem(
         uid: crypto.randomUUID(),
         itemId,
         quantity,
-        level: 1,
+        level: Math.max(1, Math.floor(itemLevel)),
       },
     ],
   };

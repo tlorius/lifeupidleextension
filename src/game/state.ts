@@ -1,4 +1,5 @@
 import type { GameState } from "./types";
+import { createEnemyInstance } from "./combat";
 import {
   STARTING_PLAYER_PROGRESS,
   STARTING_PLAYER_STATS,
@@ -30,6 +31,15 @@ export function createDefaultState(): GameState {
     pets: [],
     stats: { ...STARTING_PLAYER_STATS },
     playerProgress: { ...STARTING_PLAYER_PROGRESS },
+    combat: {
+      currentLevel: 1,
+      highestLevelReached: 1,
+      lastBossCheckpointLevel: 0,
+      playerCurrentHp: STARTING_PLAYER_STATS.hp ?? 1,
+      enemy: createEnemyInstance(1),
+      playerAttackRemainderMs: 0,
+      enemyAttackRemainderMs: 0,
+    },
     temporaryEffects: {
       goldIncomeBoostPercent: 0,
       goldIncomeBoostUntil: 0,

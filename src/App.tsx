@@ -4,11 +4,18 @@ import { Equipment } from "./components/Equipment";
 import { Main } from "./components/Main";
 import { Upgrades } from "./components/Upgrades";
 import { Garden } from "./components/Garden";
+import { Fight } from "./components/Fight";
 import { ResourcesDisplay } from "./components/ResourcesDisplay";
 import { TokenRewardModal } from "./components/TokenRewardModal";
 import { IdleEarningsModal } from "./components/IdleEarningsModal";
 
-type Screen = "main" | "inventory" | "equipment" | "upgrades" | "garden";
+type Screen =
+  | "main"
+  | "inventory"
+  | "equipment"
+  | "upgrades"
+  | "garden"
+  | "fight";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("main");
@@ -71,6 +78,13 @@ function App() {
           >
             Garden
           </button>
+          <button
+            className={screen === "fight" ? "btn-selected" : ""}
+            style={{ flex: "1 1 auto" }}
+            onClick={() => setScreen("fight")}
+          >
+            Fight
+          </button>
         </div>
       </div>
 
@@ -78,6 +92,7 @@ function App() {
       {screen === "equipment" && <Equipment />}
       {screen === "upgrades" && <Upgrades />}
       {screen === "garden" && <Garden />}
+      {screen === "fight" && <Fight />}
       {screen === "main" && <Main />}
 
       <IdleEarningsModal />

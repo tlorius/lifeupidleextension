@@ -2,8 +2,12 @@ import { useGame } from "../game/GameContext";
 import { formatCompactNumber } from "../game/numberFormat";
 
 export function IdleEarningsModal() {
-  const { idleEarningsModalItems, idleDurationMs, dismissIdleEarningsModal } =
-    useGame();
+  const {
+    idleEarningsModalItems,
+    idleDurationMs,
+    idleFightReview,
+    dismissIdleEarningsModal,
+  } = useGame();
 
   const formatAwayDuration = (durationMs: number): string => {
     const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
@@ -23,7 +27,7 @@ export function IdleEarningsModal() {
     return parts.slice(0, 2).join(" ");
   };
 
-  if (idleEarningsModalItems.length === 0) return null;
+  if (idleEarningsModalItems.length === 0 && !idleFightReview) return null;
 
   return (
     <div
@@ -76,38 +80,83 @@ export function IdleEarningsModal() {
           </button>
         </div>
 
-        <div style={{ display: "grid", gap: 8 }}>
-          {idleEarningsModalItems.map((earning) => (
+        {idleEarningsModalItems.length > 0 && (
+          <div style={{ display: "grid", gap: 8 }}>
+            {idleEarningsModalItems.map((earning) => (
+              <div
+                key={earning.resourceId}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "34px 1fr auto",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 12px",
+                  border: "1px solid #3a536a",
+                  borderRadius: 8,
+                  backgroundColor: "#1f3345",
+                }}
+              >
+                <div style={{ fontSize: 20, textAlign: "center" }}>
+                  {earning.icon}
+                </div>
+                <div>
+                  <div style={{ color: "#dfe9f3", fontWeight: "bold" }}>
+                    {earning.label}
+                  </div>
+                  <div style={{ color: "#96abc0", fontSize: 11 }}>
+                    Earned while you were away
+                  </div>
+                </div>
+                <div style={{ color: "#f3d06b", fontWeight: "bold" }}>
+                  +{formatCompactNumber(earning.amount)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {idleFightReview && (
+          <div
+            style={{
+              marginTop: idleEarningsModalItems.length > 0 ? 12 : 0,
+              border: "1px solid #3a536a",
+              borderRadius: 8,
+              backgroundColor: "#1b3041",
+              padding: 12,
+            }}
+          >
             <div
-              key={earning.resourceId}
               style={{
-                display: "grid",
-                gridTemplateColumns: "34px 1fr auto",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                border: "1px solid #3a536a",
-                borderRadius: 8,
-                backgroundColor: "#1f3345",
+                color: "#e6edf5",
+                fontWeight: "bold",
+                fontSize: 14,
+                marginBottom: 8,
               }}
             >
-              <div style={{ fontSize: 20, textAlign: "center" }}>
-                {earning.icon}
+              Fight Review
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ color: "#dfe9f3", fontSize: 12 }}>
+                You progressed{" "}
+                {formatCompactNumber(idleFightReview.playerLevelsGained)} player
+                levels.
               </div>
-              <div>
-                <div style={{ color: "#dfe9f3", fontWeight: "bold" }}>
-                  {earning.label}
-                </div>
-                <div style={{ color: "#96abc0", fontSize: 11 }}>
-                  Earned while you were away
-                </div>
+              <div style={{ color: "#dfe9f3", fontSize: 12 }}>
+                You gained {formatCompactNumber(idleFightReview.gemsGained)}{" "}
+                gems.
               </div>
-              <div style={{ color: "#f3d06b", fontWeight: "bold" }}>
-                +{formatCompactNumber(earning.amount)}
+              <div style={{ color: "#dfe9f3", fontSize: 12 }}>
+                You gained {formatCompactNumber(idleFightReview.itemsGained)}{" "}
+                items.
+              </div>
+              <div style={{ color: "#dfe9f3", fontSize: 12 }}>
+                You defeated{" "}
+                {formatCompactNumber(idleFightReview.newEnemiesDefeated)} new
+                enemies.
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

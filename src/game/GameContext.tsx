@@ -5,6 +5,12 @@ import { load, save } from "./storage";
 import { applyIdle } from "./engine";
 import { applyGardenIdle } from "./garden";
 import {
+  performClickAttack,
+  resolveOfflineCombatExpected,
+  runCombatTick,
+  type CombatEvent,
+} from "./combat";
+import {
   applyTokenRewards,
   extractRewardToken,
   type GrantedTokenRewardItem,
@@ -23,14 +29,22 @@ export interface IdleEarningItem {
   icon: string;
 }
 
+export interface IdleFightReview {
+  playerLevelsGained: number;
+  gemsGained: number;
+  itemsGained: number;
+  newEnemiesDefeated: number;
+}
+
 type InitializationResult = {
   state: GameState;
   idleEarnings: IdleEarningItem[];
   idleDurationMs: number;
+  idleFightReview: IdleFightReview | null;
 };
 
 function initializeGameState(): InitializationResult {
-  const initialState = load() ?? createDefaultState();
+  let initialState = load() ?? createDefaultState();
   const now = Date.now();
   const lastUpdate =
     typeof initialState.meta.lastUpdate === "number"
@@ -38,10 +52,51 @@ function initializeGameState(): InitializationResult {
       : now;
   const delta = Math.max(0, now - lastUpdate);
   const beforeGold = initialState.resources.gold;
+  const beforeGems = initialState.resources.gems ?? 0;
+  const beforePlayerLevel = initialState.playerProgress.level;
+  const beforeHighestLevelReached = initialState.combat.highestLevelReached;
+  let idleFightReview: IdleFightReview | null = null;
 
   if (delta > 0) {
     applyIdle(initialState, delta);
     applyGardenIdle(initialState, delta);
+
+    const offlineCombat = resolveOfflineCombatExpected(
+      initialState.combat,
+      initialState,
+      delta,
+    );
+    initialState = {
+      ...offlineCombat.state,
+      combat: offlineCombat.runtime,
+    };
+
+    const playerLevelsGained = Math.max(
+      0,
+      initialState.playerProgress.level - beforePlayerLevel,
+    );
+    const gemsGained = Math.max(
+      0,
+      (initialState.resources.gems ?? 0) - beforeGems,
+    );
+    const newEnemiesDefeated = Math.max(
+      0,
+      offlineCombat.runtime.highestLevelReached - beforeHighestLevelReached,
+    );
+
+    if (
+      playerLevelsGained > 0 ||
+      gemsGained > 0 ||
+      offlineCombat.itemsGained > 0 ||
+      newEnemiesDefeated > 0
+    ) {
+      idleFightReview = {
+        playerLevelsGained,
+        gemsGained,
+        itemsGained: offlineCombat.itemsGained,
+        newEnemiesDefeated,
+      };
+    }
   }
 
   initialState.meta.lastUpdate = now;
@@ -63,6 +118,7 @@ function initializeGameState(): InitializationResult {
     state: initialState,
     idleEarnings,
     idleDurationMs: delta,
+    idleFightReview,
   };
 }
 
@@ -73,7 +129,10 @@ const GameContext = createContext<{
   dismissTokenRewardModal: () => void;
   idleEarningsModalItems: IdleEarningItem[];
   idleDurationMs: number;
+  idleFightReview: IdleFightReview | null;
   dismissIdleEarningsModal: () => void;
+  combatEvents: CombatEvent[];
+  performCombatClickAttack: () => void;
 } | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -96,6 +155,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [idleDurationMs, setIdleDurationMs] = useState<number>(
     initializationRef.current.idleDurationMs,
   );
+  const [idleFightReview, setIdleFightReview] =
+    useState<IdleFightReview | null>(initializationRef.current.idleFightReview);
+  const [combatEvents, setCombatEvents] = useState<CombatEvent[]>([]);
   const [pendingRewardToken, setPendingRewardToken] = useState<string | null>(
     () => extractRewardToken(window.location.search),
   );
@@ -106,13 +168,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const interval = setInterval(() => {
+      let tickCombatEvents: CombatEvent[] = [];
       setState((prev) => {
         const next = structuredClone(prev);
         applyIdle(next, 1000);
         applyGardenIdle(next, 1000);
-        save(next);
-        return next;
+
+        const combatResult = runCombatTick(next.combat, next, 1000);
+        tickCombatEvents = combatResult.events;
+
+        const withCombat: GameState = {
+          ...combatResult.state,
+          combat: combatResult.runtime,
+        };
+
+        save(withCombat);
+        return withCombat;
       });
+
+      setCombatEvents(tickCombatEvents);
     }, 1000);
 
     // Save on page unload to prevent data loss
@@ -129,6 +203,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, []);
+
+  const performCombatClickAttack = () => {
+    let clickCombatEvents: CombatEvent[] = [];
+
+    setState((prev) => {
+      const result = performClickAttack(prev.combat, prev);
+      clickCombatEvents = result.events;
+
+      const next: GameState = {
+        ...result.state,
+        combat: result.runtime,
+      };
+
+      save(next);
+      return next;
+    });
+
+    setCombatEvents(clickCombatEvents);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -186,10 +279,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
         idleEarningsModalItems,
         idleDurationMs,
+        idleFightReview,
         dismissIdleEarningsModal: () => {
           setIdleEarningsModalItems([]);
           setIdleDurationMs(0);
+          setIdleFightReview(null);
         },
+        combatEvents,
+        performCombatClickAttack,
       }}
     >
       {children}

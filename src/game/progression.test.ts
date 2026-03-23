@@ -16,23 +16,24 @@ describe("progression", () => {
 
   it("returns the expected level-up gains for milestone and non-milestone levels", () => {
     expect(getLevelUpGains(2)).toEqual({
-      hp: 8,
-      attack: 1,
-      agility: 0.4,
+      hp: 10,
+      attack: 2,
+      agility: 0.5,
     });
 
-    expect(getLevelUpGains(5)).toEqual({
-      hp: 8,
-      attack: 1,
-      critChance: 0.5,
+    expect(getLevelUpGains(4)).toEqual({
+      hp: 10,
+      attack: 2,
+      agility: 0.5,
+      critChance: 0.75,
     });
   });
 
   it("previews gains for the next level", () => {
     expect(getLevelGainPreview(1)).toEqual({
-      hp: 8,
-      attack: 1,
-      agility: 0.4,
+      hp: 10,
+      attack: 2,
+      agility: 0.5,
     });
   });
 
@@ -57,9 +58,9 @@ describe("progression", () => {
     expect(next.playerProgress.xp).toBe(0);
     expect(next.playerProgress.totalXpEarned).toBe(45);
     expect(next.playerProgress.lastLevelUpAt).toBe(1_700_000_000_000);
-    expect(next.stats.attack).toBe(11);
-    expect(next.stats.hp).toBe(108);
-    expect(next.stats.agility).toBeCloseTo(1.4, 8);
+    expect(next.stats.attack).toBe(12);
+    expect(next.stats.hp).toBe(110);
+    expect(next.stats.agility).toBeCloseTo(1.5, 8);
   });
 
   it("handles multiple level-ups in a single XP grant", () => {
@@ -70,10 +71,19 @@ describe("progression", () => {
 
     expect(next.playerProgress.level).toBe(4);
     expect(next.playerProgress.xp).toBe(34);
-    expect(next.stats.attack).toBe(13);
-    expect(next.stats.hp).toBe(124);
-    expect(next.stats.agility).toBeCloseTo(1.8, 8);
-    expect(next.stats.critChance).toBe(5);
+    expect(next.stats.attack).toBe(16);
+    expect(next.stats.hp).toBe(130);
+    expect(next.stats.agility).toBeCloseTo(2, 8);
+    expect(next.stats.critChance).toBeCloseTo(5.75, 8);
+  });
+
+  it("unlocks spell system at configured level threshold", () => {
+    const state = createDefaultState();
+
+    const next = grantPlayerXp(state, 5000);
+
+    expect(next.playerProgress.level).toBeGreaterThanOrEqual(8);
+    expect(next.playerProgress.unlockedSystems?.spells).toBe(true);
   });
 
   it("ignores non-positive XP grants", () => {

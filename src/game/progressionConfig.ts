@@ -30,12 +30,15 @@ export const PROGRESSION_CONFIG = {
     quadratic: 7,
     linear: 18,
   },
+  unlocks: {
+    spellsAtLevel: 8,
+  },
   levelUpGains: {
-    hpPerLevel: 8,
-    attackPerLevel: 1,
+    hpPerLevel: 10,
+    attackPerLevel: 2,
     agilityEveryLevels: 2,
-    agilityPerTrigger: 0.4,
-    critEveryLevels: 5,
-    critPerTrigger: 0.5,
+    agilityPerTrigger: 0.5,
+    critEveryLevels: 4,
+    critPerTrigger: 0.75,
   },
 } as const;

@@ -1,0 +1,696 @@
+import {
+  COMBAT_CHASE_DROP_CONFIG,
+  COMBAT_LEVELS,
+  COMBAT_LOOT_TABLES,
+  COMBAT_PLAYER_CONFIG,
+  COMBAT_PROGRESS_CONFIG,
+  type CombatEncounterKind,
+  type CombatLevelConfig,
+  type CombatLootEntry,
+} from "./combatConfig";
+import { addItem, getTotalStats } from "./engine";
+import { getItemDefSafe } from "./items";
+import { grantPlayerXp } from "./progression";
+import type { GameState } from "./types";
+
+export type CombatRng = () => number;
+
+export interface CombatEnemyInstance {
+  level: number;
+  enemyId: string;
+  name: string;
+  kind: CombatEncounterKind;
+  maxHp: number;
+  currentHp: number;
+  damage: number;
+  attacksPerSecond: number;
+  goldReward: number;
+  gemsReward: number;
+  xpReward: number;
+  lootTableId?: string;
+}
+
+export interface CombatRuntimeState {
+  currentLevel: number;
+  highestLevelReached: number;
+  lastBossCheckpointLevel: number;
+  playerCurrentHp: number;
+  enemy: CombatEnemyInstance;
+  playerAttackRemainderMs: number;
+  enemyAttackRemainderMs: number;
+}
+
+export interface CombatEvent {
+  type:
+    | "playerHit"
+    | "enemyHit"
+    | "enemyDefeated"
+    | "playerDefeated"
+    | "lootGranted"
+    | "levelUp"
+    | "systemUnlocked";
+  value?: number;
+  isCrit?: boolean;
+  itemId?: string;
+  quantity?: number;
+  itemLevel?: number;
+  systemId?: string;
+}
+
+export interface CombatTickResult {
+  runtime: CombatRuntimeState;
+  state: GameState;
+  events: CombatEvent[];
+}
+
+export interface CombatOfflineResult {
+  runtime: CombatRuntimeState;
+  state: GameState;
+  levelsCleared: number;
+  defeatedByEnemy: boolean;
+  itemsGained: number;
+}
+
+interface CombatLootDrop {
+  itemId: string;
+  quantity: number;
+  itemLevel?: number;
+}
+
+const CRIT_DAMAGE_MULTIPLIER = 2;
+const MAX_COMBAT_ACTIONS_PER_TICK = 5000;
+
+function clampPercent(input: number): number {
+  return Math.min(100, Math.max(0, input));
+}
+
+function pickWeightedEntry(
+  entries: CombatLootEntry[],
+  rng: CombatRng,
+): CombatLootEntry | null {
+  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  if (totalWeight <= 0) return null;
+
+  const roll = rng() * totalWeight;
+  let cursor = 0;
+  for (const entry of entries) {
+    cursor += entry.weight;
+    if (roll <= cursor) return entry;
+  }
+
+  return entries[entries.length - 1] ?? null;
+}
+
+function rollQuantity(entry: CombatLootEntry, rng: CombatRng): number {
+  const min = Math.max(1, Math.floor(entry.quantityMin ?? 1));
+  const max = Math.max(min, Math.floor(entry.quantityMax ?? min));
+  if (min === max) return min;
+
+  return min + Math.floor(rng() * (max - min + 1));
+}
+
+function isEquipmentItem(itemId: string): boolean {
+  const itemDef = getItemDefSafe(itemId);
+  return (
+    itemDef?.type === "weapon" ||
+    itemDef?.type === "armor" ||
+    itemDef?.type === "accessory"
+  );
+}
+
+function getBossEquipmentItemLevel(enemy: CombatEnemyInstance): number {
+  const tierBonus = Math.max(1, Math.floor(enemy.level / 5));
+  return 1 + tierBonus;
+}
+
+function applyLootDrops(state: GameState, drops: CombatLootDrop[]): GameState {
+  let next = state;
+  for (const drop of drops) {
+    next = addItem(next, drop.itemId, drop.quantity, drop.itemLevel ?? 1);
+  }
+  return next;
+}
+
+function applyEnemyReward(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  rng: CombatRng,
+): { runtime: CombatRuntimeState; state: GameState; events: CombatEvent[] } {
+  const events: CombatEvent[] = [
+    {
+      type: "enemyDefeated",
+      value: runtime.currentLevel,
+    },
+  ];
+
+  let nextState: GameState = {
+    ...state,
+    resources: {
+      ...state.resources,
+      gold: state.resources.gold + runtime.enemy.goldReward,
+      gems: (state.resources.gems ?? 0) + runtime.enemy.gemsReward,
+    },
+  };
+
+  const preRewardHp = state.stats.hp ?? 1;
+  const preRewardLevel = state.playerProgress.level;
+  const hadSpellsUnlocked = Boolean(
+    state.playerProgress.unlockedSystems?.spells,
+  );
+  nextState = grantPlayerXp(nextState, runtime.enemy.xpReward);
+  const postRewardHp = nextState.stats.hp ?? preRewardHp;
+  const postRewardLevel = nextState.playerProgress.level;
+  const hasSpellsUnlocked = Boolean(
+    nextState.playerProgress.unlockedSystems?.spells,
+  );
+  const hpDelta = Math.max(0, postRewardHp - preRewardHp);
+
+  if (postRewardLevel > preRewardLevel) {
+    events.push({
+      type: "levelUp",
+      value: postRewardLevel,
+    });
+  }
+
+  if (!hadSpellsUnlocked && hasSpellsUnlocked) {
+    events.push({
+      type: "systemUnlocked",
+      systemId: "spells",
+    });
+  }
+
+  const lootDrops = resolveBossLootDrops(runtime.enemy, rng);
+  if (lootDrops.length > 0) {
+    nextState = applyLootDrops(nextState, lootDrops);
+    for (const drop of lootDrops) {
+      events.push({
+        type: "lootGranted",
+        itemId: drop.itemId,
+        quantity: drop.quantity,
+        itemLevel: drop.itemLevel,
+      });
+    }
+  }
+
+  const nextLevel = runtime.currentLevel + 1;
+  const checkpointLevel =
+    runtime.enemy.kind === "boss"
+      ? Math.max(runtime.lastBossCheckpointLevel, nextLevel)
+      : runtime.lastBossCheckpointLevel;
+  const maxHp = getPlayerMaxHp(nextState);
+
+  const nextRuntime: CombatRuntimeState = {
+    ...runtime,
+    currentLevel: nextLevel,
+    highestLevelReached: Math.max(runtime.highestLevelReached, nextLevel),
+    lastBossCheckpointLevel: checkpointLevel,
+    playerCurrentHp: Math.min(maxHp, runtime.playerCurrentHp + hpDelta),
+    enemy: createEnemyInstance(nextLevel),
+    playerAttackRemainderMs: 0,
+    enemyAttackRemainderMs: 0,
+  };
+
+  return {
+    runtime: nextRuntime,
+    state: nextState,
+    events,
+  };
+}
+
+function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
+  const highestDefined = COMBAT_LEVELS[COMBAT_LEVELS.length - 1];
+  const levelDelta = Math.max(0, level - highestDefined.level);
+  const majorFrom = Math.floor(
+    (highestDefined.level - 1) /
+      COMBAT_PROGRESS_CONFIG.majorDifficultySpikeIntervalLevels,
+  );
+  const majorTo = Math.floor(
+    (level - 1) / COMBAT_PROGRESS_CONFIG.majorDifficultySpikeIntervalLevels,
+  );
+  const majorSteps = Math.max(0, majorTo - majorFrom);
+  const isBoss = level % COMBAT_PROGRESS_CONFIG.bossIntervalLevels === 0;
+
+  const hp = Math.round(
+    highestDefined.hp * Math.pow(1.11, levelDelta) * Math.pow(1.35, majorSteps),
+  );
+  const damage = Math.round(
+    highestDefined.damage *
+      Math.pow(1.07, levelDelta) *
+      Math.pow(1.3, majorSteps),
+  );
+  const aps = Math.min(
+    3,
+    highestDefined.attacksPerSecond * Math.pow(1.008, levelDelta),
+  );
+  const gold = Math.round(
+    highestDefined.gold *
+      Math.pow(1.09, levelDelta) *
+      Math.pow(1.28, majorSteps),
+  );
+  const gems = Math.max(
+    0,
+    Math.round(
+      highestDefined.gems *
+        Math.pow(1.04, levelDelta) *
+        Math.pow(1.2, majorSteps),
+    ),
+  );
+  const xp = Math.round(
+    highestDefined.xp * Math.pow(1.1, levelDelta) * Math.pow(1.4, majorSteps),
+  );
+
+  const bossScale = isBoss
+    ? {
+        hp: 2.1,
+        damage: 1.55,
+        aps: 1.08,
+        gold: 2.1,
+        gems: 2,
+        xp: 2.3,
+      }
+    : {
+        hp: 1,
+        damage: 1,
+        aps: 1,
+        gold: 1,
+        gems: 1,
+        xp: 1,
+      };
+
+  return {
+    level,
+    enemyId: isBoss ? `boss_${level}` : `enemy_${level}`,
+    name: isBoss ? `Boss Lv ${level}` : `Enemy Lv ${level}`,
+    kind: isBoss ? "boss" : "normal",
+    hp: Math.max(1, Math.round(hp * bossScale.hp)),
+    damage: Math.max(1, Math.round(damage * bossScale.damage)),
+    attacksPerSecond: Math.max(0.2, aps * bossScale.aps),
+    gold: Math.max(1, Math.round(gold * bossScale.gold)),
+    gems: Math.max(0, Math.round(gems * bossScale.gems)),
+    xp: Math.max(1, Math.round(xp * bossScale.xp)),
+    lootTableId: isBoss ? "boss_tier_4" : undefined,
+  };
+}
+
+export function getCombatLevelConfig(level: number): CombatLevelConfig {
+  const normalizedLevel = Math.max(1, Math.floor(level));
+  const authored = COMBAT_LEVELS.find(
+    (entry) => entry.level === normalizedLevel,
+  );
+  return authored ?? fallbackCombatLevelConfig(normalizedLevel);
+}
+
+export function createEnemyInstance(level: number): CombatEnemyInstance {
+  const config = getCombatLevelConfig(level);
+  return {
+    level: config.level,
+    enemyId: config.enemyId,
+    name: config.name,
+    kind: config.kind,
+    maxHp: config.hp,
+    currentHp: config.hp,
+    damage: config.damage,
+    attacksPerSecond: config.attacksPerSecond,
+    goldReward: config.gold,
+    gemsReward: config.gems,
+    xpReward: config.xp,
+    lootTableId: config.lootTableId,
+  };
+}
+
+export function getPlayerMaxHp(state: GameState): number {
+  const stats = getTotalStats(state);
+  return Math.max(1, Math.round(stats.hp ?? 1));
+}
+
+export function getPlayerAttacksPerSecond(state: GameState): number {
+  const stats = getTotalStats(state);
+  const agility = Math.max(0, stats.agility ?? 0);
+  const aps =
+    COMBAT_PLAYER_CONFIG.baseAttacksPerSecond +
+    agility * COMBAT_PLAYER_CONFIG.agilityToApsScale;
+  return Math.min(COMBAT_PLAYER_CONFIG.maxAttacksPerSecond, Math.max(0.2, aps));
+}
+
+export function getPlayerCritChance(state: GameState): number {
+  const stats = getTotalStats(state);
+  return clampPercent(stats.critChance ?? 0);
+}
+
+export function getDamageAfterDefense(
+  rawDamage: number,
+  defense: number,
+): number {
+  const safeDamage = Math.max(1, rawDamage);
+  const safeDefense = Math.max(0, defense);
+  const mitigation = safeDefense / (safeDefense + 100);
+  const reduced = safeDamage * (1 - mitigation);
+  return Math.max(1, Math.round(reduced));
+}
+
+export function calculatePlayerHit(
+  state: GameState,
+  rng: CombatRng = Math.random,
+): { damage: number; isCrit: boolean } {
+  const stats = getTotalStats(state);
+  const attack = Math.max(1, Math.round(stats.attack ?? 1));
+  const critChance = getPlayerCritChance(state);
+  const isCrit = rng() * 100 < critChance;
+  const damage = isCrit
+    ? Math.max(1, Math.round(attack * CRIT_DAMAGE_MULTIPLIER))
+    : attack;
+
+  return { damage, isCrit };
+}
+
+export function resolveBossLootDrops(
+  enemy: CombatEnemyInstance,
+  rng: CombatRng = Math.random,
+): CombatLootDrop[] {
+  if (enemy.kind !== "boss") return [];
+
+  const drops: CombatLootDrop[] = [];
+  const lootTableId = enemy.lootTableId;
+  if (lootTableId) {
+    const table = COMBAT_LOOT_TABLES[lootTableId];
+    if (table) {
+      for (const guaranteedEntry of table.guaranteed ?? []) {
+        drops.push({
+          itemId: guaranteedEntry.itemId,
+          quantity: rollQuantity(guaranteedEntry, rng),
+        });
+      }
+
+      const equipmentPool = table.weighted.filter((entry) =>
+        isEquipmentItem(entry.itemId),
+      );
+      const guaranteedEquipment = pickWeightedEntry(equipmentPool, rng);
+      if (guaranteedEquipment) {
+        drops.push({
+          itemId: guaranteedEquipment.itemId,
+          quantity: 1,
+          itemLevel: getBossEquipmentItemLevel(enemy),
+        });
+      }
+
+      const weightedRolls = Math.max(1, Math.floor(table.weightedRolls ?? 1));
+      for (let rollIndex = 0; rollIndex < weightedRolls; rollIndex += 1) {
+        const weightedEntry = pickWeightedEntry(table.weighted, rng);
+        if (!weightedEntry) continue;
+
+        drops.push({
+          itemId: weightedEntry.itemId,
+          quantity: rollQuantity(weightedEntry, rng),
+          itemLevel: isEquipmentItem(weightedEntry.itemId)
+            ? getBossEquipmentItemLevel(enemy)
+            : undefined,
+        });
+      }
+    }
+  }
+
+  if (
+    enemy.level >= COMBAT_CHASE_DROP_CONFIG.unlocksAtLevel &&
+    rng() < COMBAT_CHASE_DROP_CONFIG.chance
+  ) {
+    const chaseTable = COMBAT_LOOT_TABLES[COMBAT_CHASE_DROP_CONFIG.lootTableId];
+    const chaseEntry = chaseTable
+      ? pickWeightedEntry(chaseTable.weighted, rng)
+      : null;
+    if (chaseEntry) {
+      drops.push({
+        itemId: chaseEntry.itemId,
+        quantity: rollQuantity(chaseEntry, rng),
+        itemLevel: isEquipmentItem(chaseEntry.itemId)
+          ? getBossEquipmentItemLevel(enemy) + 1
+          : undefined,
+      });
+    }
+  }
+
+  return drops;
+}
+
+export function createInitialCombatRuntime(
+  state: GameState,
+): CombatRuntimeState {
+  return {
+    currentLevel: 1,
+    highestLevelReached: 1,
+    lastBossCheckpointLevel: 0,
+    playerCurrentHp: getPlayerMaxHp(state),
+    enemy: createEnemyInstance(1),
+    playerAttackRemainderMs: 0,
+    enemyAttackRemainderMs: 0,
+  };
+}
+
+function resolvePlayerDefeat(
+  runtime: CombatRuntimeState,
+  state: GameState,
+): CombatTickResult {
+  const resetLevel = Math.max(1, runtime.lastBossCheckpointLevel || 1);
+  return {
+    runtime: {
+      ...runtime,
+      currentLevel: resetLevel,
+      playerCurrentHp: getPlayerMaxHp(state),
+      enemy: createEnemyInstance(resetLevel),
+      playerAttackRemainderMs: 0,
+      enemyAttackRemainderMs: 0,
+    },
+    state,
+    events: [{ type: "playerDefeated" }],
+  };
+}
+
+function applyPlayerAttack(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  rng: CombatRng,
+): CombatTickResult {
+  const { damage, isCrit } = calculatePlayerHit(state, rng);
+  const nextEnemyHp = Math.max(0, runtime.enemy.currentHp - damage);
+
+  const attackedRuntime: CombatRuntimeState = {
+    ...runtime,
+    enemy: {
+      ...runtime.enemy,
+      currentHp: nextEnemyHp,
+    },
+  };
+
+  const events: CombatEvent[] = [{ type: "playerHit", value: damage, isCrit }];
+  if (nextEnemyHp > 0) {
+    return {
+      runtime: attackedRuntime,
+      state,
+      events,
+    };
+  }
+
+  const rewarded = applyEnemyReward(attackedRuntime, state, rng);
+  return {
+    runtime: rewarded.runtime,
+    state: rewarded.state,
+    events: events.concat(rewarded.events),
+  };
+}
+
+function applyEnemyAttack(
+  runtime: CombatRuntimeState,
+  state: GameState,
+): CombatTickResult {
+  const totalStats = getTotalStats(state);
+  const defense = totalStats.defense ?? 0;
+  const damage = getDamageAfterDefense(runtime.enemy.damage, defense);
+  const nextPlayerHp = Math.max(0, runtime.playerCurrentHp - damage);
+
+  if (nextPlayerHp <= 0) {
+    const defeated = resolvePlayerDefeat(runtime, state);
+    return {
+      runtime: defeated.runtime,
+      state: defeated.state,
+      events: [{ type: "enemyHit", value: damage }, ...defeated.events],
+    };
+  }
+
+  return {
+    runtime: {
+      ...runtime,
+      playerCurrentHp: nextPlayerHp,
+    },
+    state,
+    events: [{ type: "enemyHit", value: damage }],
+  };
+}
+
+export function performClickAttack(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  rng: CombatRng = Math.random,
+): CombatTickResult {
+  return applyPlayerAttack(runtime, state, rng);
+}
+
+export function runCombatTick(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  deltaMs: number,
+  rng: CombatRng = Math.random,
+): CombatTickResult {
+  if (deltaMs <= 0) {
+    return { runtime, state, events: [] };
+  }
+
+  const playerAps = getPlayerAttacksPerSecond(state);
+  const playerIntervalMs = 1000 / playerAps;
+  const enemyIntervalMs = 1000 / Math.max(0.2, runtime.enemy.attacksPerSecond);
+
+  let nextRuntime: CombatRuntimeState = {
+    ...runtime,
+    playerAttackRemainderMs: runtime.playerAttackRemainderMs + deltaMs,
+    enemyAttackRemainderMs: runtime.enemyAttackRemainderMs + deltaMs,
+  };
+  let nextState = state;
+  const events: CombatEvent[] = [];
+
+  let actions = 0;
+  while (actions < MAX_COMBAT_ACTIONS_PER_TICK) {
+    const playerReady = nextRuntime.playerAttackRemainderMs >= playerIntervalMs;
+    const enemyReady = nextRuntime.enemyAttackRemainderMs >= enemyIntervalMs;
+    if (!playerReady && !enemyReady) break;
+
+    if (playerReady) {
+      nextRuntime = {
+        ...nextRuntime,
+        playerAttackRemainderMs:
+          nextRuntime.playerAttackRemainderMs - playerIntervalMs,
+      };
+      const attacked = applyPlayerAttack(nextRuntime, nextState, rng);
+      nextRuntime = attacked.runtime;
+      nextState = attacked.state;
+      events.push(...attacked.events);
+    }
+
+    if (enemyReady) {
+      nextRuntime = {
+        ...nextRuntime,
+        enemyAttackRemainderMs:
+          nextRuntime.enemyAttackRemainderMs - enemyIntervalMs,
+      };
+      const attacked = applyEnemyAttack(nextRuntime, nextState);
+      nextRuntime = attacked.runtime;
+      nextState = attacked.state;
+      events.push(...attacked.events);
+
+      if (attacked.events.some((event) => event.type === "playerDefeated")) {
+        break;
+      }
+    }
+
+    actions += 1;
+  }
+
+  return {
+    runtime: nextRuntime,
+    state: nextState,
+    events,
+  };
+}
+
+function getExpectedPlayerDamagePerSecond(state: GameState): number {
+  const stats = getTotalStats(state);
+  const attack = Math.max(1, stats.attack ?? 1);
+  const aps = getPlayerAttacksPerSecond(state);
+  const critChance = getPlayerCritChance(state) / 100;
+  const critFactor = 1 + critChance * (CRIT_DAMAGE_MULTIPLIER - 1);
+  return attack * aps * critFactor;
+}
+
+function getExpectedEnemyDamagePerSecond(
+  runtime: CombatRuntimeState,
+  state: GameState,
+): number {
+  const totalStats = getTotalStats(state);
+  const defense = totalStats.defense ?? 0;
+  const mitigatedDamage = getDamageAfterDefense(runtime.enemy.damage, defense);
+  return mitigatedDamage * Math.max(0.2, runtime.enemy.attacksPerSecond);
+}
+
+export function resolveOfflineCombatExpected(
+  runtime: CombatRuntimeState,
+  state: GameState,
+  offlineMs: number,
+  rng: CombatRng = Math.random,
+): CombatOfflineResult {
+  let remainingMs = Math.max(0, offlineMs);
+  if (remainingMs <= 0) {
+    return {
+      runtime,
+      state,
+      levelsCleared: 0,
+      defeatedByEnemy: false,
+      itemsGained: 0,
+    };
+  }
+
+  let nextRuntime = { ...runtime };
+  let nextState = state;
+  let levelsCleared = 0;
+  let defeatedByEnemy = false;
+  let itemsGained = 0;
+
+  while (remainingMs > 0) {
+    const playerDps = getExpectedPlayerDamagePerSecond(nextState);
+    const enemyDps = getExpectedEnemyDamagePerSecond(nextRuntime, nextState);
+
+    if (playerDps <= 0) {
+      defeatedByEnemy = true;
+      break;
+    }
+
+    const timeToKillMs = (nextRuntime.enemy.currentHp / playerDps) * 1000;
+    const timeToDieMs =
+      enemyDps <= 0
+        ? Number.POSITIVE_INFINITY
+        : (nextRuntime.playerCurrentHp / enemyDps) * 1000;
+
+    if (timeToDieMs <= timeToKillMs) {
+      const defeated = resolvePlayerDefeat(nextRuntime, nextState);
+      nextRuntime = defeated.runtime;
+      defeatedByEnemy = true;
+      break;
+    }
+
+    if (timeToKillMs > remainingMs) {
+      break;
+    }
+
+    remainingMs -= timeToKillMs;
+
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: 0,
+      },
+    };
+
+    const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+    nextRuntime = rewarded.runtime;
+    nextState = rewarded.state;
+    levelsCleared += 1;
+    itemsGained += rewarded.events
+      .filter((event) => event.type === "lootGranted")
+      .reduce((sum, event) => sum + Math.max(0, event.quantity ?? 0), 0);
+  }
+
+  return {
+    runtime: nextRuntime,
+    state: nextState,
+    levelsCleared,
+    defeatedByEnemy,
+    itemsGained,
+  };
+}

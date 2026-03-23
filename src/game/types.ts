@@ -210,6 +210,31 @@ export interface PlayerProgress {
   lastLevelUpAt?: number;
 }
 
+export interface CombatEnemySnapshot {
+  level: number;
+  enemyId: string;
+  name: string;
+  kind: "normal" | "boss";
+  maxHp: number;
+  currentHp: number;
+  damage: number;
+  attacksPerSecond: number;
+  goldReward: number;
+  gemsReward: number;
+  xpReward: number;
+  lootTableId?: string;
+}
+
+export interface CombatState {
+  currentLevel: number;
+  highestLevelReached: number;
+  lastBossCheckpointLevel: number;
+  playerCurrentHp: number;
+  enemy: CombatEnemySnapshot;
+  playerAttackRemainderMs: number;
+  enemyAttackRemainderMs: number;
+}
+
 export interface GameState {
   meta: {
     version: number;
@@ -219,6 +244,7 @@ export interface GameState {
   resources: Resources;
   stats: Stats;
   playerProgress: PlayerProgress;
+  combat: CombatState;
   temporaryEffects?: TemporaryEffects;
 
   inventory: ItemInstance[];

@@ -1,6 +1,10 @@
 import { PROGRESSION_CONFIG } from "./progressionConfig";
 import type { GameState, Stats } from "./types";
 
+export function isSpellSystemUnlocked(level: number): boolean {
+  return level >= PROGRESSION_CONFIG.unlocks.spellsAtLevel;
+}
+
 export function getXpForNextLevel(level: number): number {
   const normalizedLevel = Math.max(1, Math.floor(level));
   const { base, quadratic, linear } = PROGRESSION_CONFIG.xpFormula;
@@ -60,6 +64,11 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
 
     nextRequiredXp = getXpForNextLevel(nextProgress.level);
   }
+
+  nextProgress.unlockedSystems = {
+    ...nextProgress.unlockedSystems,
+    spells: isSpellSystemUnlocked(nextProgress.level),
+  };
 
   if (leveledUp) {
     nextProgress.lastLevelUpAt = Date.now();
