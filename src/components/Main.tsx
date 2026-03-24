@@ -137,6 +137,26 @@ export function Main() {
           marginBottom: 8,
         }}
         onClick={() => {
+          setState((prev) => ({
+            ...prev,
+            character: {
+              ...prev.character,
+              availableSkillPoints: prev.character.availableSkillPoints + 100,
+            },
+          }));
+        }}
+      >
+        +100 Skill Points
+      </button>
+
+      <button
+        style={{
+          padding: "12px",
+          fontSize: "15px",
+          width: "100%",
+          marginBottom: 8,
+        }}
+        onClick={() => {
           setState((prev) => addDebugItems(prev));
         }}
       >
