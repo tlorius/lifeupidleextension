@@ -81,10 +81,6 @@ export function getLevelUpGains(reachedLevel: number): Partial<Stats> {
       (gains.agility ?? 0) + PROGRESSION_CONFIG.levelUpGains.agilityPerTrigger;
   }
 
-  if (level % PROGRESSION_CONFIG.levelUpGains.critEveryLevels === 0) {
-    gains.critChance = PROGRESSION_CONFIG.levelUpGains.critPerTrigger;
-  }
-
   if (level % PROGRESSION_CONFIG.levelUpGains.milestoneEveryLevels === 0) {
     gains.defense =
       (gains.defense ?? 0) +

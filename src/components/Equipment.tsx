@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useGame } from "../game/GameContext";
+import { uniqueSetDefinitions } from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import { ItemDetail } from "./ItemDetail";
 import type { ItemType } from "../game/types";
@@ -141,6 +142,11 @@ export function Equipment() {
           <div style={{ fontSize: 12, color: "#c7d3df", marginTop: 3 }}>
             Lvl {item.level}
           </div>
+          {def.setId && (
+            <div style={{ fontSize: 11, color: "#7bd7c6", marginTop: 2 }}>
+              Set: {uniqueSetDefinitions[def.setId]?.name ?? def.setId}
+            </div>
+          )}
         </div>
       </div>
     );

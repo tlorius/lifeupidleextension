@@ -1,4 +1,5 @@
 import { useGame } from "../game/GameContext";
+import { uniqueSetDefinitions } from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import {
   getItemStats,
@@ -115,6 +116,32 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
   };
 
   const rarityColor = rarityColors[def.rarity] || "#999999";
+  const setDef = def.setId ? uniqueSetDefinitions[def.setId] : null;
+  const setPieceCount = def.setId
+    ? [
+        state.equipment.weapon,
+        state.equipment.armor,
+        state.equipment.accessory1,
+        state.equipment.accessory2,
+        state.equipment.pet,
+      ]
+        .map((uid) => state.inventory.find((entry) => entry.uid === uid))
+        .filter(
+          (equippedItem): equippedItem is NonNullable<typeof equippedItem> =>
+            Boolean(equippedItem),
+        )
+        .map((equippedItem) => getItemDefSafe(equippedItem.itemId))
+        .filter((equippedDef): equippedDef is NonNullable<typeof equippedDef> =>
+          Boolean(equippedDef),
+        )
+        .filter((equippedDef) => equippedDef.setId === def.setId)
+        .filter((equippedDef) =>
+          ["weapon", "armor", "accessory", "pet"].includes(equippedDef.type),
+        ).length
+    : 0;
+
+  const formatStatLabel = (stat: string): string =>
+    stat.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
 
   const renderDotIndicator = (
     selectedValue: number,
@@ -284,6 +311,76 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                   : value}
               </div>
             ))}
+          </div>
+        )}
+
+        {def.setId && (
+          <div
+            style={{
+              marginBottom: 16,
+              paddingBottom: 12,
+              borderBottom: "1px solid #2e4256",
+            }}
+          >
+            <h3 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Set</h3>
+            <div style={{ fontSize: 13, color: "#9fe6da", marginBottom: 6 }}>
+              {setDef?.name ?? def.setId}
+            </div>
+            {setDef ? (
+              <>
+                <div
+                  style={{ fontSize: 12, color: "#c7d3df", marginBottom: 8 }}
+                >
+                  Equipped pieces: {setPieceCount}/4
+                </div>
+                <div
+                  style={{ fontSize: 12, color: "#dce6f0", marginBottom: 6 }}
+                >
+                  <strong
+                    style={{
+                      color: setPieceCount >= 2 ? "#73dc9a" : "#9eb0c2",
+                    }}
+                  >
+                    2-piece {setPieceCount >= 2 ? "(active)" : "(inactive)"}
+                  </strong>
+                  <div style={{ marginTop: 4 }}>
+                    {Object.entries(setDef.twoPiece).map(([key, value]) => (
+                      <div key={`two-${key}`} style={{ fontSize: 12 }}>
+                        +
+                        {formatCompactNumber(value ?? 0, {
+                          minCompactValue: 1000,
+                        })}{" "}
+                        {formatStatLabel(key)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#dce6f0" }}>
+                  <strong
+                    style={{
+                      color: setPieceCount >= 4 ? "#73dc9a" : "#9eb0c2",
+                    }}
+                  >
+                    4-piece {setPieceCount >= 4 ? "(active)" : "(inactive)"}
+                  </strong>
+                  <div style={{ marginTop: 4 }}>
+                    {Object.entries(setDef.fourPiece).map(([key, value]) => (
+                      <div key={`four-${key}`} style={{ fontSize: 12 }}>
+                        +
+                        {formatCompactNumber(value ?? 0, {
+                          minCompactValue: 1000,
+                        })}{" "}
+                        {formatStatLabel(key)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12, color: "#9eb0c2" }}>
+                Set bonuses are not defined for this set yet.
+              </div>
+            )}
           </div>
         )}
 

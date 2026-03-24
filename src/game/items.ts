@@ -73,7 +73,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   // Weapons - Unique
   soul_edge: {
     id: "soul_edge",
-    name: "Soul Edge",
+    name: "Voidborn Fang",
     type: "weapon",
     rarity: "unique",
     setId: "voidborn",
@@ -82,7 +82,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   starforged_maul: {
     id: "starforged_maul",
-    name: "Starforged Maul",
+    name: "Arcaneforge Maul",
     type: "weapon",
     rarity: "unique",
     setId: "arcaneforge",
@@ -91,7 +91,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   worldroot_scythe: {
     id: "worldroot_scythe",
-    name: "Worldroot Scythe",
+    name: "Verdant Scythe",
     type: "weapon",
     rarity: "unique",
     setId: "verdant",
@@ -100,12 +100,21 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   ravenous_fang: {
     id: "ravenous_fang",
-    name: "Ravenous Fang",
+    name: "Beastlord Fang",
     type: "weapon",
     rarity: "unique",
     setId: "beastlord",
     stats: { attack: 132000, agility: 420, critChance: 210 },
     sellPrice: 1900,
+  },
+  bloodletter_blade: {
+    id: "bloodletter_blade",
+    name: "Bloodletter Blade",
+    type: "weapon",
+    rarity: "unique",
+    setId: "bloodletter",
+    stats: { attack: 128000, agility: 380, intelligence: 18000 },
+    sellPrice: 1920,
   },
 
   // Armor - Common
@@ -179,7 +188,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   // Armor - Unique
   void_armor: {
     id: "void_armor",
-    name: "Void Armor",
+    name: "Voidborn Plate",
     type: "armor",
     rarity: "unique",
     setId: "voidborn",
@@ -188,7 +197,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   chrono_bastion: {
     id: "chrono_bastion",
-    name: "Chrono Bastion",
+    name: "Arcaneforge Bastion",
     type: "armor",
     rarity: "unique",
     setId: "arcaneforge",
@@ -197,7 +206,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   nightweave_carapace: {
     id: "nightweave_carapace",
-    name: "Nightweave Carapace",
+    name: "Verdant Carapace",
     type: "armor",
     rarity: "unique",
     setId: "verdant",
@@ -206,12 +215,21 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   predator_mail: {
     id: "predator_mail",
-    name: "Predator Mail",
+    name: "Beastlord Mail",
     type: "armor",
     rarity: "unique",
     setId: "beastlord",
     stats: { defense: 82000, hp: 280000, agility: 420 },
     sellPrice: 1880,
+  },
+  bloodletter_garb: {
+    id: "bloodletter_garb",
+    name: "Bloodletter Garb",
+    type: "armor",
+    rarity: "unique",
+    setId: "bloodletter",
+    stats: { defense: 70000, hp: 250000, agility: 440, attack: 46000 },
+    sellPrice: 1890,
   },
 
   // Accessories - Common
@@ -285,7 +303,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   // Accessories - Unique
   chaos_emerald: {
     id: "chaos_emerald",
-    name: "Chaos Emerald",
+    name: "Voidborn Sigil",
     type: "accessory",
     rarity: "unique",
     setId: "voidborn",
@@ -294,7 +312,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   eclipse_prism: {
     id: "eclipse_prism",
-    name: "Eclipse Prism",
+    name: "Arcaneforge Prism",
     type: "accessory",
     rarity: "unique",
     setId: "arcaneforge",
@@ -303,7 +321,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   worldheart_orb: {
     id: "worldheart_orb",
-    name: "Worldheart Orb",
+    name: "Verdant Orb",
     type: "accessory",
     rarity: "unique",
     setId: "verdant",
@@ -312,12 +330,21 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   warpack_totem: {
     id: "warpack_totem",
-    name: "Warpack Totem",
+    name: "Beastlord Totem",
     type: "accessory",
     rarity: "unique",
     setId: "beastlord",
     stats: { attack: 94000, agility: 520, petStrength: 280 },
     sellPrice: 1860,
+  },
+  bloodmark_charm: {
+    id: "bloodmark_charm",
+    name: "Bloodmark Charm",
+    type: "accessory",
+    rarity: "unique",
+    setId: "bloodletter",
+    stats: { attack: 91000, agility: 360, critChance: 120 },
+    sellPrice: 1870,
   },
 
   // Tools - Common
@@ -407,9 +434,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   wateringcan_unique: {
     id: "wateringcan_unique",
-    name: "Celestial Watering Can",
+    name: "Verdant Watering Can",
     type: "tool",
     rarity: "unique",
+    setId: "verdant",
     stats: { attack: 10 },
     sellPrice: 700,
   },
@@ -449,9 +477,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   scythe_unique: {
     id: "scythe_unique",
-    name: "Eclipse Scythe",
+    name: "Verdant Reaper",
     type: "tool",
     rarity: "unique",
+    setId: "verdant",
     stats: { attack: 20 },
     sellPrice: 900,
   },
@@ -487,9 +516,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   seedbag_unique: {
     id: "seedbag_unique",
-    name: "Worldseed Cache",
+    name: "Verdant Seed Cache",
     type: "tool",
     rarity: "unique",
+    setId: "verdant",
     sellPrice: 800,
   },
 
@@ -524,9 +554,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   sprinkler_unique: {
     id: "sprinkler_unique",
-    name: "Celestial Sprinkler",
+    name: "Verdant Sprinkler",
     type: "tool",
     rarity: "unique",
+    setId: "verdant",
     sellPrice: 600,
   },
 
@@ -561,9 +592,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   harvester_unique: {
     id: "harvester_unique",
-    name: "Celestial Harvester",
+    name: "Verdant Harvester",
     type: "tool",
     rarity: "unique",
+    setId: "verdant",
     sellPrice: 900,
   },
 
@@ -598,9 +630,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   planter_unique: {
     id: "planter_unique",
-    name: "Celestial Planter",
+    name: "Verdant Planter",
     type: "tool",
     rarity: "unique",
+    setId: "verdant",
     sellPrice: 900,
   },
 
@@ -675,9 +708,10 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   // Potions - Unique (new)
   chaos_potion: {
     id: "chaos_potion",
-    name: "Potion of Chaos",
+    name: "Voidborn Elixir",
     type: "potion",
     rarity: "unique",
+    setId: "voidborn",
     sellPrice: 500,
   },
 
@@ -841,7 +875,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   // Pets - Unique
   void_beast: {
     id: "void_beast",
-    name: "Void Beast",
+    name: "Voidborn Beast",
     type: "pet",
     rarity: "unique",
     setId: "voidborn",
@@ -851,7 +885,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   astral_wolf: {
     id: "astral_wolf",
-    name: "Astral Wolf",
+    name: "Arcaneforge Wolf",
     type: "pet",
     rarity: "unique",
     setId: "arcaneforge",
@@ -861,7 +895,7 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   grove_colossus: {
     id: "grove_colossus",
-    name: "Grove Colossus",
+    name: "Verdant Colossus",
     type: "pet",
     rarity: "unique",
     setId: "verdant",
@@ -871,13 +905,23 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
   },
   storm_hydra: {
     id: "storm_hydra",
-    name: "Storm Hydra",
+    name: "Beastlord Hydra",
     type: "pet",
     rarity: "unique",
     setId: "beastlord",
     stats: { attack: 126000, defense: 68000, agility: 520 },
     sellPrice: 2100,
     petBonus: { bonusType: "attack", bonusAmount: 1.3 },
+  },
+  blood_raptor: {
+    id: "blood_raptor",
+    name: "Blood Raptor",
+    type: "pet",
+    rarity: "unique",
+    setId: "bloodletter",
+    stats: { attack: 122000, agility: 640, intelligence: 28000 },
+    sellPrice: 2120,
+    petBonus: { bonusType: "agility", bonusAmount: 1.35 },
   },
 };
 
@@ -955,19 +999,12 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "infinity_gem");
   newState = addItem(newState, "sovereign_signet");
   newState = addItem(newState, "comet_locket");
-  // Unique rarities
-  newState = addItem(newState, "soul_edge");
-  newState = addItem(newState, "starforged_maul");
-  newState = addItem(newState, "worldroot_scythe");
-  newState = addItem(newState, "ravenous_fang");
-  newState = addItem(newState, "void_armor");
-  newState = addItem(newState, "chrono_bastion");
-  newState = addItem(newState, "nightweave_carapace");
-  newState = addItem(newState, "predator_mail");
-  newState = addItem(newState, "chaos_emerald");
-  newState = addItem(newState, "eclipse_prism");
-  newState = addItem(newState, "worldheart_orb");
-  newState = addItem(newState, "warpack_totem");
+  // Unique set items
+  for (const itemDef of Object.values(itemDefinitions)) {
+    if (itemDef.rarity === "unique" && itemDef.setId) {
+      newState = addItem(newState, itemDef.id);
+    }
+  }
   // Potions
   newState = addItem(newState, "health_potion");
   newState = addItem(newState, "mana_potion");
@@ -992,5 +1029,6 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "astral_wolf");
   newState = addItem(newState, "grove_colossus");
   newState = addItem(newState, "storm_hydra");
+  newState = addItem(newState, "blood_raptor");
   return newState;
 }

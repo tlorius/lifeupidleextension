@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "../game/GameContext";
 import { getItemDefSafe } from "../game/items";
+import { uniqueSetDefinitions } from "../game/itemSets";
 import { ItemDetail } from "./ItemDetail";
 import type { PotionToastPayload, PotionToastTone } from "./ItemDetail";
 import { isItemEquipped, calculateItemStat } from "../game/engine";
@@ -553,6 +554,18 @@ export function Inventory() {
                       >
                         Lvl {item.level} • {def?.rarity}
                       </div>
+                      {def?.setId && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#7bd7c6",
+                            marginTop: 3,
+                          }}
+                        >
+                          Set:{" "}
+                          {uniqueSetDefinitions[def.setId]?.name ?? def.setId}
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: "#8fa3b7" }}>
                       {item.isGroupedSeed

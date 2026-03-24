@@ -122,7 +122,14 @@ interface CombatLootDrop {
   itemLevel?: number;
 }
 
-const CRIT_DAMAGE_MULTIPLIER = 2;
+const CRIT_DAMAGE_MULTIPLIER = 3.8;
+const CLICK_CRIT_BONUS_MULTIPLIER = 1.25;
+const NORMAL_HIT_VARIANCE_MIN = 0.92;
+const NORMAL_HIT_VARIANCE_MAX = 1.08;
+const CRIT_VARIANCE_MIN = 1.02;
+const CRIT_VARIANCE_MAX = 1.34;
+const NON_CRIT_SET_CRIT_CHANCE_CAP = 6;
+const MIN_DAMAGE_PORTION_AFTER_DEFENSE = 0.05;
 const MAX_COMBAT_ACTIONS_PER_TICK = 5000;
 
 function clampPercent(input: number): number {
@@ -416,7 +423,43 @@ export function getPlayerAttacksPerSecond(state: GameState): number {
 
 export function getPlayerCritChance(state: GameState): number {
   const stats = getTotalStats(state);
-  return clampPercent(stats.critChance ?? 0);
+  const rawCritChance = clampPercent(stats.critChance ?? 0);
+  const hasCritSet = hasActiveCritSetBonus(state);
+
+  if (hasCritSet) {
+    return clampPercent(rawCritChance);
+  }
+
+  // Keep baseline crits rare unless the dedicated crit set is equipped.
+  const softened = rawCritChance * 0.08 + Math.sqrt(rawCritChance) * 0.2;
+  return Math.min(NON_CRIT_SET_CRIT_CHANCE_CAP, softened);
+}
+
+function hasActiveCritSetBonus(state: GameState): boolean {
+  const equipped = [
+    state.equipment.weapon,
+    state.equipment.armor,
+    state.equipment.accessory1,
+    state.equipment.accessory2,
+    state.equipment.pet,
+  ];
+
+  let pieces = 0;
+  for (const uid of equipped) {
+    if (!uid) continue;
+    const inventoryItem = state.inventory.find((entry) => entry.uid === uid);
+    if (!inventoryItem) continue;
+    const itemDef = getItemDefSafe(inventoryItem.itemId);
+    if (itemDef?.setId === "bloodletter") {
+      pieces += 1;
+    }
+  }
+
+  return pieces >= 2;
+}
+
+function rollInRange(rng: CombatRng, min: number, max: number): number {
+  return min + rng() * (max - min);
 }
 
 export function getDamageAfterDefense(
@@ -427,20 +470,32 @@ export function getDamageAfterDefense(
   const safeDefense = Math.max(0, defense);
   const mitigation = safeDefense / (safeDefense + 100);
   const reduced = safeDamage * (1 - mitigation);
-  return Math.max(1, Math.round(reduced));
+  const minimumByRawDamage = Math.max(
+    1,
+    Math.round(safeDamage * MIN_DAMAGE_PORTION_AFTER_DEFENSE),
+  );
+  return Math.max(minimumByRawDamage, Math.round(reduced));
 }
 
 export function calculatePlayerHit(
   state: GameState,
   rng: CombatRng = Math.random,
+  attackSource: CombatAttackSource = "auto",
 ): { damage: number; isCrit: boolean } {
   const stats = getTotalStats(state);
   const attack = Math.max(1, Math.round(stats.attack ?? 1));
   const critChance = getPlayerCritChance(state);
   const isCrit = rng() * 100 < critChance;
-  const damage = isCrit
-    ? Math.max(1, Math.round(attack * CRIT_DAMAGE_MULTIPLIER))
-    : attack;
+  const baseVariance = isCrit
+    ? rollInRange(rng, CRIT_VARIANCE_MIN, CRIT_VARIANCE_MAX)
+    : rollInRange(rng, NORMAL_HIT_VARIANCE_MIN, NORMAL_HIT_VARIANCE_MAX);
+  const sourceCritMultiplier =
+    isCrit && attackSource === "click" ? CLICK_CRIT_BONUS_MULTIPLIER : 1;
+  const critMultiplier = isCrit ? CRIT_DAMAGE_MULTIPLIER : 1;
+  const damage = Math.max(
+    1,
+    Math.round(attack * baseVariance * critMultiplier * sourceCritMultiplier),
+  );
 
   return { damage, isCrit };
 }
@@ -554,7 +609,7 @@ function applyPlayerAttack(
   rng: CombatRng,
   attackSource: CombatAttackSource = "auto",
 ): CombatTickResult {
-  const { damage, isCrit } = calculatePlayerHit(state, rng);
+  const { damage, isCrit } = calculatePlayerHit(state, rng, attackSource);
   const nextEnemyHp = Math.max(0, runtime.enemy.currentHp - damage);
 
   const attackedRuntime: CombatRuntimeState = {

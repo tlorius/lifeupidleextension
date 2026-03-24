@@ -13,7 +13,6 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
     name: "Voidborn Eclipse",
     twoPiece: {
       attack: 220,
-      critChance: 65,
       goldIncome: 180,
     },
     fourPiece: {
@@ -29,7 +28,6 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
     twoPiece: {
       intelligence: 280,
       energyRegeneration: 260,
-      critChance: 40,
     },
     fourPiece: {
       attack: 760,
@@ -66,6 +64,21 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       hp: 2600,
       petStrength: 1100,
       goldIncome: 340,
+    },
+  },
+  bloodletter: {
+    id: "bloodletter",
+    name: "Bloodletter Volley",
+    twoPiece: {
+      critChance: 42,
+      attack: 520,
+      agility: 160,
+    },
+    fourPiece: {
+      critChance: 88,
+      attack: 2200,
+      agility: 420,
+      intelligence: 260,
     },
   },
 };

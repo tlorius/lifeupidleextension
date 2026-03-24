@@ -33,7 +33,6 @@ describe("progression", () => {
       hp: 30,
       attack: 7,
       agility: 0.8,
-      critChance: 1.2,
       defense: 2,
       intelligence: 3,
     });
@@ -42,7 +41,6 @@ describe("progression", () => {
       hp: 60,
       attack: 15,
       agility: 1.4,
-      critChance: 1.2,
       defense: 6,
       intelligence: 9,
     });
@@ -93,7 +91,7 @@ describe("progression", () => {
     expect(next.stats.attack).toBe(18);
     expect(next.stats.hp).toBe(136);
     expect(next.stats.agility).toBeCloseTo(1.8, 8);
-    expect(next.stats.critChance).toBeCloseTo(6.2, 8);
+    expect(next.stats.critChance).toBeCloseTo(1, 8);
   });
 
   it("unlocks spell system at configured level threshold", () => {

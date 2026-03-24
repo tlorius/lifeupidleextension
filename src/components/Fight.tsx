@@ -316,7 +316,7 @@ export function Fight() {
             id: `${now}-p-${index}`,
             text: `${Math.round(event.value ?? 0)}`,
             color: isCrit ? "#ffffff" : "#47d16d",
-            fontSize: isCrit ? 36 : 24,
+            fontSize: isCrit ? 50 : 21,
             top: 24 + Math.random() * 42,
             left: 70 + Math.random() * 20,
           } as FloatingDamage;
@@ -780,9 +780,10 @@ export function Fight() {
               left: 0,
               right: 0,
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent: "center",
+              gap: 38,
               alignItems: "flex-end",
-              padding: "0 18px",
+              padding: "0 10px",
               pointerEvents: "none",
             }}
           >
