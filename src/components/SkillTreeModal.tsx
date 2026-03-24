@@ -4,7 +4,6 @@ import {
   allClassDefinitions,
   canUpgradeClassNode,
   getClassNodeRank,
-  upgradeClassNode,
 } from "../game/classes";
 
 interface SkillTreeModalProps {
@@ -13,7 +12,7 @@ interface SkillTreeModalProps {
 }
 
 export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
-  const { state, setState } = useGame();
+  const { state, dispatch } = useGame();
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
 
   const activeClassId = state.character.activeClassId;
@@ -197,9 +196,11 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
                     disabled={!canUpgrade}
                     onClick={(event) => {
                       event.stopPropagation();
-                      setState((prev) =>
-                        upgradeClassNode(prev, activeClass.id, node.id),
-                      );
+                      dispatch({
+                        type: "class/upgradeNode",
+                        classId: activeClass.id,
+                        nodeId: node.id,
+                      });
                     }}
                     style={{
                       borderRadius: 4,

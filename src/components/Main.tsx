@@ -1,9 +1,7 @@
 import { useGame } from "../game/GameContext";
-import { addDebugItems } from "../game/items";
-import { createDefaultState } from "../game/state";
 
 export function Main() {
-  const { setState } = useGame();
+  const { dispatch } = useGame();
   return (
     <div style={{ padding: 20 }}>
       <h1>Idle RPG</h1>
@@ -15,15 +13,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + 10,
-            },
-          }));
-        }}
+        onClick={() => dispatch({ type: "resource/addGold", amount: 10 })}
       >
         +10 Gold
       </button>
@@ -35,15 +25,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + 1000,
-            },
-          }));
-        }}
+        onClick={() => dispatch({ type: "resource/addGold", amount: 1000 })}
       >
         +1000 Gold
       </button>
@@ -55,15 +37,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gems: (prev.resources.gems ?? 0) + 100,
-            },
-          }));
-        }}
+        onClick={() => dispatch({ type: "resource/addGems", amount: 100 })}
       >
         +100 Gems
       </button>
@@ -75,15 +49,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gems: (prev.resources.gems ?? 0) + 1000,
-            },
-          }));
-        }}
+        onClick={() => dispatch({ type: "resource/addGems", amount: 1000 })}
       >
         +1000 Gems
       </button>
@@ -95,16 +61,13 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + 100000,
-              gems: (prev.resources.gems ?? 0) + 100000,
-            },
-          }));
-        }}
+        onClick={() =>
+          dispatch({
+            type: "resource/addGoldAndGems",
+            goldAmount: 100000,
+            gemsAmount: 100000,
+          })
+        }
       >
         +100000 Gold & Gems
       </button>
@@ -116,15 +79,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              energy: (prev.resources.energy ?? 0) + 1000,
-            },
-          }));
-        }}
+        onClick={() => dispatch({ type: "resource/addEnergy", amount: 1000 })}
       >
         +1000 Mana
       </button>
@@ -136,15 +91,9 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            character: {
-              ...prev.character,
-              availableSkillPoints: prev.character.availableSkillPoints + 100,
-            },
-          }));
-        }}
+        onClick={() =>
+          dispatch({ type: "character/addSkillPoints", amount: 100 })
+        }
       >
         +100 Skill Points
       </button>
@@ -156,9 +105,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => addDebugItems(prev));
-        }}
+        onClick={() => dispatch({ type: "inventory/addDebugItems" })}
       >
         Add Items to debug
       </button>
@@ -174,7 +121,7 @@ export function Main() {
           if (
             confirm("Are you sure you want to reset the entire game state?")
           ) {
-            setState(createDefaultState());
+            dispatch({ type: "state/resetToDefault" });
           }
         }}
       >

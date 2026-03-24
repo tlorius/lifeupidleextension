@@ -4,7 +4,6 @@ import {
   CLASS_SWITCH_GEM_COST,
   CLASS_UNLOCK_LEVEL,
   isClassSystemUnlocked,
-  switchClass,
 } from "../game/classes";
 import archerPortrait from "../assets/classes/archer.svg";
 import berserkerPortrait from "../assets/classes/berserker.svg";
@@ -28,7 +27,7 @@ const classPortraits: Record<string, string> = {
 };
 
 export function ClassSelectModal({ isOpen, onClose }: ClassSelectModalProps) {
-  const { state, setState } = useGame();
+  const { state, dispatch } = useGame();
 
   if (!isOpen) return null;
 
@@ -210,7 +209,7 @@ export function ClassSelectModal({ isOpen, onClose }: ClassSelectModalProps) {
                   <button
                     disabled={!canSwitch}
                     onClick={() => {
-                      setState((prev) => switchClass(prev, classDef.id));
+                      dispatch({ type: "class/switch", classId: classDef.id });
                       onClose();
                     }}
                     style={{

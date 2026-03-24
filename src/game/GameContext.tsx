@@ -24,6 +24,7 @@ import {
   saveProcessedTokens,
   toGrantedTokenRewards,
 } from "./tokenRewards";
+import { reduceGameAction, type GameAction } from "./actions";
 
 export interface IdleEarningItem {
   resourceId: string;
@@ -139,6 +140,7 @@ function initializeGameState(): InitializationResult {
 const GameContext = createContext<{
   state: GameState;
   setState: React.Dispatch<React.SetStateAction<GameState>>;
+  dispatch: (action: GameAction) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
   idleEarningsModalItems: IdleEarningItem[];
@@ -177,6 +179,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [pendingRewardToken, setPendingRewardToken] = useState<string | null>(
     () => extractRewardToken(window.location.search),
   );
+
+  const dispatch = (action: GameAction) => {
+    setState((prev) => {
+      const next = reduceGameAction(prev, action);
+      if (next === prev) {
+        return prev;
+      }
+      save(next);
+      return next;
+    });
+  };
 
   useEffect(() => {
     stateRef.current = state;
@@ -337,6 +350,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       value={{
         state,
         setState,
+        dispatch,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
         idleEarningsModalItems,

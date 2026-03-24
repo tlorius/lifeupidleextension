@@ -4,7 +4,7 @@ import {
   getClassCombatSpellsForClass,
   getGeneralCombatSpellPath,
 } from "../game/combat";
-import { getSpellSlotsForLevel, setClassSpellSlot } from "../game/classes";
+import { getSpellSlotsForLevel } from "../game/classes";
 
 interface SpellSelectModalProps {
   isOpen: boolean;
@@ -12,7 +12,7 @@ interface SpellSelectModalProps {
 }
 
 export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
-  const { state, setState } = useGame();
+  const { state, dispatch } = useGame();
 
   const activeClassId = state.character.activeClassId;
   const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
@@ -159,14 +159,12 @@ export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
                         {selectedSpell && (
                           <button
                             onClick={() => {
-                              setState((prev) =>
-                                setClassSpellSlot(
-                                  prev,
-                                  activeClassId,
-                                  slotIndex,
-                                  null,
-                                ),
-                              );
+                              dispatch({
+                                type: "class/setSpellSlot",
+                                classId: activeClassId,
+                                slotIndex,
+                                spellId: null,
+                              });
                             }}
                             style={{
                               borderRadius: 4,
@@ -195,14 +193,12 @@ export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
                             <button
                               key={spell.id}
                               onClick={() => {
-                                setState((prev) =>
-                                  setClassSpellSlot(
-                                    prev,
-                                    activeClassId,
-                                    slotIndex,
-                                    spell.id,
-                                  ),
-                                );
+                                dispatch({
+                                  type: "class/setSpellSlot",
+                                  classId: activeClassId,
+                                  slotIndex,
+                                  spellId: spell.id,
+                                });
                               }}
                               style={{
                                 textAlign: "left",
