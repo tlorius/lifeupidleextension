@@ -15,6 +15,7 @@ import { formatCompactNumber } from "../game/numberFormat";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
 import enemyBossPixel from "../assets/enemy-boss-pixel.svg";
+import petCompanionPixel from "../assets/pet-companion-pixel.svg";
 
 interface FloatingDamage {
   id: string;
@@ -100,6 +101,7 @@ export function Fight() {
   const [isDpsExpanded, setIsDpsExpanded] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [isPlayerStatsExpanded, setIsPlayerStatsExpanded] = useState(false);
+  const [isPetPulseActive, setIsPetPulseActive] = useState(false);
   const [equippedConsumables, setEquippedConsumables] = useState<
     [string | null, string | null]
   >([null, null]);
@@ -243,6 +245,22 @@ export function Fight() {
       prev.filter((entry) => clockNow - entry.timestamp <= 300_000),
     );
   }, [clockNow]);
+
+  useEffect(() => {
+    if (combatEvents.length === 0) return;
+
+    const hasPetHit = combatEvents.some(
+      (event) => event.type === "playerHit" && event.attackSource === "pet",
+    );
+    if (!hasPetHit) return;
+
+    setIsPetPulseActive(true);
+    const timer = window.setTimeout(() => {
+      setIsPetPulseActive(false);
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [combatEvents]);
 
   useEffect(() => {
     setEquippedConsumables((prev) => {
@@ -856,6 +874,23 @@ export function Fight() {
                   filter: "drop-shadow(0 6px 4px rgba(0,0,0,0.45))",
                 }}
               />
+              {activeClassId === "tamer" && (
+                <img
+                  src={petCompanionPixel}
+                  alt="Pet companion pixel art"
+                  width={46}
+                  height={46}
+                  style={{
+                    marginTop: -10,
+                    imageRendering: "pixelated",
+                    transform: isPetPulseActive ? "scale(1.12)" : "scale(1)",
+                    transition: "transform 120ms ease-out",
+                    filter: isPetPulseActive
+                      ? "drop-shadow(0 0 8px rgba(255, 179, 71, 0.85))"
+                      : "drop-shadow(0 4px 3px rgba(0,0,0,0.45))",
+                  }}
+                />
+              )}
             </div>
 
             <div style={{ display: "grid", justifyItems: "center", gap: 4 }}>

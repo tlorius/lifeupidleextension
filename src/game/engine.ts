@@ -36,8 +36,17 @@ export function applyIdle(state: GameState, deltaMs: number): void {
 
   let idleGoldMultiplier = 1;
   const longArcRank = getActiveClassNodeRank(state, "idler_1");
+  const silentLedgerRank = getActiveClassNodeRank(state, "idler_2");
+  const restingEdgeRank = getActiveClassNodeRank(state, "idler_3");
   const patienceDividendRank = getActiveClassNodeRank(state, "idler_7");
   const streakKeeperRank = getActiveClassNodeRank(state, "idler_4");
+  const quietReserveRank = getActiveClassNodeRank(state, "idler_5");
+  const delayedImpactRank = getActiveClassNodeRank(state, "idler_6");
+  const clockworkCalmRank = getActiveClassNodeRank(state, "idler_8");
+  const returnMomentumRank = getActiveClassNodeRank(state, "idler_9");
+  const fortuneReserveRank = getActiveClassNodeRank(state, "idler_10");
+  const stillnessWardRank = getActiveClassNodeRank(state, "idler_11");
+  const perpetualEngineRank = getActiveClassNodeRank(state, "idler_12");
   const currentStreak = Math.max(
     0,
     state.character.idleCheckIn?.streakDays ?? 0,
@@ -46,20 +55,31 @@ export function applyIdle(state: GameState, deltaMs: number): void {
   if (longArcRank > 0 || patienceDividendRank > 0 || streakKeeperRank > 0) {
     const durationHours = Math.max(0, deltaMs / (1000 * 60 * 60));
     idleGoldMultiplier += longArcRank * 0.1;
+    idleGoldMultiplier += silentLedgerRank * 0.05;
+    idleGoldMultiplier += restingEdgeRank * 0.04;
+    idleGoldMultiplier += delayedImpactRank * 0.03;
     idleGoldMultiplier += Math.min(
       1.2,
       durationHours * (0.015 + patienceDividendRank * 0.006),
     );
     idleGoldMultiplier += Math.min(
+      0.5,
+      durationHours * (0.01 + returnMomentumRank * 0.003),
+    );
+    idleGoldMultiplier += Math.min(
       0.6,
       currentStreak * (0.01 + streakKeeperRank * 0.003),
     );
+    idleGoldMultiplier += fortuneReserveRank * 0.03;
+    idleGoldMultiplier += perpetualEngineRank > 0 ? 0.2 : 0;
   }
 
   state.resources.gold += goldPerSecond * seconds * idleGoldMultiplier;
 
   const currentMana = state.resources.energy ?? MAX_MANA;
-  const manaRegenPerSecond = getManaRegenPerSecond(state);
+  let manaRegenPerSecond = getManaRegenPerSecond(state);
+  manaRegenPerSecond *= 1 + quietReserveRank * 0.04 + clockworkCalmRank * 0.03;
+  manaRegenPerSecond += stillnessWardRank > 0 ? 0.5 : 0;
   state.resources.energy = Math.min(
     MAX_MANA,
     currentMana + manaRegenPerSecond * seconds,
@@ -632,6 +652,120 @@ function addStats(target: Partial<Stats>, source: Partial<Stats>): void {
   }
 }
 
+function getActiveClassNodeStatBonuses(state: GameState): Partial<Stats> {
+  const activeClassId = state.character.activeClassId;
+  if (!activeClassId) return {};
+
+  const bonuses: Partial<Stats> = {};
+  const addBonus = (key: keyof Stats, value: number): void => {
+    if (!value) return;
+    bonuses[key] = (bonuses[key] ?? 0) + value;
+  };
+  const rank = (nodeId: string): number =>
+    getActiveClassNodeRank(state, nodeId);
+
+  if (activeClassId === "berserker") {
+    addBonus("attack", rank("berserker_1") * 3.5);
+    addBonus("agility", rank("berserker_2") * 2.5);
+    addBonus("defense", rank("berserker_3") * 2.2);
+    addBonus("critChance", rank("berserker_4") * 1.4);
+    addBonus("energyRegeneration", rank("berserker_5") * 3.8);
+    addBonus("hp", rank("berserker_6") * 7.5);
+    addBonus("attack", rank("berserker_7") * 3.2);
+    addBonus("critChance", rank("berserker_8") * 1.2);
+    addBonus("attack", rank("berserker_9") * 5.8);
+    addBonus("attack", rank("berserker_10") * 3.6);
+    addBonus("defense", rank("berserker_11") * 8.5);
+    addBonus("hp", rank("berserker_11") * 12);
+    addBonus("attack", rank("berserker_12") * 14);
+    addBonus("hp", rank("berserker_12") * 20);
+  }
+
+  if (activeClassId === "sorceress") {
+    addBonus("energyRegeneration", rank("sorceress_1") * 5.5);
+    addBonus("intelligence", rank("sorceress_2") * 2.8);
+    addBonus("intelligence", rank("sorceress_3") * 3.2);
+    addBonus("defense", rank("sorceress_4") * 2.2);
+    addBonus("attack", rank("sorceress_5") * 2.6);
+    addBonus("critChance", rank("sorceress_6") * 1.6);
+    addBonus("agility", rank("sorceress_7") * 2.4);
+    addBonus("energyRegeneration", rank("sorceress_8") * 4.8);
+    addBonus("intelligence", rank("sorceress_9") * 2.4);
+    addBonus("critChance", rank("sorceress_10") * 2);
+    addBonus("defense", rank("sorceress_11") * 8);
+    addBonus("intelligence", rank("sorceress_12") * 14);
+    addBonus("attack", rank("sorceress_12") * 6);
+  }
+
+  if (activeClassId === "farmer") {
+    addBonus("hp", rank("farmer_1") * 8.5);
+    addBonus("plantGrowth", rank("farmer_2") * 5.5);
+    addBonus("defense", rank("farmer_3") * 2.8);
+    addBonus("plantGrowth", rank("farmer_4") * 4.8);
+    addBonus("energyRegeneration", rank("farmer_5") * 2.8);
+    addBonus("goldIncome", rank("farmer_6") * 2.5);
+    addBonus("hp", rank("farmer_7") * 10);
+    addBonus("wateringDuration", rank("farmer_8") * 5.2);
+    addBonus("plantGrowth", rank("farmer_9") * 3.5);
+    addBonus("hp", rank("farmer_10") * 9.2);
+    addBonus("plantGrowth", rank("farmer_11") * 8);
+    addBonus("wateringDuration", rank("farmer_11") * 6);
+    addBonus("goldIncome", rank("farmer_11") * 5);
+    addBonus("attack", rank("farmer_12") * 8);
+    addBonus("plantGrowth", rank("farmer_12") * 10);
+  }
+
+  if (activeClassId === "archer") {
+    addBonus("agility", rank("archer_1") * 3);
+    addBonus("attack", rank("archer_2") * 2.4);
+    addBonus("attack", rank("archer_3") * 2.2);
+    addBonus("agility", rank("archer_4") * 3);
+    addBonus("critChance", rank("archer_5") * 1.6);
+    addBonus("agility", rank("archer_6") * 2.4);
+    addBonus("agility", rank("archer_7") * 2.4);
+    addBonus("critChance", rank("archer_8") * 1.2);
+    addBonus("attack", rank("archer_9") * 2.8);
+    addBonus("attack", rank("archer_10") * 3.2);
+    addBonus("agility", rank("archer_11") * 4.2);
+    addBonus("attack", rank("archer_12") * 12);
+    addBonus("critChance", rank("archer_12") * 4);
+  }
+
+  if (activeClassId === "idler") {
+    addBonus("goldIncome", rank("idler_1") * 4.5);
+    addBonus("goldIncome", rank("idler_2") * 4.8);
+    addBonus("attack", rank("idler_3") * 2.4);
+    addBonus("goldIncome", rank("idler_4") * 3.2);
+    addBonus("energyRegeneration", rank("idler_5") * 4.2);
+    addBonus("attack", rank("idler_6") * 2.6);
+    addBonus("goldIncome", rank("idler_7") * 4.2);
+    addBonus("energyRegeneration", rank("idler_8") * 3.6);
+    addBonus("attack", rank("idler_9") * 2.4);
+    addBonus("goldIncome", rank("idler_10") * 3.2);
+    addBonus("defense", rank("idler_11") * 7.5);
+    addBonus("goldIncome", rank("idler_12") * 10);
+    addBonus("energyRegeneration", rank("idler_12") * 6);
+  }
+
+  if (activeClassId === "tamer") {
+    addBonus("petStrength", rank("tamer_1") * 5.5);
+    addBonus("agility", rank("tamer_2") * 2.8);
+    addBonus("defense", rank("tamer_3") * 2.5);
+    addBonus("critChance", rank("tamer_4") * 1.8);
+    addBonus("attack", rank("tamer_5") * 2.8);
+    addBonus("petStrength", rank("tamer_6") * 4.2);
+    addBonus("agility", rank("tamer_7") * 2.6);
+    addBonus("defense", rank("tamer_8") * 2.6);
+    addBonus("petStrength", rank("tamer_9") * 4);
+    addBonus("attack", rank("tamer_10") * 3.5);
+    addBonus("hp", rank("tamer_11") * 10.5);
+    addBonus("petStrength", rank("tamer_12") * 10);
+    addBonus("attack", rank("tamer_12") * 8);
+  }
+
+  return bonuses;
+}
+
 export function getUniqueSetStats(state: GameState): Partial<Stats> {
   const setCategoryPieces = new Map<
     string,
@@ -709,12 +843,14 @@ export function getTotalStats(state: GameState): Partial<Stats> {
   const equipmentStats = getEquipmentStats(state);
   const upgradeStats = getUpgradeStats(state);
   const setStats = getUniqueSetStats(state);
+  const classNodeStats = getActiveClassNodeStatBonuses(state);
 
   const prePetStrength =
     (baseStats.petStrength ?? 0) +
     (equipmentStats.petStrength ?? 0) +
     (upgradeStats.petStrength ?? 0) +
-    (setStats.petStrength ?? 0);
+    (setStats.petStrength ?? 0) +
+    (classNodeStats.petStrength ?? 0);
   const petStrengthMultiplier = Math.max(0, 1 + prePetStrength / 100);
   const petStats = getPetStatsWithStrengthMultiplier(
     state,
@@ -727,32 +863,38 @@ export function getTotalStats(state: GameState): Partial<Stats> {
       (baseStats.attack ?? 0) +
       (equipmentStats.attack ?? 0) +
       (upgradeStats.attack ?? 0) +
-      (setStats.attack ?? 0),
+      (setStats.attack ?? 0) +
+      (classNodeStats.attack ?? 0),
     hp:
       (baseStats.hp ?? 0) +
       (equipmentStats.hp ?? 0) +
       (upgradeStats.hp ?? 0) +
-      (setStats.hp ?? 0),
+      (setStats.hp ?? 0) +
+      (classNodeStats.hp ?? 0),
     agility:
       (baseStats.agility ?? 0) +
       (equipmentStats.agility ?? 0) +
       (upgradeStats.agility ?? 0) +
-      (setStats.agility ?? 0),
+      (setStats.agility ?? 0) +
+      (classNodeStats.agility ?? 0),
     critChance:
       (baseStats.critChance ?? 0) +
       (equipmentStats.critChance ?? 0) +
       (upgradeStats.critChance ?? 0) +
-      (setStats.critChance ?? 0),
+      (setStats.critChance ?? 0) +
+      (classNodeStats.critChance ?? 0),
     defense:
       (baseStats.defense ?? 0) +
       (equipmentStats.defense ?? 0) +
       (upgradeStats.defense ?? 0) +
-      (setStats.defense ?? 0),
+      (setStats.defense ?? 0) +
+      (classNodeStats.defense ?? 0),
     intelligence:
       (baseStats.intelligence ?? 0) +
       (equipmentStats.intelligence ?? 0) +
       (upgradeStats.intelligence ?? 0) +
-      (setStats.intelligence ?? 0),
+      (setStats.intelligence ?? 0) +
+      (classNodeStats.intelligence ?? 0),
     gardening:
       (baseStats.gardening ?? 0) +
       (equipmentStats.gardening ?? 0) +
@@ -762,19 +904,23 @@ export function getTotalStats(state: GameState): Partial<Stats> {
     goldIncome:
       (upgradeStats.goldIncome ?? 0) +
       (setStats.goldIncome ?? 0) +
-      (petStats.goldIncome ?? 0),
+      (petStats.goldIncome ?? 0) +
+      (classNodeStats.goldIncome ?? 0),
     energyRegeneration:
       (upgradeStats.energyRegeneration ?? 0) +
       (setStats.energyRegeneration ?? 0) +
-      (petStats.energyRegeneration ?? 0),
+      (petStats.energyRegeneration ?? 0) +
+      (classNodeStats.energyRegeneration ?? 0),
     plantGrowth:
       (upgradeStats.plantGrowth ?? 0) +
       (setStats.plantGrowth ?? 0) +
-      (petStats.plantGrowth ?? 0),
+      (petStats.plantGrowth ?? 0) +
+      (classNodeStats.plantGrowth ?? 0),
     wateringDuration:
       (upgradeStats.wateringDuration ?? 0) +
       (setStats.wateringDuration ?? 0) +
-      (petStats.wateringDuration ?? 0),
+      (petStats.wateringDuration ?? 0) +
+      (classNodeStats.wateringDuration ?? 0),
     petStrength: prePetStrength,
   };
 

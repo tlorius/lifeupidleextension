@@ -39,10 +39,8 @@ const SPECIAL_DROP_POOLS: Record<
 
 function getFarmerSpecialDropRank(state: GameState): number {
   if (state.character.activeClassId !== "farmer") return 0;
-  return Math.max(
-    0,
-    state.character.classProgress.farmer.unlockedNodeRanks.farmer_9 ?? 0,
-  );
+  const ranks = state.character.classProgress.farmer.unlockedNodeRanks;
+  return Math.max(0, ranks.farmer_9 ?? 0);
 }
 
 function rollSpecialHarvestDrop(
@@ -50,17 +48,33 @@ function rollSpecialHarvestDrop(
   rng: () => number = Math.random,
 ): { itemId: string; itemLevel: number } | null {
   const rank = getFarmerSpecialDropRank(state);
+  const farmerRanks = state.character.classProgress.farmer.unlockedNodeRanks;
+  const bountifulHandsRank = Math.max(0, farmerRanks.farmer_4 ?? 0);
+  const granaryMindRank = Math.max(0, farmerRanks.farmer_6 ?? 0);
+  const vaultOfSeasonsRank = Math.max(0, farmerRanks.farmer_11 ?? 0);
+  const verdantSovereignRank = Math.max(0, farmerRanks.farmer_12 ?? 0);
 
   // Base rare chance starts at 1%. Farmer tree can push higher tiers over time.
-  const rareChance = Math.min(0.05, 0.01 + rank * 0.006);
-  const epicChance = Math.min(0.03, rank >= 2 ? 0.003 + (rank - 1) * 0.003 : 0);
+  const rareChance = Math.min(
+    0.05,
+    0.01 + rank * 0.006 + bountifulHandsRank * 0.0015,
+  );
+  const epicChance = Math.min(
+    0.03,
+    rank >= 2 ? 0.003 + (rank - 1) * 0.003 + granaryMindRank * 0.001 : 0,
+  );
   const legendaryChance = Math.min(
     0.02,
-    rank >= 3 ? 0.0015 + (rank - 2) * 0.0025 : 0,
+    rank >= 3 ? 0.0015 + (rank - 2) * 0.0025 + vaultOfSeasonsRank * 0.0012 : 0,
   );
   const uniqueChance = Math.min(
     0.01,
-    rank >= 4 ? 0.002 + (rank - 3) * 0.002 : 0,
+    rank >= 4
+      ? 0.002 +
+          (rank - 3) * 0.002 +
+          vaultOfSeasonsRank * 0.001 +
+          verdantSovereignRank * 0.001
+      : 0,
   );
 
   const roll = rng();
@@ -85,11 +99,11 @@ function rollSpecialHarvestDrop(
     const pick = pool[Math.floor(rng() * pool.length)];
     const itemLevel =
       threshold.rarity === "unique"
-        ? 4
+        ? 4 + vaultOfSeasonsRank + verdantSovereignRank
         : threshold.rarity === "legendary"
-          ? 3
+          ? 3 + Math.floor((granaryMindRank + vaultOfSeasonsRank) / 3)
           : threshold.rarity === "epic"
-            ? 2
+            ? 2 + Math.floor(granaryMindRank / 4)
             : 1;
 
     return { itemId: pick, itemLevel };
