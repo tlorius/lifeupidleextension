@@ -6,9 +6,9 @@ import {
 } from "../game/combat";
 import { getTotalStats } from "../game/engine";
 import { getItemDefSafe } from "../game/items";
+import { getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
 import { formatCompactNumber } from "../game/numberFormat";
-import { PlayerProgressTile } from "./PlayerProgressTile";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
 import enemyBossPixel from "../assets/enemy-boss-pixel.svg";
@@ -52,22 +52,6 @@ function nextBossLevel(currentLevel: number): number {
   return Math.ceil(currentLevel / 5) * 5;
 }
 
-function getConsumableEffectText(itemId: string): string {
-  if (itemId === "health_potion") return "Restore 35% combat HP and 50 mana";
-  if (itemId === "mana_potion") return "25% gold income boost for 10m";
-  if (itemId === "elixir")
-    return "Restore 20% combat HP, 30 mana, and 60% gold income for 20m";
-  if (itemId === "immortal_brew")
-    return "Full heal, full mana, +2 all core stats, 100% gold income for 30m";
-  if (itemId === "swift_tonic") return "200% gold income boost for 5m";
-  if (itemId === "fortitude_brew") return "+3 defense and full mana";
-  if (itemId === "scholars_draught")
-    return "+5 intelligence and 50% gold income for 15m";
-  if (itemId === "berserkers_tonic") return "+10 attack, -3 defense";
-  if (itemId === "chaos_potion") return "Unstable effect with high upside";
-  return "Consumable effect";
-}
-
 function getRarityTint(rarity: string): string {
   if (rarity === "unique") return "#ff9ad9";
   if (rarity === "legendary") return "#ffd36f";
@@ -82,6 +66,19 @@ function formatRemainingMs(remainingMs: number): string {
   const leftoverSeconds = seconds % 60;
   if (minutes <= 0) return `${leftoverSeconds}s`;
   return `${minutes}m ${leftoverSeconds}s`;
+}
+
+function getPotionIcon(itemId: string): string {
+  if (itemId === "health_potion") return "🧪";
+  if (itemId === "mana_potion") return "🔷";
+  if (itemId === "elixir") return "✨";
+  if (itemId === "immortal_brew") return "☀️";
+  if (itemId === "swift_tonic") return "⚡";
+  if (itemId === "fortitude_brew") return "🛡️";
+  if (itemId === "scholars_draught") return "📘";
+  if (itemId === "berserkers_tonic") return "🔥";
+  if (itemId === "chaos_potion") return "🌌";
+  return "🧴";
 }
 
 export function Fight() {
@@ -99,6 +96,14 @@ export function Fight() {
   const [dpsWindowMs, setDpsWindowMs] = useState<number>(30_000);
   const [isDpsExpanded, setIsDpsExpanded] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [isPlayerStatsExpanded, setIsPlayerStatsExpanded] = useState(false);
+  const [equippedConsumables, setEquippedConsumables] = useState<
+    [string | null, string | null]
+  >([null, null]);
+  const [isConsumableModalOpen, setIsConsumableModalOpen] = useState(false);
+  const [selectedConsumableSlot, setSelectedConsumableSlot] = useState<0 | 1>(
+    0,
+  );
 
   const combat = state.combat;
   const totalStats = getTotalStats(state);
@@ -111,7 +116,6 @@ export function Fight() {
     Math.min(100, (combat.playerCurrentHp / playerMaxHp) * 100),
   );
   const playerMana = Math.max(0, Math.min(100, state.resources.energy ?? 100));
-  const playerManaPercent = Math.max(0, Math.min(100, playerMana));
   const enemyHpPercent = Math.max(
     0,
     Math.min(
@@ -122,6 +126,17 @@ export function Fight() {
 
   const attacksPerSecond = getPlayerAttacksPerSecond(state);
   const critChance = getPlayerCritChance(state);
+  const xpForNextLevel = getXpForNextLevel(state.playerProgress.level || 1);
+  const xpProgressPercent =
+    Number.isFinite(xpForNextLevel) && xpForNextLevel > 0
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            ((state.playerProgress?.xp ?? 0) / xpForNextLevel) * 100,
+          ),
+        )
+      : 100;
 
   const combatTitle = useMemo(
     () => `${combat.enemy.name} (Lv ${combat.enemy.level})`,
@@ -131,14 +146,6 @@ export function Fight() {
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
-  const activeGoldBuffRemainingMs = Math.max(
-    0,
-    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) - clockNow,
-  );
-  const activeGoldBuffPercent =
-    activeGoldBuffRemainingMs > 0
-      ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
-      : 0;
   const spellCooldowns = combat.spellCooldowns ?? {};
   const consumableCooldowns = combat.consumableCooldowns ?? {};
   const potionSummaries = useMemo(() => {
@@ -200,6 +207,20 @@ export function Fight() {
       prev.filter((entry) => clockNow - entry.timestamp <= 300_000),
     );
   }, [clockNow]);
+
+  useEffect(() => {
+    setEquippedConsumables((prev) => {
+      const inventoryItemIds = new Set(
+        state.inventory.map((item) => item.itemId),
+      );
+      const next: [string | null, string | null] = [
+        prev[0] && inventoryItemIds.has(prev[0]) ? prev[0] : null,
+        prev[1] && inventoryItemIds.has(prev[1]) ? prev[1] : null,
+      ];
+      if (next[0] === prev[0] && next[1] === prev[1]) return prev;
+      return next;
+    });
+  }, [state.inventory]);
 
   const dpsBuckets = useMemo(() => {
     const bucketCount = 12;
@@ -313,18 +334,36 @@ export function Fight() {
 
     if (incoming.length === 0) return;
 
-    setFloatingDamage((prev) => [...prev, ...incoming]);
-    const timer = window.setTimeout(() => {
-      setFloatingDamage((prev) =>
-        prev.filter(
-          (entry) =>
-            !incoming.some((incomingEntry) => incomingEntry.id === entry.id),
-        ),
-      );
-    }, 650);
+    // Stagger hit popups based on attack speed so fast builds feel rapid,
+    // but don't spawn all numbers in a single frame.
+    const intervalMs = Math.max(
+      70,
+      Math.round(1000 / Math.max(1, attacksPerSecond)),
+    );
+    const lifespanMs = 650;
+    const timers: number[] = [];
 
-    return () => window.clearTimeout(timer);
-  }, [combatEvents]);
+    incoming.forEach((entry, index) => {
+      const startDelay = index * intervalMs;
+      const spawnTimer = window.setTimeout(() => {
+        setFloatingDamage((prev) => [...prev, entry]);
+      }, startDelay);
+      timers.push(spawnTimer);
+
+      const cleanupTimer = window.setTimeout(() => {
+        setFloatingDamage((prev) =>
+          prev.filter((existing) => existing.id !== entry.id),
+        );
+      }, startDelay + lifespanMs);
+      timers.push(cleanupTimer);
+    });
+
+    return () => {
+      for (const timerId of timers) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [attacksPerSecond, combatEvents]);
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -505,277 +544,139 @@ export function Fight() {
 
   return (
     <div style={{ padding: 16, color: "#e8f0f8" }}>
+      {/* Player Header - Compact */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          gap: 14,
-          marginBottom: 14,
+          borderRadius: 12,
+          border: "1px solid #30465b",
+          background: "linear-gradient(150deg, #15202b 0%, #263748 100%)",
+          padding: 12,
+          marginBottom: 12,
         }}
       >
-        <PlayerProgressTile />
-
         <div
           style={{
-            borderRadius: 12,
-            border: "1px solid #30465b",
-            background: "linear-gradient(150deg, #15202b 0%, #263748 100%)",
-            padding: 14,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 8,
+            gap: 10,
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>
-            Player
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              Level {state.playerProgress.level || 1}
+            </div>
           </div>
-          <div style={{ fontSize: 13, marginBottom: 6 }}>
-            HP: {Math.round(combat.playerCurrentHp)} / {playerMaxHp}
-          </div>
-          <div
+          <button
+            onClick={() => setIsPlayerStatsExpanded(!isPlayerStatsExpanded)}
             style={{
-              height: 10,
-              borderRadius: 999,
-              backgroundColor: "rgba(8, 13, 19, 0.6)",
-              overflow: "hidden",
-              border: "1px solid rgba(130, 167, 201, 0.3)",
-              marginBottom: 10,
+              padding: "4px 12px",
+              fontSize: 12,
+              borderRadius: 6,
+              border: "1px solid rgba(130, 167, 201, 0.35)",
+              background: "rgba(20, 35, 50, 0.7)",
+              color: "#a8c8ff",
+              cursor: "pointer",
+              fontWeight: 600,
             }}
           >
-            <div
-              style={{
-                width: `${playerHpPercent}%`,
-                height: "100%",
-                background:
-                  "linear-gradient(90deg, #3aa66b 0%, #57dc8c 65%, #a6ffd0 100%)",
-                transition: "width 180ms linear",
-              }}
-            />
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.92, lineHeight: 1.5 }}>
+            {isPlayerStatsExpanded ? "Hide" : "Stats"}
+          </button>
+        </div>
+
+        {/* HP Bar - Always Visible */}
+        <div style={{ fontSize: 11, marginBottom: 4, opacity: 0.85 }}>
+          HP: {Math.round(combat.playerCurrentHp)} / {playerMaxHp}
+        </div>
+        <div
+          style={{
+            height: 12,
+            borderRadius: 999,
+            backgroundColor: "rgba(8, 13, 19, 0.6)",
+            overflow: "hidden",
+            border: "1px solid rgba(130, 167, 201, 0.3)",
+            marginBottom: isPlayerStatsExpanded ? 10 : 0,
+          }}
+        >
+          <div
+            style={{
+              width: `${playerHpPercent}%`,
+              height: "100%",
+              background:
+                "linear-gradient(90deg, #3aa66b 0%, #57dc8c 65%, #a6ffd0 100%)",
+              transition: "width 180ms linear",
+            }}
+          />
+        </div>
+
+        {/* XP Progress Bar - Always Visible */}
+        <div
+          style={{ fontSize: 11, marginTop: 8, marginBottom: 4, opacity: 0.85 }}
+        >
+          XP: {formatCompactNumber(state.playerProgress?.xp ?? 0)} /{" "}
+          {Number.isFinite(xpForNextLevel)
+            ? formatCompactNumber(xpForNextLevel)
+            : "MAX"}
+        </div>
+        <div
+          style={{
+            height: 10,
+            borderRadius: 999,
+            backgroundColor: "rgba(8, 13, 19, 0.6)",
+            overflow: "hidden",
+            border: "1px solid rgba(167, 130, 201, 0.35)",
+            marginBottom: isPlayerStatsExpanded ? 10 : 0,
+          }}
+        >
+          <div
+            style={{
+              width: `${xpProgressPercent}%`,
+              height: "100%",
+              background:
+                "linear-gradient(90deg, #6d3fd3 0%, #9f62ff 65%, #cfb1ff 100%)",
+              transition: "width 180ms linear",
+            }}
+          />
+        </div>
+
+        {/* Expandable Stats */}
+        {isPlayerStatsExpanded && (
+          <div
+            style={{
+              marginTop: 10,
+              paddingTop: 10,
+              borderTop: "1px solid rgba(109, 144, 173, 0.2)",
+              fontSize: 12,
+              opacity: 0.92,
+              lineHeight: 1.6,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "8px 12px",
+            }}
+          >
             <div>ATK: {Math.round(totalStats.attack ?? 0)}</div>
             <div>DEF: {Math.round(totalStats.defense ?? 0)}</div>
             <div>AGI: {(totalStats.agility ?? 0).toFixed(2)}</div>
             <div>APS: {attacksPerSecond.toFixed(2)}</div>
             <div>Crit: {critChance.toFixed(1)}%</div>
-            <div>Mana: {formatCompactNumber(playerMana)} / 100</div>
-            <div>
-              Mana Regen:{" "}
+            <div>Lvl: {combat.currentLevel}</div>
+            <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
+              Mana: {formatCompactNumber(playerMana)} / 100 • Regen:{" "}
               {formatCompactNumber(
                 2 * (1 + (totalStats.energyRegeneration ?? 0) / 100),
                 { smallValueDecimals: 1 },
               )}
               /s
             </div>
-            <div>
+            <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
               Checkpoint: Lv {Math.max(1, combat.lastBossCheckpointLevel || 1)}
             </div>
           </div>
-          <div
-            style={{
-              marginTop: 10,
-              height: 8,
-              borderRadius: 999,
-              backgroundColor: "rgba(8, 13, 19, 0.55)",
-              overflow: "hidden",
-              border: "1px solid rgba(120, 176, 236, 0.28)",
-            }}
-          >
-            <div
-              style={{
-                width: `${playerManaPercent}%`,
-                height: "100%",
-                background:
-                  "linear-gradient(90deg, #4c8cff 0%, #68c2ff 55%, #b1ebff 100%)",
-                transition: "width 180ms linear",
-              }}
-            />
-          </div>
-        </div>
-
-        <div
-          style={{
-            borderRadius: 12,
-            border: "1px solid #30465b",
-            background: "linear-gradient(155deg, #162432 0%, #223447 100%)",
-            padding: 14,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 8,
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Consumables</div>
-            <div style={{ fontSize: 11, opacity: 0.72 }}>Combat use</div>
-          </div>
-          {potionSummaries.length === 0 ? (
-            <div style={{ fontSize: 12, opacity: 0.72 }}>
-              No consumables in inventory.
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {activeGoldBuffRemainingMs > 0 && (
-                <div
-                  style={{
-                    borderRadius: 8,
-                    border: "1px solid rgba(110, 154, 190, 0.28)",
-                    background: "rgba(12, 23, 33, 0.5)",
-                    padding: "8px 10px",
-                    fontSize: 12,
-                    color: "#f8d984",
-                  }}
-                >
-                  Active buff: +{activeGoldBuffPercent}% gold income for{" "}
-                  {formatRemainingMs(activeGoldBuffRemainingMs)}
-                </div>
-              )}
-              {potionSummaries.map((potion) =>
-                (() => {
-                  const cooldownMs = consumableCooldowns[potion.itemId] ?? 0;
-                  const isOnCooldown = cooldownMs > 0;
-                  return (
-                    <button
-                      key={potion.itemUid}
-                      onClick={() => useCombatConsumable(potion.itemUid)}
-                      disabled={isOnCooldown}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto",
-                        gap: 8,
-                        alignItems: "center",
-                        textAlign: "left",
-                        background: "rgba(17, 29, 40, 0.78)",
-                        border: "1px solid rgba(109, 144, 173, 0.35)",
-                        padding: "10px 12px",
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            color: getRarityTint(potion.rarity),
-                            fontWeight: 700,
-                            fontSize: 13,
-                            marginBottom: 3,
-                          }}
-                        >
-                          {potion.name}
-                        </div>
-                        <div style={{ fontSize: 11, opacity: 0.78 }}>
-                          {getConsumableEffectText(potion.itemId)}
-                        </div>
-                        <div
-                          style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}
-                        >
-                          {isOnCooldown
-                            ? `Cooldown: ${formatRemainingMs(cooldownMs)}`
-                            : "Ready"}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 700 }}>
-                        x{potion.quantity}
-                      </div>
-                    </button>
-                  );
-                })(),
-              )}
-            </div>
-          )}
-        </div>
-
-        <div
-          style={{
-            borderRadius: 12,
-            border: "1px solid #30465b",
-            background: "linear-gradient(150deg, #1c2233 0%, #2a3048 100%)",
-            padding: 14,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 8,
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Spell System</div>
-            <div style={{ fontSize: 11, opacity: 0.72 }}>
-              {state.playerProgress.unlockedSystems?.spells
-                ? "Unlocked"
-                : "Locked"}
-            </div>
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.84, lineHeight: 1.5 }}>
-            {state.playerProgress.unlockedSystems?.spells
-              ? "Starter spells are live. Future spell slots and specializations can extend this panel."
-              : "Spells unlock through progression. The UI is in place and will activate once unlocked."}
-          </div>
-          {state.playerProgress.unlockedSystems?.spells ? (
-            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-              {COMBAT_SPELL_DEFINITIONS.map((spell) => {
-                const cooldownMs = spellCooldowns[spell.id] ?? 0;
-                const canCast = cooldownMs <= 0 && playerMana >= spell.manaCost;
-                return (
-                  <button
-                    key={spell.id}
-                    onClick={() => castCombatSpell(spell.id)}
-                    disabled={!canCast}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr auto",
-                      alignItems: "center",
-                      gap: 8,
-                      textAlign: "left",
-                      background: "rgba(24, 32, 48, 0.78)",
-                      borderColor: "rgba(109, 144, 173, 0.32)",
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 13,
-                          marginBottom: 3,
-                        }}
-                      >
-                        {spell.name}
-                      </div>
-                      <div style={{ fontSize: 11, opacity: 0.76 }}>
-                        {spell.description}
-                      </div>
-                      <div
-                        style={{ fontSize: 11, opacity: 0.62, marginTop: 4 }}
-                      >
-                        Mana {spell.manaCost} •{" "}
-                        {cooldownMs > 0
-                          ? `Cooldown ${formatRemainingMs(cooldownMs)}`
-                          : "Ready"}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>Cast</div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <button
-              disabled
-              style={{
-                marginTop: 10,
-                width: "100%",
-                background: "rgba(28, 38, 52, 0.78)",
-                borderColor: "rgba(109, 144, 173, 0.28)",
-              }}
-            >
-              Spellbook Locked
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
+      {/* Fight Arena */}
       <div
         style={{
           borderRadius: 14,
@@ -936,6 +837,387 @@ export function Fight() {
           ))}
         </button>
       </div>
+
+      {/* Consumables - Right Above Spells */}
+      <div
+        style={{
+          marginBottom: 14,
+          borderRadius: 12,
+          border: "1px solid #30465b",
+          background: "linear-gradient(150deg, #162433 0%, #1f3248 100%)",
+          padding: 10,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 8,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 13 }}>🧴 Potions</div>
+          <button
+            onClick={() => setIsConsumableModalOpen(true)}
+            style={{
+              padding: "4px 8px",
+              fontSize: 11,
+              borderRadius: 7,
+              border: "1px solid rgba(109, 144, 173, 0.35)",
+              background: "rgba(20, 35, 50, 0.65)",
+              color: "#9fc6ff",
+              cursor: "pointer",
+            }}
+          >
+            Select
+          </button>
+        </div>
+
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+        >
+          {[0, 1].map((slotIndex) => {
+            const selectedItemId = equippedConsumables[slotIndex];
+            const itemSummary = selectedItemId
+              ? (potionSummaries.find((p) => p.itemId === selectedItemId) ??
+                null)
+              : null;
+            const itemDef = itemSummary
+              ? getItemDefSafe(itemSummary.itemId)
+              : null;
+            const cooldownMs = selectedItemId
+              ? (consumableCooldowns[selectedItemId] ?? 0)
+              : 0;
+            const isOnCooldown = cooldownMs > 0;
+
+            return (
+              <div
+                key={`potion-slot-${slotIndex}`}
+                style={{
+                  borderRadius: 8,
+                  border: "1px solid rgba(109, 144, 173, 0.3)",
+                  background: "rgba(13, 23, 34, 0.55)",
+                  padding: 8,
+                  display: "grid",
+                  justifyItems: "center",
+                  gap: 4,
+                }}
+              >
+                <button
+                  onClick={() => {
+                    if (!selectedItemId) {
+                      setSelectedConsumableSlot(slotIndex as 0 | 1);
+                      setIsConsumableModalOpen(true);
+                      return;
+                    }
+                    if (!isOnCooldown) {
+                      const potionInstance = state.inventory.find(
+                        (inv) =>
+                          inv.itemId === selectedItemId &&
+                          (inv.quantity ?? 0) > 0,
+                      );
+                      if (potionInstance) {
+                        useCombatConsumable(potionInstance.uid);
+                      }
+                    }
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setSelectedConsumableSlot(slotIndex as 0 | 1);
+                    setIsConsumableModalOpen(true);
+                  }}
+                  disabled={isOnCooldown}
+                  title={
+                    itemDef
+                      ? `${itemDef.name}${isOnCooldown ? ` (${formatRemainingMs(cooldownMs)})` : ""}`
+                      : `Select potion for slot ${slotIndex + 1}`
+                  }
+                  style={{
+                    width: 36,
+                    height: 36,
+                    padding: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    lineHeight: 1,
+                    borderRadius: 8,
+                    border: `1px solid ${itemDef ? getRarityTint(itemDef.rarity) : "rgba(120,140,160,0.35)"}`,
+                    background: isOnCooldown
+                      ? "rgba(90, 90, 90, 0.45)"
+                      : "rgba(22, 35, 50, 0.92)",
+                    color: isOnCooldown ? "#8e8e8e" : "#f2f8ff",
+                    cursor: isOnCooldown ? "not-allowed" : "pointer",
+                    opacity: !selectedItemId ? 0.6 : 1,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {itemDef ? getPotionIcon(itemDef.id) : "+"}
+                  </span>
+                </button>
+
+                <div style={{ fontSize: 10, opacity: 0.72 }}>
+                  {itemSummary ? `x${itemSummary.quantity}` : "Empty"}
+                </div>
+                {isOnCooldown && (
+                  <div style={{ fontSize: 10, color: "#f2a59f" }}>
+                    {formatRemainingMs(cooldownMs)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Spells - Below Fight UI */}
+      {state.playerProgress.unlockedSystems?.spells && (
+        <div
+          style={{
+            marginBottom: 14,
+            borderRadius: 12,
+            border: "1px solid #30465b",
+            background: "linear-gradient(150deg, #1c2233 0%, #2a3048 100%)",
+            padding: 12,
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
+            ⚡ Spells
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {COMBAT_SPELL_DEFINITIONS.map((spell) => {
+              const cooldownMs = spellCooldowns[spell.id] ?? 0;
+              const canCast =
+                cooldownMs <= 0 && (playerMana ?? 0) >= spell.manaCost;
+              return (
+                <button
+                  key={spell.id}
+                  onClick={() => castCombatSpell(spell.id)}
+                  disabled={!canCast}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    alignItems: "center",
+                    gap: 8,
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(109, 144, 173, 0.35)",
+                    background: "rgba(24, 32, 48, 0.6)",
+                    color: canCast ? "#f3f8ff" : "#666",
+                    cursor: canCast ? "pointer" : "not-allowed",
+                    opacity: canCast ? 1 : 0.6,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        marginBottom: 3,
+                      }}
+                    >
+                      {spell.name}
+                    </div>
+                    <div
+                      style={{ fontSize: 10, opacity: 0.75, lineHeight: 1.4 }}
+                    >
+                      {spell.description}
+                    </div>
+                    <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>
+                      Mana {spell.manaCost} •{" "}
+                      {cooldownMs > 0
+                        ? `Cooldown ${formatRemainingMs(cooldownMs)}`
+                        : "Ready"}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700 }}>Cast</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {isConsumableModalOpen && (
+        <div
+          onClick={() => setIsConsumableModalOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 40,
+            background: "rgba(6, 10, 16, 0.72)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(460px, 100%)",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              borderRadius: 12,
+              border: "1px solid #3b5670",
+              background: "linear-gradient(170deg, #111b27 0%, #1b2b3c 100%)",
+              padding: 12,
+              boxShadow: "0 16px 44px rgba(0, 0, 0, 0.45)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ fontWeight: 700 }}>Select Slot Potions</div>
+              <button
+                onClick={() => setIsConsumableModalOpen(false)}
+                style={{
+                  borderRadius: 6,
+                  border: "1px solid rgba(130, 170, 204, 0.4)",
+                  background: "rgba(20, 35, 50, 0.65)",
+                  color: "#d8ecff",
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              {[0, 1].map((slot) => (
+                <button
+                  key={`modal-slot-${slot}`}
+                  onClick={() => setSelectedConsumableSlot(slot as 0 | 1)}
+                  style={{
+                    borderRadius: 8,
+                    border:
+                      selectedConsumableSlot === slot
+                        ? "1px solid #9ad0ff"
+                        : "1px solid rgba(125, 153, 179, 0.4)",
+                    background:
+                      selectedConsumableSlot === slot
+                        ? "rgba(72, 120, 168, 0.4)"
+                        : "rgba(16, 28, 40, 0.7)",
+                    color: "#e2f2ff",
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  Slot {slot + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setEquippedConsumables((prev) => {
+                    const next: [string | null, string | null] = [...prev] as [
+                      string | null,
+                      string | null,
+                    ];
+                    next[selectedConsumableSlot] = null;
+                    return next;
+                  });
+                }}
+                style={{
+                  marginLeft: "auto",
+                  borderRadius: 8,
+                  border: "1px solid rgba(207, 126, 126, 0.45)",
+                  background: "rgba(58, 18, 18, 0.55)",
+                  color: "#ffc7c7",
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Clear Slot
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              {potionSummaries.length === 0 && (
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  No potions in inventory.
+                </div>
+              )}
+              {potionSummaries.map((potion) => {
+                const alreadyEquippedInOtherSlot = equippedConsumables.some(
+                  (itemId, idx) =>
+                    itemId === potion.itemId && idx !== selectedConsumableSlot,
+                );
+
+                return (
+                  <button
+                    key={potion.itemId}
+                    onClick={() => {
+                      setEquippedConsumables((prev) => {
+                        const next: [string | null, string | null] = [
+                          ...prev,
+                        ] as [string | null, string | null];
+                        if (alreadyEquippedInOtherSlot) {
+                          const otherIndex = next.findIndex(
+                            (itemId, idx) =>
+                              itemId === potion.itemId &&
+                              idx !== selectedConsumableSlot,
+                          );
+                          if (otherIndex !== -1)
+                            next[otherIndex as 0 | 1] = null;
+                        }
+                        next[selectedConsumableSlot] = potion.itemId;
+                        return next;
+                      });
+                    }}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "auto 1fr auto",
+                      gap: 10,
+                      alignItems: "center",
+                      borderRadius: 8,
+                      border: "1px solid rgba(124, 156, 183, 0.35)",
+                      background: "rgba(16, 28, 40, 0.7)",
+                      padding: "8px 10px",
+                      color: "#ecf7ff",
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>
+                      {getPotionIcon(potion.itemId)}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: getRarityTint(potion.rarity),
+                      }}
+                    >
+                      {potion.name}
+                    </span>
+                    <span style={{ fontSize: 11, opacity: 0.75 }}>
+                      x{potion.quantity}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {toasts.length > 0 && (
         <div

@@ -17,8 +17,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Iron Hammer",
     type: "weapon",
     rarity: "rare",
-    stats: { attack: 8, defense: 2 },
+    stats: { attack: 16, defense: 4 },
     sellPrice: 75,
+  },
+  storm_blade: {
+    id: "storm_blade",
+    name: "Storm Blade",
+    type: "weapon",
+    rarity: "rare",
+    stats: { attack: 22, agility: 6, critChance: 4 },
+    sellPrice: 140,
   },
   // Weapons - Epic
   greataxe_1: {
@@ -26,8 +34,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Great Axe",
     type: "weapon",
     rarity: "epic",
-    stats: { attack: 15, defense: -1 },
+    stats: { attack: 85, defense: 18, critChance: 8 },
     sellPrice: 200,
+  },
+  sunlance: {
+    id: "sunlance",
+    name: "Sunlance",
+    type: "weapon",
+    rarity: "epic",
+    stats: { attack: 96, intelligence: 52, critChance: 10 },
+    sellPrice: 320,
   },
   // Weapons - Legendary
   excalibur: {
@@ -35,8 +51,24 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Excalibur",
     type: "weapon",
     rarity: "legendary",
-    stats: { attack: 25 },
+    stats: { attack: 2200, critChance: 42, agility: 70 },
     sellPrice: 500,
+  },
+  titan_cleaver: {
+    id: "titan_cleaver",
+    name: "Titan Cleaver",
+    type: "weapon",
+    rarity: "legendary",
+    stats: { attack: 2800, hp: 1200, defense: 340 },
+    sellPrice: 900,
+  },
+  astral_halberd: {
+    id: "astral_halberd",
+    name: "Astral Halberd",
+    type: "weapon",
+    rarity: "legendary",
+    stats: { attack: 2600, intelligence: 850, critChance: 55 },
+    sellPrice: 940,
   },
   // Weapons - Unique
   soul_edge: {
@@ -44,8 +76,36 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Soul Edge",
     type: "weapon",
     rarity: "unique",
-    stats: { attack: 30, intelligence: 5 },
+    setId: "voidborn",
+    stats: { attack: 125000, intelligence: 34000, critChance: 180 },
     sellPrice: 750,
+  },
+  starforged_maul: {
+    id: "starforged_maul",
+    name: "Starforged Maul",
+    type: "weapon",
+    rarity: "unique",
+    setId: "arcaneforge",
+    stats: { attack: 118000, intelligence: 46000, energyRegeneration: 220 },
+    sellPrice: 1800,
+  },
+  worldroot_scythe: {
+    id: "worldroot_scythe",
+    name: "Worldroot Scythe",
+    type: "weapon",
+    rarity: "unique",
+    setId: "verdant",
+    stats: { attack: 98000, plantGrowth: 260, wateringDuration: 180 },
+    sellPrice: 1750,
+  },
+  ravenous_fang: {
+    id: "ravenous_fang",
+    name: "Ravenous Fang",
+    type: "weapon",
+    rarity: "unique",
+    setId: "beastlord",
+    stats: { attack: 132000, agility: 420, critChance: 210 },
+    sellPrice: 1900,
   },
 
   // Armor - Common
@@ -63,8 +123,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Wooden Shield",
     type: "armor",
     rarity: "rare",
-    stats: { defense: 6 },
+    stats: { defense: 18, hp: 90 },
     sellPrice: 60,
+  },
+  chainmail_aegis: {
+    id: "chainmail_aegis",
+    name: "Chainmail Aegis",
+    type: "armor",
+    rarity: "rare",
+    stats: { defense: 24, hp: 140, attack: 6 },
+    sellPrice: 130,
   },
   // Armor - Epic
   plate_armor: {
@@ -72,8 +140,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Plate Armor",
     type: "armor",
     rarity: "epic",
-    stats: { defense: 12 },
+    stats: { defense: 95, hp: 420, attack: 26 },
     sellPrice: 250,
+  },
+  runesteel_plate: {
+    id: "runesteel_plate",
+    name: "Runesteel Plate",
+    type: "armor",
+    rarity: "epic",
+    stats: { defense: 120, hp: 560, intelligence: 48 },
+    sellPrice: 350,
   },
   // Armor - Legendary
   excalibur_armor: {
@@ -81,8 +157,24 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Holy Plate Mail",
     type: "armor",
     rarity: "legendary",
-    stats: { defense: 20, intelligence: 3 },
+    stats: { defense: 2100, hp: 9800, intelligence: 420 },
     sellPrice: 450,
+  },
+  aegis_of_ages: {
+    id: "aegis_of_ages",
+    name: "Aegis of Ages",
+    type: "armor",
+    rarity: "legendary",
+    stats: { defense: 2600, hp: 12000, attack: 400 },
+    sellPrice: 920,
+  },
+  celestial_bulwark: {
+    id: "celestial_bulwark",
+    name: "Celestial Bulwark",
+    type: "armor",
+    rarity: "legendary",
+    stats: { defense: 2400, hp: 10400, energyRegeneration: 140 },
+    sellPrice: 940,
   },
   // Armor - Unique
   void_armor: {
@@ -90,8 +182,36 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Void Armor",
     type: "armor",
     rarity: "unique",
-    stats: { defense: 25, intelligence: 8 },
+    setId: "voidborn",
+    stats: { defense: 76000, hp: 260000, intelligence: 36000 },
     sellPrice: 800,
+  },
+  chrono_bastion: {
+    id: "chrono_bastion",
+    name: "Chrono Bastion",
+    type: "armor",
+    rarity: "unique",
+    setId: "arcaneforge",
+    stats: { defense: 68000, hp: 240000, energyRegeneration: 420 },
+    sellPrice: 1760,
+  },
+  nightweave_carapace: {
+    id: "nightweave_carapace",
+    name: "Nightweave Carapace",
+    type: "armor",
+    rarity: "unique",
+    setId: "verdant",
+    stats: { defense: 64000, hp: 220000, plantGrowth: 360 },
+    sellPrice: 1740,
+  },
+  predator_mail: {
+    id: "predator_mail",
+    name: "Predator Mail",
+    type: "armor",
+    rarity: "unique",
+    setId: "beastlord",
+    stats: { defense: 82000, hp: 280000, agility: 420 },
+    sellPrice: 1880,
   },
 
   // Accessories - Common
@@ -109,8 +229,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Crystal Amulet",
     type: "accessory",
     rarity: "rare",
-    stats: { intelligence: 4, attack: 1 },
+    stats: { intelligence: 14, attack: 6, critChance: 3 },
     sellPrice: 100,
+  },
+  battle_charm: {
+    id: "battle_charm",
+    name: "Battle Charm",
+    type: "accessory",
+    rarity: "rare",
+    stats: { attack: 16, critChance: 8, agility: 10 },
+    sellPrice: 150,
   },
   // Accessories - Epic
   dragon_ring: {
@@ -118,8 +246,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Dragon Ring",
     type: "accessory",
     rarity: "epic",
-    stats: { attack: 5, defense: 3 },
+    stats: { attack: 70, defense: 42, critChance: 12 },
     sellPrice: 180,
+  },
+  mindspire_talisman: {
+    id: "mindspire_talisman",
+    name: "Mindspire Talisman",
+    type: "accessory",
+    rarity: "epic",
+    stats: { attack: 62, intelligence: 110, energyRegeneration: 40 },
+    sellPrice: 310,
   },
   // Accessories - Legendary
   infinity_gem: {
@@ -127,8 +263,24 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Infinity Gem",
     type: "accessory",
     rarity: "legendary",
-    stats: { attack: 10, defense: 5, intelligence: 10 },
+    stats: { attack: 1900, defense: 980, intelligence: 1800, critChance: 48 },
     sellPrice: 400,
+  },
+  sovereign_signet: {
+    id: "sovereign_signet",
+    name: "Sovereign Signet",
+    type: "accessory",
+    rarity: "legendary",
+    stats: { attack: 2100, goldIncome: 160, critChance: 52 },
+    sellPrice: 920,
+  },
+  comet_locket: {
+    id: "comet_locket",
+    name: "Comet Locket",
+    type: "accessory",
+    rarity: "legendary",
+    stats: { intelligence: 2200, energyRegeneration: 180, attack: 1400 },
+    sellPrice: 930,
   },
   // Accessories - Unique
   chaos_emerald: {
@@ -136,8 +288,36 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Chaos Emerald",
     type: "accessory",
     rarity: "unique",
-    stats: { attack: 15, intelligence: 15 },
+    setId: "voidborn",
+    stats: { attack: 88000, intelligence: 70000, critChance: 210 },
     sellPrice: 600,
+  },
+  eclipse_prism: {
+    id: "eclipse_prism",
+    name: "Eclipse Prism",
+    type: "accessory",
+    rarity: "unique",
+    setId: "arcaneforge",
+    stats: { attack: 76000, intelligence: 92000, energyRegeneration: 420 },
+    sellPrice: 1700,
+  },
+  worldheart_orb: {
+    id: "worldheart_orb",
+    name: "Worldheart Orb",
+    type: "accessory",
+    rarity: "unique",
+    setId: "verdant",
+    stats: { attack: 65000, goldIncome: 480, plantGrowth: 420 },
+    sellPrice: 1680,
+  },
+  warpack_totem: {
+    id: "warpack_totem",
+    name: "Warpack Totem",
+    type: "accessory",
+    rarity: "unique",
+    setId: "beastlord",
+    stats: { attack: 94000, agility: 520, petStrength: 280 },
+    sellPrice: 1860,
   },
 
   // Tools - Common
@@ -607,9 +787,18 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Fire Fox",
     type: "pet",
     rarity: "rare",
-    stats: { attack: 5, intelligence: 2 },
+    stats: { attack: 16, intelligence: 12 },
     sellPrice: 120,
     petBonus: { bonusType: "goldIncome", bonusAmount: 0.1 }, // 10% gold income bonus per level
+  },
+  thunder_lynx: {
+    id: "thunder_lynx",
+    name: "Thunder Lynx",
+    type: "pet",
+    rarity: "rare",
+    stats: { attack: 24, agility: 14, critChance: 6 },
+    sellPrice: 170,
+    petBonus: { bonusType: "attack", bonusAmount: 0.14 },
   },
   // Pets - Epic
   ice_dragon: {
@@ -617,9 +806,18 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Ice Dragon",
     type: "pet",
     rarity: "epic",
-    stats: { attack: 10, defense: 5, intelligence: 5 },
+    stats: { attack: 120, defense: 90, intelligence: 90 },
     sellPrice: 400,
     petBonus: { bonusType: "defense", bonusAmount: 0.12 }, // 12% defense bonus per level
+  },
+  storm_griffin: {
+    id: "storm_griffin",
+    name: "Storm Griffin",
+    type: "pet",
+    rarity: "epic",
+    stats: { attack: 150, agility: 80, critChance: 24 },
+    sellPrice: 520,
+    petBonus: { bonusType: "agility", bonusAmount: 0.2 },
   },
   // Pets - Legendary
   phoenix: {
@@ -627,9 +825,18 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Phoenix",
     type: "pet",
     rarity: "legendary",
-    stats: { attack: 15, intelligence: 10 },
+    stats: { attack: 2600, intelligence: 2100, energyRegeneration: 180 },
     sellPrice: 600,
     petBonus: { bonusType: "intelligence", bonusAmount: 0.15 }, // 15% intelligence bonus per level
+  },
+  astral_phoenix: {
+    id: "astral_phoenix",
+    name: "Astral Phoenix",
+    type: "pet",
+    rarity: "legendary",
+    stats: { attack: 3200, intelligence: 2600, critChance: 60 },
+    sellPrice: 1200,
+    petBonus: { bonusType: "energyRegeneration", bonusAmount: 0.32 },
   },
   // Pets - Unique
   void_beast: {
@@ -637,9 +844,40 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     name: "Void Beast",
     type: "pet",
     rarity: "unique",
-    stats: { attack: 20, defense: 10, intelligence: 15 },
+    setId: "voidborn",
+    stats: { attack: 110000, defense: 52000, intelligence: 56000 },
     sellPrice: 1000,
-    petBonus: { bonusType: "attack", bonusAmount: 0.2 }, // 20% attack bonus per level
+    petBonus: { bonusType: "attack", bonusAmount: 0.95 },
+  },
+  astral_wolf: {
+    id: "astral_wolf",
+    name: "Astral Wolf",
+    type: "pet",
+    rarity: "unique",
+    setId: "arcaneforge",
+    stats: { attack: 98000, intelligence: 84000, energyRegeneration: 480 },
+    sellPrice: 2000,
+    petBonus: { bonusType: "intelligence", bonusAmount: 1.05 },
+  },
+  grove_colossus: {
+    id: "grove_colossus",
+    name: "Grove Colossus",
+    type: "pet",
+    rarity: "unique",
+    setId: "verdant",
+    stats: { attack: 86000, hp: 320000, plantGrowth: 480 },
+    sellPrice: 1980,
+    petBonus: { bonusType: "plantGrowth", bonusAmount: 1.2 },
+  },
+  storm_hydra: {
+    id: "storm_hydra",
+    name: "Storm Hydra",
+    type: "pet",
+    rarity: "unique",
+    setId: "beastlord",
+    stats: { attack: 126000, defense: 68000, agility: 520 },
+    sellPrice: 2100,
+    petBonus: { bonusType: "attack", bonusAmount: 1.3 },
   },
 };
 
@@ -660,8 +898,11 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "armor_1");
   newState = addItem(newState, "ring_1");
   newState = addItem(newState, "hammer_1");
+  newState = addItem(newState, "storm_blade");
   newState = addItem(newState, "shield_1");
+  newState = addItem(newState, "chainmail_aegis");
   newState = addItem(newState, "amulet_1");
+  newState = addItem(newState, "battle_charm");
   newState = addItem(newState, "pickaxe_1");
   newState = addItem(newState, "shovel_1");
   newState = addItem(newState, "wateringcan_common");
@@ -669,8 +910,11 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "seedbag_common");
   // Epic rarities
   newState = addItem(newState, "greataxe_1");
+  newState = addItem(newState, "sunlance");
   newState = addItem(newState, "plate_armor");
+  newState = addItem(newState, "runesteel_plate");
   newState = addItem(newState, "dragon_ring");
+  newState = addItem(newState, "mindspire_talisman");
   newState = addItem(newState, "mithril_pickaxe");
   newState = addItem(newState, "iron_shovel");
   newState = addItem(newState, "mithril_shovel");
@@ -703,12 +947,27 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "seedbag_unique");
   // Legendary rarities
   newState = addItem(newState, "excalibur");
+  newState = addItem(newState, "titan_cleaver");
+  newState = addItem(newState, "astral_halberd");
   newState = addItem(newState, "excalibur_armor");
+  newState = addItem(newState, "aegis_of_ages");
+  newState = addItem(newState, "celestial_bulwark");
   newState = addItem(newState, "infinity_gem");
+  newState = addItem(newState, "sovereign_signet");
+  newState = addItem(newState, "comet_locket");
   // Unique rarities
   newState = addItem(newState, "soul_edge");
+  newState = addItem(newState, "starforged_maul");
+  newState = addItem(newState, "worldroot_scythe");
+  newState = addItem(newState, "ravenous_fang");
   newState = addItem(newState, "void_armor");
+  newState = addItem(newState, "chrono_bastion");
+  newState = addItem(newState, "nightweave_carapace");
+  newState = addItem(newState, "predator_mail");
   newState = addItem(newState, "chaos_emerald");
+  newState = addItem(newState, "eclipse_prism");
+  newState = addItem(newState, "worldheart_orb");
+  newState = addItem(newState, "warpack_totem");
   // Potions
   newState = addItem(newState, "health_potion");
   newState = addItem(newState, "mana_potion");
@@ -724,8 +983,14 @@ export function addDebugItems(state: GameState) {
   // Pets
   newState = addItem(newState, "wolf_pup");
   newState = addItem(newState, "fire_fox");
+  newState = addItem(newState, "thunder_lynx");
   newState = addItem(newState, "ice_dragon");
+  newState = addItem(newState, "storm_griffin");
   newState = addItem(newState, "phoenix");
+  newState = addItem(newState, "astral_phoenix");
   newState = addItem(newState, "void_beast");
+  newState = addItem(newState, "astral_wolf");
+  newState = addItem(newState, "grove_colossus");
+  newState = addItem(newState, "storm_hydra");
   return newState;
 }

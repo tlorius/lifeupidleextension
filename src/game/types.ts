@@ -23,6 +23,7 @@ export interface Stats {
   energyRegeneration?: number; // % bonus to energy regen
   plantGrowth?: number; // % bonus to plant growth speed
   wateringDuration?: number; // % bonus to watering effect duration
+  petStrength?: number; // % bonus to equipped pet bonus effectiveness
 }
 
 export type CropCategory =
@@ -279,6 +280,7 @@ export interface ItemDefinition {
   name: string;
   type: ItemType;
   rarity: rarity;
+  setId?: string;
   stats?: Partial<Stats>;
   sellPrice?: number;
   // Percentage bonuses (primarily for pets, but available for all items)

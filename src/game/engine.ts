@@ -1,4 +1,5 @@
 import { getItemDefSafe } from "./items";
+import { uniqueSetDefinitions } from "./itemSets";
 import type { GameState, ItemInstance, Stats } from "./types";
 
 export const MAX_MANA = 100;
@@ -46,11 +47,11 @@ export function applyIdle(state: GameState, deltaMs: number): void {
  * Can be extended in the future with bonus effects.
  */
 const rarityMultipliers = {
-  common: { statScale: 1, costScale: 1 },
-  rare: { statScale: 1.2, costScale: 1.3 },
-  epic: { statScale: 1.5, costScale: 1.6 },
-  legendary: { statScale: 1.8, costScale: 2 },
-  unique: { statScale: 2, costScale: 2.5 },
+  common: { statScale: 1, costScale: 1, perLevelScale: 0.02 },
+  rare: { statScale: 1.2, costScale: 1.3, perLevelScale: 0.02 },
+  epic: { statScale: 3.2, costScale: 2.1, perLevelScale: 0.08 },
+  legendary: { statScale: 9, costScale: 4.4, perLevelScale: 0.22 },
+  unique: { statScale: 30, costScale: 8.5, perLevelScale: 0.6 },
 };
 
 /**
@@ -78,9 +79,13 @@ export function calculateItemStat(
   const tenLevelBonus = 1 + Math.floor(level / 10) * 0.05;
   stat *= tenLevelBonus;
 
-  // Add per-level scaling: 2% increase per level
+  // Add per-level scaling. Higher rarities ramp much harder.
   stat +=
-    baseStat * 0.02 * (level - 1) * multiplier.statScale * bonusMultiplier;
+    baseStat *
+    multiplier.perLevelScale *
+    (level - 1) *
+    multiplier.statScale *
+    bonusMultiplier;
 
   return stat;
 }
@@ -565,6 +570,13 @@ export function getUpgradeStats(state: GameState): Partial<Stats> {
  * Calculate stats contribution from pets
  */
 export function getPetStats(state: GameState): Partial<Stats> {
+  return getPetStatsWithStrengthMultiplier(state, 1);
+}
+
+function getPetStatsWithStrengthMultiplier(
+  state: GameState,
+  petStrengthMultiplier: number,
+): Partial<Stats> {
   const stats: Partial<Stats> = {};
   const petUid = state.equipment.pet;
 
@@ -582,9 +594,81 @@ export function getPetStats(state: GameState): Partial<Stats> {
 
   // Store as percentage (e.g., 0.1 * 100 = 10% per level)
   stats[bonusType] =
-    (stats[bonusType] ?? 0) + bonusAmount * petItem.level * 100;
+    (stats[bonusType] ?? 0) +
+    bonusAmount * petItem.level * 100 * petStrengthMultiplier;
 
   return stats;
+}
+
+function addStats(target: Partial<Stats>, source: Partial<Stats>): void {
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value !== "number") continue;
+    const statKey = key as keyof Stats;
+    target[statKey] = (target[statKey] ?? 0) + value;
+  }
+}
+
+export function getUniqueSetStats(state: GameState): Partial<Stats> {
+  const setCategoryPieces = new Map<
+    string,
+    { weapon: boolean; armor: boolean; accessory: boolean; pet: boolean }
+  >();
+
+  const equippedUids = [
+    state.equipment.weapon,
+    state.equipment.armor,
+    state.equipment.accessory1,
+    state.equipment.accessory2,
+    state.equipment.pet,
+  ].filter((uid): uid is string => Boolean(uid));
+
+  for (const uid of equippedUids) {
+    const item = state.inventory.find((entry) => entry.uid === uid);
+    if (!item) continue;
+
+    const def = getItemDefSafe(item.itemId);
+    if (!def?.setId || def.rarity !== "unique") continue;
+
+    const setPieces = setCategoryPieces.get(def.setId) ?? {
+      weapon: false,
+      armor: false,
+      accessory: false,
+      pet: false,
+    };
+
+    if (def.type === "weapon") setPieces.weapon = true;
+    if (def.type === "armor") setPieces.armor = true;
+    if (def.type === "accessory") setPieces.accessory = true;
+    if (def.type === "pet") setPieces.pet = true;
+
+    setCategoryPieces.set(def.setId, {
+      weapon: setPieces.weapon,
+      armor: setPieces.armor,
+      accessory: setPieces.accessory,
+      pet: setPieces.pet,
+    });
+  }
+
+  const result: Partial<Stats> = {};
+  for (const [setId, pieces] of setCategoryPieces.entries()) {
+    const setDef = uniqueSetDefinitions[setId];
+    if (!setDef) continue;
+
+    const pieceCount = [
+      pieces.weapon,
+      pieces.armor,
+      pieces.accessory,
+      pieces.pet,
+    ].filter(Boolean).length;
+    if (pieceCount >= 2) {
+      addStats(result, setDef.twoPiece);
+    }
+    if (pieceCount >= 4) {
+      addStats(result, setDef.fourPiece);
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -600,43 +684,74 @@ export function getTotalStats(state: GameState): Partial<Stats> {
   const baseStats = getBaseStats(state);
   const equipmentStats = getEquipmentStats(state);
   const upgradeStats = getUpgradeStats(state);
-  const petStats = getPetStats(state);
+  const setStats = getUniqueSetStats(state);
+
+  const prePetStrength =
+    (baseStats.petStrength ?? 0) +
+    (equipmentStats.petStrength ?? 0) +
+    (upgradeStats.petStrength ?? 0) +
+    (setStats.petStrength ?? 0);
+  const petStrengthMultiplier = Math.max(0, 1 + prePetStrength / 100);
+  const petStats = getPetStatsWithStrengthMultiplier(
+    state,
+    petStrengthMultiplier,
+  );
 
   // Initialize base totals
   const total: Partial<Stats> = {
     attack:
       (baseStats.attack ?? 0) +
       (equipmentStats.attack ?? 0) +
-      (upgradeStats.attack ?? 0),
-    hp: (baseStats.hp ?? 0) + (equipmentStats.hp ?? 0) + (upgradeStats.hp ?? 0),
+      (upgradeStats.attack ?? 0) +
+      (setStats.attack ?? 0),
+    hp:
+      (baseStats.hp ?? 0) +
+      (equipmentStats.hp ?? 0) +
+      (upgradeStats.hp ?? 0) +
+      (setStats.hp ?? 0),
     agility:
       (baseStats.agility ?? 0) +
       (equipmentStats.agility ?? 0) +
-      (upgradeStats.agility ?? 0),
+      (upgradeStats.agility ?? 0) +
+      (setStats.agility ?? 0),
     critChance:
       (baseStats.critChance ?? 0) +
       (equipmentStats.critChance ?? 0) +
-      (upgradeStats.critChance ?? 0),
+      (upgradeStats.critChance ?? 0) +
+      (setStats.critChance ?? 0),
     defense:
       (baseStats.defense ?? 0) +
       (equipmentStats.defense ?? 0) +
-      (upgradeStats.defense ?? 0),
+      (upgradeStats.defense ?? 0) +
+      (setStats.defense ?? 0),
     intelligence:
       (baseStats.intelligence ?? 0) +
       (equipmentStats.intelligence ?? 0) +
-      (upgradeStats.intelligence ?? 0),
+      (upgradeStats.intelligence ?? 0) +
+      (setStats.intelligence ?? 0),
     gardening:
       (baseStats.gardening ?? 0) +
       (equipmentStats.gardening ?? 0) +
-      (upgradeStats.gardening ?? 0),
+      (upgradeStats.gardening ?? 0) +
+      (setStats.gardening ?? 0),
     // New stats - start with equipment/upgrade/pet percentages
-    goldIncome: (upgradeStats.goldIncome ?? 0) + (petStats.goldIncome ?? 0),
+    goldIncome:
+      (upgradeStats.goldIncome ?? 0) +
+      (setStats.goldIncome ?? 0) +
+      (petStats.goldIncome ?? 0),
     energyRegeneration:
       (upgradeStats.energyRegeneration ?? 0) +
+      (setStats.energyRegeneration ?? 0) +
       (petStats.energyRegeneration ?? 0),
-    plantGrowth: (upgradeStats.plantGrowth ?? 0) + (petStats.plantGrowth ?? 0),
+    plantGrowth:
+      (upgradeStats.plantGrowth ?? 0) +
+      (setStats.plantGrowth ?? 0) +
+      (petStats.plantGrowth ?? 0),
     wateringDuration:
-      (upgradeStats.wateringDuration ?? 0) + (petStats.wateringDuration ?? 0),
+      (upgradeStats.wateringDuration ?? 0) +
+      (setStats.wateringDuration ?? 0) +
+      (petStats.wateringDuration ?? 0),
+    petStrength: prePetStrength,
   };
 
   // Apply multipliers from upgrades (old-style multipliers if they exist)
