@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  getAvailableCombatSpellsForState,
-  getCombatSpellDefinition,
-  getGeneralCombatSpellPath,
-  getPlayerAttacksPerSecond,
-  getPlayerCritChance,
-} from "../game/combat";
-import { getSpellSlotsForLevel } from "../game/classes";
-import { getTotalStats } from "../game/engine";
+import { getCombatSpellDefinition } from "../game/combat";
 import { getItemDefSafe } from "../game/items";
-import { getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
+import {
+  selectFightDpsMetrics,
+  selectFightView,
+  type DamagePoint,
+} from "../game/selectors/fight";
 import { useGameActions } from "../game/useGameActions";
 import { formatCompactNumber } from "../game/numberFormat";
 import { SpellSelectModal } from "./SpellSelectModal";
@@ -38,20 +34,6 @@ interface CombatToast {
   id: string;
   text: string;
   color: string;
-}
-
-interface DamagePoint {
-  timestamp: number;
-  damage: number;
-  source: "auto" | "click" | "spell" | "pet";
-}
-
-interface ConsumableSummary {
-  itemId: string;
-  itemUid: string;
-  name: string;
-  quantity: number;
-  rarity: string;
 }
 
 function nextBossLevel(currentLevel: number): number {
@@ -110,107 +92,31 @@ export function Fight() {
   const [isSpellSelectOpen, setIsSpellSelectOpen] = useState(false);
 
   const combat = state.combat;
-  const totalStats = getTotalStats(state);
-  const playerMaxHp = Math.max(
-    1,
-    Math.round(totalStats.hp ?? state.stats.hp ?? 1),
-  );
-  const playerHpPercent = Math.max(
-    0,
-    Math.min(100, (combat.playerCurrentHp / playerMaxHp) * 100),
-  );
-  const playerMana = Math.max(0, Math.min(100, state.resources.energy ?? 100));
-  const enemyHpPercent = Math.max(
-    0,
-    Math.min(
-      100,
-      (combat.enemy.currentHp / Math.max(1, combat.enemy.maxHp)) * 100,
-    ),
-  );
-
-  const attacksPerSecond = getPlayerAttacksPerSecond(state);
-  const critChance = getPlayerCritChance(state);
-  const xpForNextLevel = getXpForNextLevel(state.playerProgress.level || 1);
-  const xpProgressPercent =
-    Number.isFinite(xpForNextLevel) && xpForNextLevel > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            ((state.playerProgress?.xp ?? 0) / xpForNextLevel) * 100,
-          ),
-        )
-      : 100;
-
-  const combatTitle = useMemo(
-    () => `${combat.enemy.name} (Lv ${combat.enemy.level})`,
-    [combat.enemy.level, combat.enemy.name],
-  );
+  const {
+    totalStats,
+    playerMaxHp,
+    playerHpPercent,
+    playerMana,
+    enemyHpPercent,
+    attacksPerSecond,
+    critChance,
+    xpForNextLevel,
+    xpProgressPercent,
+    combatTitle,
+    unlockedSpellSlots,
+    activeClassId,
+    slottedSpells,
+    potionSummaries,
+    generalSpellPath,
+    manaRegenPerSecond,
+    checkpointLevel,
+  } = useMemo(() => selectFightView(state), [state]);
   const enemySprite =
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
   const spellCooldowns = combat.spellCooldowns ?? {};
   const consumableCooldowns = combat.consumableCooldowns ?? {};
-  const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
-  const generalSpellPath = getGeneralCombatSpellPath();
-  const availableSpells = getAvailableCombatSpellsForState(state);
-  const activeClassId = state.character.activeClassId;
-  const slottedSpells = useMemo(() => {
-    if (!state.playerProgress.unlockedSystems?.spells) return [];
-    if (unlockedSpellSlots <= 0) return [];
-
-    if (!activeClassId) {
-      return availableSpells.slice(0, unlockedSpellSlots);
-    }
-
-    const selectedIds = state.character.classProgress[
-      activeClassId
-    ].selectedSpellIds.slice(0, unlockedSpellSlots);
-    const uniqueIds = new Set<string>();
-    const result = [];
-    for (const spellId of selectedIds) {
-      if (!spellId || uniqueIds.has(spellId)) continue;
-      const spell = availableSpells.find((entry) => entry.id === spellId);
-      if (!spell) continue;
-      uniqueIds.add(spell.id);
-      result.push(spell);
-    }
-
-    return result;
-  }, [
-    activeClassId,
-    availableSpells,
-    state.character.classProgress,
-    state.playerProgress.unlockedSystems?.spells,
-    unlockedSpellSlots,
-  ]);
-  const potionSummaries = useMemo(() => {
-    const grouped = new Map<string, ConsumableSummary>();
-
-    for (const item of state.inventory) {
-      const itemDef = getItemDefSafe(item.itemId);
-      if (!itemDef || itemDef.type !== "potion") continue;
-
-      const existing = grouped.get(item.itemId);
-      if (existing) {
-        existing.quantity += item.quantity ?? 1;
-        continue;
-      }
-
-      grouped.set(item.itemId, {
-        itemId: item.itemId,
-        itemUid: item.uid,
-        name: itemDef.name,
-        quantity: item.quantity ?? 1,
-        rarity: itemDef.rarity,
-      });
-    }
-
-    return Array.from(grouped.values()).sort((left, right) =>
-      left.name.localeCompare(right.name),
-    );
-  }, [state.inventory]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -275,88 +181,20 @@ export function Fight() {
     });
   }, [state.inventory]);
 
-  const dpsBuckets = useMemo(() => {
-    const bucketCount = 12;
-    const bucketWidthMs = dpsWindowMs / bucketCount;
-    const start = clockNow - dpsWindowMs;
-    const values = Array.from({ length: bucketCount }, () => 0);
-
-    for (const point of damageHistory) {
-      if (point.timestamp < start || point.timestamp > clockNow) continue;
-      const offset = point.timestamp - start;
-      const index = Math.min(
-        bucketCount - 1,
-        Math.max(0, Math.floor(offset / bucketWidthMs)),
-      );
-      values[index] += point.damage;
-    }
-
-    return values.map((value) => value / (bucketWidthMs / 1000));
-  }, [clockNow, damageHistory, dpsWindowMs]);
-
-  const currentDps = useMemo(() => {
-    const windowStart = clockNow - dpsWindowMs;
-    const totalDamage = damageHistory.reduce((sum, point) => {
-      return point.timestamp >= windowStart ? sum + point.damage : sum;
-    }, 0);
-    return totalDamage / Math.max(1, dpsWindowMs / 1000);
-  }, [clockNow, damageHistory, dpsWindowMs]);
-
-  const getSourceDps = (
-    source: DamagePoint["source"],
-    start: number,
-    end: number,
-  ) => {
-    const totalDamage = damageHistory.reduce((sum, point) => {
-      return point.source === source &&
-        point.timestamp >= start &&
-        point.timestamp < end
-        ? sum + point.damage
-        : sum;
-    }, 0);
-    return totalDamage / Math.max(1, (end - start) / 1000);
-  };
-
-  const previousDps = useMemo(() => {
-    const previousStart = clockNow - dpsWindowMs * 2;
-    const previousEnd = clockNow - dpsWindowMs;
-    const totalDamage = damageHistory.reduce((sum, point) => {
-      return point.timestamp >= previousStart && point.timestamp < previousEnd
-        ? sum + point.damage
-        : sum;
-    }, 0);
-    return totalDamage / Math.max(1, dpsWindowMs / 1000);
-  }, [clockNow, damageHistory, dpsWindowMs]);
-  const currentAutoDps = useMemo(
-    () => getSourceDps("auto", clockNow - dpsWindowMs, clockNow),
+  const {
+    currentDps,
+    previousDps,
+    currentAutoDps,
+    currentClickDps,
+    currentSpellDps,
+    currentPetDps,
+    dpsDelta,
+    dpsDeltaPercent,
+    dpsGraphPoints,
+  } = useMemo(
+    () => selectFightDpsMetrics(damageHistory, clockNow, dpsWindowMs),
     [clockNow, damageHistory, dpsWindowMs],
   );
-  const currentClickDps = useMemo(
-    () => getSourceDps("click", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
-  const currentSpellDps = useMemo(
-    () => getSourceDps("spell", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
-  const currentPetDps = useMemo(
-    () => getSourceDps("pet", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
-
-  const dpsDelta = currentDps - previousDps;
-  const dpsDeltaPercent =
-    previousDps > 0 ? (dpsDelta / previousDps) * 100 : currentDps > 0 ? 100 : 0;
-  const dpsGraphPoints = useMemo(() => {
-    const maxValue = Math.max(1, ...dpsBuckets);
-    return dpsBuckets
-      .map((value, index) => {
-        const x = (index / Math.max(1, dpsBuckets.length - 1)) * 100;
-        const y = 100 - (value / maxValue) * 100;
-        return `${x},${y}`;
-      })
-      .join(" ");
-  }, [dpsBuckets]);
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -738,14 +576,13 @@ export function Fight() {
             <div>Lvl: {combat.currentLevel}</div>
             <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
               Mana: {formatCompactNumber(playerMana)} / 100 • Regen:{" "}
-              {formatCompactNumber(
-                2 * (1 + (totalStats.energyRegeneration ?? 0) / 100),
-                { smallValueDecimals: 1 },
-              )}
+              {formatCompactNumber(manaRegenPerSecond, {
+                smallValueDecimals: 1,
+              })}
               /s
             </div>
             <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
-              Checkpoint: Lv {Math.max(1, combat.lastBossCheckpointLevel || 1)}
+              Checkpoint: Lv {checkpointLevel}
             </div>
           </div>
         )}

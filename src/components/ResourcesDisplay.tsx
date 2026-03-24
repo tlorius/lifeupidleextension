@@ -1,15 +1,7 @@
 import { useState } from "react";
 import { useGame } from "../game/GameContext";
-import {
-  getTotalStats,
-  getBaseStats,
-  getUpgradeStats,
-  getEquipmentStats,
-  getPetStats,
-  getGoldIncome,
-} from "../game/engine";
 import { formatCompactNumber } from "../game/numberFormat";
-import { defaultState } from "../game/state";
+import { selectResourcesDisplayView } from "../game/selectors/resources";
 import type { Stats } from "../game/types";
 
 interface ResourcesDisplayProps {
@@ -20,34 +12,25 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
   const { state } = useGame();
   const [showStats, setShowStats] = useState(false);
 
-  const total = getTotalStats(state);
-  const baseStats = getBaseStats(state);
-  const equipmentStats = getEquipmentStats(state);
-  const upgradeStats = getUpgradeStats(state);
-  const petStats = getPetStats(state);
-  const now = Date.now();
-
-  const activeGoldPotionBoost =
-    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
-      ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
-      : 0;
-  const activePotionMsLeft = Math.max(
-    0,
-    (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) - now,
-  );
-
-  const permanentPotionStatChanges: Partial<Stats> = {
-    attack: (state.stats.attack ?? 0) - (defaultState.stats.attack ?? 0),
-    defense: (state.stats.defense ?? 0) - (defaultState.stats.defense ?? 0),
-    intelligence:
-      (state.stats.intelligence ?? 0) - (defaultState.stats.intelligence ?? 0),
-    gardening:
-      (state.stats.gardening ?? 0) - (defaultState.stats.gardening ?? 0),
-  };
-
-  const hasPermanentPotionChanges = Object.values(
+  const {
+    total,
+    baseStats,
+    equipmentStats,
+    upgradeStats,
+    petStats,
+    activeGoldPotionBoost,
+    activePotionMsLeft,
     permanentPotionStatChanges,
-  ).some((value) => (value ?? 0) !== 0);
+    hasPermanentPotionChanges,
+    goldIncomePerSecond,
+    baseGoldPerSecond,
+    upgradeGoldBonus,
+    petGoldBonus,
+    tempGoldBonus,
+    totalGoldBonusPercent,
+    totalGoldMultiplier,
+    calculatedGoldPerSecond,
+  } = selectResourcesDisplayView(state);
 
   const formatDuration = (ms: number): string => {
     const totalSeconds = Math.ceil(ms / 1000);
@@ -63,14 +46,6 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
     if (safeValue > 0) return `+${formatStat(safeValue)}`;
     return formatStat(safeValue);
   };
-
-  const baseGoldPerSecond = state.stats.attack || 1;
-  const upgradeGoldBonus = upgradeStats.goldIncome ?? 0;
-  const petGoldBonus = petStats.goldIncome ?? 0;
-  const tempGoldBonus = activeGoldPotionBoost;
-  const totalGoldBonusPercent = upgradeGoldBonus + petGoldBonus + tempGoldBonus;
-  const totalGoldMultiplier = 1 + totalGoldBonusPercent / 100;
-  const calculatedGoldPerSecond = baseGoldPerSecond * totalGoldMultiplier;
 
   const formatStat = (value: number | undefined): string => {
     if (value === undefined) return "0";
@@ -267,7 +242,7 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
               <div
                 style={{ fontSize: 14, color: "#FFD700", fontWeight: "bold" }}
               >
-                {formatCompactNumber(getGoldIncome(state), {
+                {formatCompactNumber(goldIncomePerSecond, {
                   minCompactValue: 1000,
                 })}{" "}
                 🪙

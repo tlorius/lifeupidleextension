@@ -1,7 +1,7 @@
 # Refactor Phase 1 Progress
 
 Date started: 2026-03-24
-Status: In progress
+Status: Complete
 Goal: Introduce a centralized action layer for state writes without changing behavior.
 
 ## Scope for initial slice
@@ -191,44 +191,33 @@ Operational stop rule:
 
 - Once the non-Garden simple state writes and helper-backed action paths are complete, stop Phase 1 and reassess before touching Garden internals.
 
-## Next planned slices
+## Completion Summary
 
-1. Migrate simple action-heavy components to dispatch:
+Phase 1 is complete against the boundary defined above.
 
-- selected inventory actions
+Completed scope:
 
-Completed from this list:
+- Resource/debug actions
+- Class selection, respec, node upgrades, and spell slot assignment
+- Inventory item actions and batch selling
+- Upgrade purchases
+- Thin helper layer for UI-facing action calls
+- Wrapper-level combat interaction integration without runtime combat redesign
 
-- selected inventory actions
+Intentionally deferred to later phases:
 
-Phase 1 status for simple non-Garden game-state writes:
+- Garden migration
+- Combat runtime reducerization
+- Selector extraction
+- Save/persistence redesign
+- Large domain decomposition work
 
-- Main migrated
-- Class switch migrated
-- Skill node upgrade migrated
-- Spell slot assignment migrated
-- Inventory item actions migrated
-- Free respec migrated
-- Upgrade purchase migrated
+Phase 2 handoff:
 
-Completed from this list:
-
-- class switch
-- skill node upgrade
-- spell slot updates
-
-2. Expand action taxonomy:
-
-- combat actions
-- garden actions (carefully, due complexity)
-
-Progress update:
-
-- Combat wrappers in UI are in place; combat reducer actions are still intentionally deferred to avoid mixing architecture migration with runtime event-pipeline changes.
-
-3. Add reducer-focused tests as each action group is introduced.
-
-4. Once coverage is sufficient, deprecate direct setState usage from UI components.
+- Start selector extraction with read-heavy screens.
+- First targets: Fight, ResourcesDisplay, Inventory, and Upgrades.
+- Keep selectors pure and behavior-preserving.
+- Continue avoiding Garden scope expansion unless it is declared as its own slice.
 
 ## Safety guardrails
 
