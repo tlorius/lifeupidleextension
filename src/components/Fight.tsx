@@ -12,6 +12,7 @@ import { getItemDefSafe } from "../game/items";
 import { getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
 import { formatCompactNumber } from "../game/numberFormat";
+import { SpellSelectModal } from "./SpellSelectModal";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
 import enemyBossPixel from "../assets/enemy-boss-pixel.svg";
@@ -109,6 +110,7 @@ export function Fight() {
   const [selectedConsumableSlot, setSelectedConsumableSlot] = useState<0 | 1>(
     0,
   );
+  const [isSpellSelectOpen, setIsSpellSelectOpen] = useState(false);
 
   const combat = state.combat;
   const totalStats = getTotalStats(state);
@@ -1085,8 +1087,34 @@ export function Fight() {
             padding: 12,
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
-            ⚡ Spells {activeClassId ? `(Class: ${activeClassId})` : ""}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              ⚡ Spells {activeClassId ? `(Class: ${activeClassId})` : ""}
+            </div>
+            {activeClassId && unlockedSpellSlots > 0 && (
+              <button
+                onClick={() => setIsSpellSelectOpen(true)}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: 11,
+                  borderRadius: 7,
+                  border: "1px solid rgba(109, 144, 173, 0.35)",
+                  background: "rgba(20, 35, 50, 0.65)",
+                  color: "#9fc6ff",
+                  cursor: "pointer",
+                }}
+              >
+                Manage Spells
+              </button>
+            )}
           </div>
           <div style={{ fontSize: 11, color: "#99b9d6", marginBottom: 8 }}>
             Slots unlocked: {unlockedSpellSlots} / 8
@@ -1633,6 +1661,11 @@ export function Fight() {
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }`}
       </style>
+
+      <SpellSelectModal
+        isOpen={isSpellSelectOpen}
+        onClose={() => setIsSpellSelectOpen(false)}
+      />
     </div>
   );
 }

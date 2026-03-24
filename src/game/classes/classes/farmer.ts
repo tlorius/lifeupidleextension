@@ -10,83 +10,90 @@ export const farmerClass: CharacterClassDefinition = {
     {
       id: "farmer_1",
       name: "Field Medicine",
-      description: "Increase self-healing.",
+      description: "Increase Healing by 5% per rank, HP +8.5 per rank.",
       maxRank: 5,
     },
     {
       id: "farmer_2",
       name: "Irrigation Instinct",
-      description: "Boost watering and growth effects.",
+      description: "Plant Growth +5.5 per rank, Energy Regen +2.8 per rank.",
       maxRank: 5,
       prerequisites: ["farmer_1"],
     },
     {
       id: "farmer_3",
       name: "Rooted Guard",
-      description: "Gain defense while healthy.",
+      description:
+        "Reduce Incoming Damage by 1.8% per rank, Defense +2.8 per rank.",
       maxRank: 5,
       prerequisites: ["farmer_1"],
     },
     {
       id: "farmer_4",
       name: "Bountiful Hands",
-      description: "Increase base harvest yield.",
+      description:
+        "Plant Growth +4.8 per rank, Rare crop chance +0.15% per rank.",
       maxRank: 5,
       prerequisites: ["farmer_2"],
     },
     {
       id: "farmer_5",
       name: "Dawn Tonic",
-      description: "Regenerate HP over time in combat.",
+      description:
+        "Increase Healing by 5% per rank, Energy Regen +2.8 per rank.",
       maxRank: 3,
       prerequisites: ["farmer_2"],
     },
     {
       id: "farmer_6",
       name: "Granary Mind",
-      description: "Increase special crop conversion value.",
+      description:
+        "Mana Restore Multiplier +2.5% per rank, Gold Income +2.5 per rank.",
       maxRank: 5,
       prerequisites: ["farmer_3"],
     },
     {
       id: "farmer_7",
       name: "Hardy Stem",
-      description: "Increase max HP scaling.",
+      description: "Reduce Incoming Damage by 1.5% per rank, HP +10 per rank.",
       maxRank: 5,
       prerequisites: ["farmer_4"],
     },
     {
       id: "farmer_8",
       name: "Harvest Surge",
-      description: "Gain temporary buffs after harvesting.",
+      description: "Watering Duration +5.2 per rank, Damage +2% per rank.",
       maxRank: 3,
       prerequisites: ["farmer_5"],
     },
     {
       id: "farmer_9",
       name: "Seed Fortune",
-      description: "Increase special seed drop chance tiers.",
+      description:
+        "Plant Growth +3.5 per rank, Special crop chance increases per rank.",
       maxRank: 5,
       prerequisites: ["farmer_6"],
     },
     {
       id: "farmer_10",
       name: "Sunrise Feast",
-      description: "Large periodic heal in combat.",
+      description: "HP +9.2 per rank, Healing +6% per rank.",
       maxRank: 3,
       prerequisites: ["farmer_7", "farmer_8"],
     },
     {
       id: "farmer_11",
       name: "Vault of Seasons",
-      description: "Boost all garden-relevant stats.",
+      description:
+        "Healing +12%, Plant Growth +8, Watering Duration +6, Gold Income +5.",
       maxRank: 1,
       prerequisites: ["farmer_9"],
     },
     {
       id: "farmer_12",
       name: "Verdant Sovereign",
-      description: "Capstone for sustain and harvest power.",
+      description:
+        "Healing +12%, Plant Growth +10, Attack +8, Rare crops +1.2%. Capstone.",
       maxRank: 1,
       prerequisites: ["farmer_10", "farmer_11"],
     },
