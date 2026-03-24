@@ -2,6 +2,7 @@ import { addDebugItems } from "./items";
 import { createDefaultState } from "./state";
 import type { GameState } from "./types";
 import {
+  freeRespecClass,
   setClassSpellSlot,
   switchClass,
   upgradeClassNode,
@@ -15,6 +16,7 @@ import {
   usePotion,
 } from "./engine";
 import { getItemDefSafe } from "./items";
+import { buyUpgrade } from "./upgrades";
 
 export type GameAction =
   | { type: "resource/addGold"; amount: number }
@@ -27,6 +29,7 @@ export type GameAction =
     }
   | { type: "character/addSkillPoints"; amount: number }
   | { type: "class/switch"; classId: ClassId }
+  | { type: "class/freeRespec"; classId: ClassId }
   | { type: "class/upgradeNode"; classId: ClassId; nodeId: string }
   | {
       type: "class/setSpellSlot";
@@ -44,6 +47,7 @@ export type GameAction =
   | { type: "inventory/usePotion"; itemUid: string }
   | { type: "inventory/sellSelectedItems"; itemUids: string[] }
   | { type: "inventory/addDebugItems" }
+  | { type: "upgrade/buy"; upgradeId: string }
   | { type: "state/resetToDefault" };
 
 function sellSelectedItems(state: GameState, itemUids: string[]): GameState {
@@ -126,6 +130,9 @@ export function reduceGameAction(
     case "class/switch":
       return switchClass(state, action.classId);
 
+    case "class/freeRespec":
+      return freeRespecClass(state, action.classId);
+
     case "class/upgradeNode":
       return upgradeClassNode(state, action.classId, action.nodeId);
 
@@ -155,6 +162,9 @@ export function reduceGameAction(
 
     case "inventory/addDebugItems":
       return addDebugItems(state);
+
+    case "upgrade/buy":
+      return buyUpgrade(state, action.upgradeId);
 
     case "state/resetToDefault":
       return createDefaultState();

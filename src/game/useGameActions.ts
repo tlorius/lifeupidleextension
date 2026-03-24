@@ -21,6 +21,8 @@ export function useGameActions() {
 
     switchClass: (classId: ClassId) =>
       dispatch({ type: "class/switch", classId }),
+    freeRespecClass: (classId: ClassId) =>
+      dispatch({ type: "class/freeRespec", classId }),
     upgradeClassNode: (classId: ClassId, nodeId: string) =>
       dispatch({ type: "class/upgradeNode", classId, nodeId }),
     setClassSpellSlot: (
@@ -41,6 +43,8 @@ export function useGameActions() {
       dispatch({ type: "inventory/sellSelectedItems", itemUids }),
 
     addDebugItems: () => dispatch({ type: "inventory/addDebugItems" }),
+    buyUpgrade: (upgradeId: string) =>
+      dispatch({ type: "upgrade/buy", upgradeId }),
     resetState: () => dispatch({ type: "state/resetToDefault" }),
 
     // Combat wrappers intentionally keep existing runtime internals untouched.

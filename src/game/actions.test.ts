@@ -98,6 +98,36 @@ describe("actions reducer", () => {
     );
   });
 
+  it("free respecs a class through reducer action", () => {
+    const state = createDefaultState();
+    state.playerProgress.level = 10;
+    state.resources.gems = 200;
+    state.character.availableSkillPoints = 3;
+
+    const switched = reduceGameAction(state, {
+      type: "class/switch",
+      classId: "berserker",
+    });
+    const upgraded = reduceGameAction(switched, {
+      type: "class/upgradeNode",
+      classId: "berserker",
+      nodeId: "berserker_1",
+    });
+
+    const respecced = reduceGameAction(upgraded, {
+      type: "class/freeRespec",
+      classId: "berserker",
+    });
+
+    expect(respecced.character.classProgress.berserker.spentPoints).toBe(0);
+    expect(
+      respecced.character.classProgress.berserker.unlockedNodeRanks.berserker_1,
+    ).toBeUndefined();
+    expect(respecced.character.availableSkillPoints).toBe(
+      upgraded.character.availableSkillPoints + 1,
+    );
+  });
+
   it("sets class spell slot through reducer action", () => {
     const state = createDefaultState();
     const next = reduceGameAction(state, {
@@ -218,6 +248,26 @@ describe("actions reducer", () => {
     ).toBeGreaterThanOrEqual(
       seeded.temporaryEffects?.goldIncomeBoostUntil ?? 0,
     );
+  });
+
+  it("buys an upgrade through reducer action", () => {
+    const state = {
+      ...createDefaultState(),
+      resources: {
+        ...createDefaultState().resources,
+        gold: 1000,
+      },
+    };
+
+    const next = reduceGameAction(state, {
+      type: "upgrade/buy",
+      upgradeId: "attack_i",
+    });
+
+    expect(
+      next.upgrades.find((upgrade) => upgrade.id === "attack_i")?.level,
+    ).toBe(1);
+    expect(next.resources.gold).toBeLessThan(state.resources.gold);
   });
 
   it("resets to default state", () => {

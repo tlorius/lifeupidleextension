@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { useGame } from "../game/GameContext";
-import {
-  CLASS_UNLOCK_LEVEL,
-  freeRespecClass,
-  isClassSystemUnlocked,
-} from "../game/classes";
+import { useGameActions } from "../game/useGameActions";
+import { CLASS_UNLOCK_LEVEL, isClassSystemUnlocked } from "../game/classes";
 import { uniqueSetDefinitions } from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import { ItemDetail } from "./ItemDetail";
@@ -29,7 +26,8 @@ function getItemIcon(itemType: ItemType, _rarity: string): string {
 }
 
 export function Character() {
-  const { state, setState } = useGame();
+  const { state } = useGame();
+  const { freeRespecClass } = useGameActions();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
   const [isClassSelectOpen, setIsClassSelectOpen] = useState(false);
   const [isSkillTreeOpen, setIsSkillTreeOpen] = useState(false);
@@ -211,11 +209,7 @@ export function Character() {
 
         {activeClassId && (
           <div style={{ marginTop: 12 }}>
-            <button
-              onClick={() =>
-                setState((prev) => freeRespecClass(prev, activeClassId))
-              }
-            >
+            <button onClick={() => freeRespecClass(activeClassId)}>
               Free Respec Active Class
             </button>
           </div>

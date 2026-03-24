@@ -108,6 +108,39 @@ Goal: Introduce a centralized action layer for state writes without changing beh
 
 - Test suite and build passing after third-slice migration.
 
+## Completed in fourth slice
+
+1. Remaining simple non-Garden game-state writes migrated:
+
+- src/components/Equipment.tsx
+- Free respec now uses centralized action path.
+
+- src/components/Upgrades.tsx
+- Upgrade purchases now use centralized action path.
+
+2. Non-combat action groups expanded:
+
+- src/game/actions.ts
+- Added:
+  - class/freeRespec
+  - upgrade/buy
+
+- src/game/useGameActions.ts
+- Added helper methods for:
+  - freeRespecClass
+  - buyUpgrade
+
+3. Expanded tests:
+
+- src/game/actions.test.ts
+- Added reducer coverage for:
+  - class free respec
+  - upgrade purchase
+
+4. Validation:
+
+- Test suite and build passing after fourth-slice migration.
+
 ## Architectural decisions (Phase 1)
 
 - Decision: incremental migration instead of big-bang rewrite.
@@ -119,6 +152,45 @@ Goal: Introduce a centralized action layer for state writes without changing beh
 - Decision: start with Main screen (debug/resource actions).
 - Reason: low risk, high clarity, fast feedback for action API design.
 
+## Phase 1 Completion Boundary
+
+Phase 1 is considered complete when all of the following are true:
+
+- Simple non-Garden gameplay state writes are routed through centralized actions.
+- UI-facing helper methods exist for the migrated action groups.
+- Existing combat runtime internals remain behaviorally unchanged, with only wrapper-level integration allowed.
+- Tests cover each newly introduced reducer branch for migrated action groups.
+- Build and full test suite pass after each migration slice.
+
+Phase 1 explicitly includes:
+
+- Resource/debug actions
+- Class selection, class respec, class node upgrades, and spell slot assignment
+- Inventory item actions and batch selling
+- Upgrade purchases
+- Thin helper layer for UI-to-action calls
+- Wrapper-level combat interaction integration that does not alter combat simulation internals
+
+Phase 1 explicitly excludes:
+
+- Large-scale Garden action migration
+- Combat simulation reducerization or event pipeline redesign
+- Selector extraction
+- Save migration redesign
+- Visual/UI redesign work
+- Balance changes
+- Multi-file domain decomposition of garden, combat, engine, or upgrades
+
+Garden boundary for Phase 1:
+
+- Garden is not required for Phase 1 completion.
+- Any Garden work before Phase 2 must be a separately declared vertical slice with its own scope and validation plan.
+- Do not treat ad hoc Garden cleanup as Phase 1 continuation.
+
+Operational stop rule:
+
+- Once the non-Garden simple state writes and helper-backed action paths are complete, stop Phase 1 and reassess before touching Garden internals.
+
 ## Next planned slices
 
 1. Migrate simple action-heavy components to dispatch:
@@ -128,6 +200,16 @@ Goal: Introduce a centralized action layer for state writes without changing beh
 Completed from this list:
 
 - selected inventory actions
+
+Phase 1 status for simple non-Garden game-state writes:
+
+- Main migrated
+- Class switch migrated
+- Skill node upgrade migrated
+- Spell slot assignment migrated
+- Inventory item actions migrated
+- Free respec migrated
+- Upgrade purchase migrated
 
 Completed from this list:
 
