@@ -4,6 +4,7 @@ import {
   calculatePlayerHit,
   createEnemyInstance,
   createInitialCombatRuntime,
+  getDamageAfterDefense,
   getCombatLevelConfig,
   getPlayerAttacksPerSecond,
   performClickAttack,
@@ -42,7 +43,12 @@ describe("combat engine", () => {
 
     const hit = calculatePlayerHit(state, () => 0);
     expect(hit.isCrit).toBe(true);
-    expect(hit.damage).toBe(30);
+    expect(hit.damage).toBe(58);
+  });
+
+  it("keeps high enemy damage threatening even with extreme defense", () => {
+    const mitigated = getDamageAfterDefense(1000, 1_000_000);
+    expect(mitigated).toBeGreaterThan(1);
   });
 
   it("advances level and awards rewards when enemy is defeated", () => {

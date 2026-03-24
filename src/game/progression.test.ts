@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "./state";
 import {
+  getHardLevelCap,
   getLevelGainPreview,
   getLevelUpGains,
   getXpForNextLevel,
@@ -9,31 +10,47 @@ import {
 
 describe("progression", () => {
   it("uses the authored XP curve for key levels", () => {
-    expect(getXpForNextLevel(1)).toBe(45);
-    expect(getXpForNextLevel(10)).toBe(900);
-    expect(getXpForNextLevel(20)).toBe(3180);
+    expect(getXpForNextLevel(1)).toBe(100);
+    expect(getXpForNextLevel(10)).toBe(1540);
+    expect(getXpForNextLevel(20)).toBe(5420);
+    expect(getXpForNextLevel(101)).toBeGreaterThan(getXpForNextLevel(100));
   });
 
   it("returns the expected level-up gains for milestone and non-milestone levels", () => {
     expect(getLevelUpGains(2)).toEqual({
-      hp: 10,
-      attack: 2,
-      agility: 0.5,
+      hp: 18,
+      attack: 4,
+      agility: 0.8,
     });
 
     expect(getLevelUpGains(4)).toEqual({
-      hp: 10,
-      attack: 2,
-      agility: 0.5,
-      critChance: 0.75,
+      hp: 18,
+      attack: 4,
+      agility: 0.8,
+    });
+
+    expect(getLevelUpGains(60)).toEqual({
+      hp: 30,
+      attack: 7,
+      agility: 0.8,
+      defense: 2,
+      intelligence: 3,
+    });
+
+    expect(getLevelUpGains(120)).toEqual({
+      hp: 60,
+      attack: 15,
+      agility: 1.4,
+      defense: 6,
+      intelligence: 9,
     });
   });
 
   it("previews gains for the next level", () => {
     expect(getLevelGainPreview(1)).toEqual({
-      hp: 10,
-      attack: 2,
-      agility: 0.5,
+      hp: 18,
+      attack: 4,
+      agility: 0.8,
     });
   });
 
@@ -52,15 +69,15 @@ describe("progression", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     const state = createDefaultState();
 
-    const next = grantPlayerXp(state, 45);
+    const next = grantPlayerXp(state, 100);
 
     expect(next.playerProgress.level).toBe(2);
     expect(next.playerProgress.xp).toBe(0);
-    expect(next.playerProgress.totalXpEarned).toBe(45);
+    expect(next.playerProgress.totalXpEarned).toBe(100);
     expect(next.playerProgress.lastLevelUpAt).toBe(1_700_000_000_000);
-    expect(next.stats.attack).toBe(12);
-    expect(next.stats.hp).toBe(110);
-    expect(next.stats.agility).toBeCloseTo(1.5, 8);
+    expect(next.stats.attack).toBe(14);
+    expect(next.stats.hp).toBe(118);
+    expect(next.stats.agility).toBeCloseTo(1.8, 8);
   });
 
   it("handles multiple level-ups in a single XP grant", () => {
@@ -69,12 +86,12 @@ describe("progression", () => {
 
     const next = grantPlayerXp(state, 300);
 
-    expect(next.playerProgress.level).toBe(4);
-    expect(next.playerProgress.xp).toBe(34);
-    expect(next.stats.attack).toBe(16);
-    expect(next.stats.hp).toBe(130);
-    expect(next.stats.agility).toBeCloseTo(2, 8);
-    expect(next.stats.critChance).toBeCloseTo(5.75, 8);
+    expect(next.playerProgress.level).toBe(3);
+    expect(next.playerProgress.xp).toBe(36);
+    expect(next.stats.attack).toBe(18);
+    expect(next.stats.hp).toBe(136);
+    expect(next.stats.agility).toBeCloseTo(1.8, 8);
+    expect(next.stats.critChance).toBeCloseTo(1, 8);
   });
 
   it("unlocks spell system at configured level threshold", () => {
@@ -91,5 +108,14 @@ describe("progression", () => {
 
     expect(grantPlayerXp(state, 0)).toBe(state);
     expect(grantPlayerXp(state, -10)).toBe(state);
+  });
+
+  it("enforces the hard level cap and clears overflow XP", () => {
+    const state = createDefaultState();
+
+    const next = grantPlayerXp(state, 10_000_000_000_000_000);
+
+    expect(next.playerProgress.level).toBe(getHardLevelCap());
+    expect(next.playerProgress.xp).toBe(0);
   });
 });

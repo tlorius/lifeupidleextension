@@ -5,12 +5,43 @@ export function isSpellSystemUnlocked(level: number): boolean {
   return level >= PROGRESSION_CONFIG.unlocks.spellsAtLevel;
 }
 
+export function getHardLevelCap(): number {
+  return PROGRESSION_CONFIG.levelCaps.hardCapLevel;
+}
+
+export function isLevelHardCapped(level: number): boolean {
+  return Math.max(1, Math.floor(level)) >= getHardLevelCap();
+}
+
 export function getXpForNextLevel(level: number): number {
   const normalizedLevel = Math.max(1, Math.floor(level));
-  const { base, quadratic, linear } = PROGRESSION_CONFIG.xpFormula;
-  return Math.round(
-    base + normalizedLevel ** 2 * quadratic + normalizedLevel * linear,
+  if (isLevelHardCapped(normalizedLevel)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const {
+    base,
+    quadratic,
+    linear,
+    postSixtyLinearMultiplierPerLevel,
+    postSoftCapExponentialMultiplier,
+  } = PROGRESSION_CONFIG.xpFormula;
+
+  const baseXp =
+    base + normalizedLevel ** 2 * quadratic + normalizedLevel * linear;
+  const postSixtyLevels = Math.max(0, normalizedLevel - 60);
+  const postSixtyMultiplier =
+    1 + postSixtyLevels * postSixtyLinearMultiplierPerLevel;
+  const postSoftCapLevels = Math.max(
+    0,
+    normalizedLevel - PROGRESSION_CONFIG.levelCaps.softCapLevel,
   );
+  const postSoftCapMultiplier =
+    postSoftCapLevels > 0
+      ? Math.pow(postSoftCapExponentialMultiplier, postSoftCapLevels)
+      : 1;
+
+  return Math.round(baseXp * postSixtyMultiplier * postSoftCapMultiplier);
 }
 
 export function getLevelUpGains(reachedLevel: number): Partial<Stats> {
@@ -20,12 +51,43 @@ export function getLevelUpGains(reachedLevel: number): Partial<Stats> {
     attack: PROGRESSION_CONFIG.levelUpGains.attackPerLevel,
   };
 
-  if (level % PROGRESSION_CONFIG.levelUpGains.agilityEveryLevels === 0) {
-    gains.agility = PROGRESSION_CONFIG.levelUpGains.agilityPerTrigger;
+  if (level >= PROGRESSION_CONFIG.levelUpGains.midgameBoostStartsAtLevel) {
+    gains.hp =
+      (gains.hp ?? 0) + PROGRESSION_CONFIG.levelUpGains.midgameHpBonusPerLevel;
+    gains.attack =
+      (gains.attack ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.midgameAttackBonusPerLevel;
   }
 
-  if (level % PROGRESSION_CONFIG.levelUpGains.critEveryLevels === 0) {
-    gains.critChance = PROGRESSION_CONFIG.levelUpGains.critPerTrigger;
+  if (level >= PROGRESSION_CONFIG.levelUpGains.endgameBoostStartsAtLevel) {
+    gains.hp =
+      (gains.hp ?? 0) + PROGRESSION_CONFIG.levelUpGains.endgameHpBonusPerLevel;
+    gains.attack =
+      (gains.attack ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.endgameAttackBonusPerLevel;
+    gains.defense =
+      (gains.defense ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.endgameDefenseBonusPerLevel;
+    gains.intelligence =
+      (gains.intelligence ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.endgameIntelligenceBonusPerLevel;
+    gains.agility =
+      (gains.agility ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.endgameAgilityBonusPerLevel;
+  }
+
+  if (level % PROGRESSION_CONFIG.levelUpGains.agilityEveryLevels === 0) {
+    gains.agility =
+      (gains.agility ?? 0) + PROGRESSION_CONFIG.levelUpGains.agilityPerTrigger;
+  }
+
+  if (level % PROGRESSION_CONFIG.levelUpGains.milestoneEveryLevels === 0) {
+    gains.defense =
+      (gains.defense ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.milestoneDefenseBonus;
+    gains.intelligence =
+      (gains.intelligence ?? 0) +
+      PROGRESSION_CONFIG.levelUpGains.milestoneIntelligenceBonus;
   }
 
   return gains;
@@ -50,8 +112,9 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
 
   let leveledUp = false;
   let nextRequiredXp = getXpForNextLevel(nextProgress.level);
+  const hardCap = getHardLevelCap();
 
-  while (nextProgress.xp >= nextRequiredXp) {
+  while (nextProgress.level < hardCap && nextProgress.xp >= nextRequiredXp) {
     nextProgress.xp -= nextRequiredXp;
     nextProgress.level += 1;
     leveledUp = true;
@@ -63,6 +126,11 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
     }
 
     nextRequiredXp = getXpForNextLevel(nextProgress.level);
+  }
+
+  if (nextProgress.level >= hardCap) {
+    nextProgress.level = hardCap;
+    nextProgress.xp = 0;
   }
 
   nextProgress.unlockedSystems = {
