@@ -2,13 +2,22 @@ import { useState } from "react";
 import { useGame } from "../game/GameContext";
 import {
   allClassDefinitions,
+  canUpgradeClassNode,
   CLASS_SWITCH_GEM_COST,
   CLASS_UNLOCK_LEVEL,
   freeRespecClass,
+  getClassNodeRank,
+  getSpellSlotsForLevel,
   isClassSystemUnlocked,
+  setClassSpellSlot,
   switchClass,
   type ClassId,
+  upgradeClassNode,
 } from "../game/classes";
+import {
+  getClassCombatSpellsForClass,
+  getGeneralCombatSpellPath,
+} from "../game/combat";
 import { uniqueSetDefinitions } from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import { ItemDetail } from "./ItemDetail";
@@ -183,6 +192,8 @@ export function Character() {
   const previewClass = allClassDefinitions.find(
     (classDef) => classDef.id === (previewClassId ?? activeClassId),
   );
+  const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
+  const generalSpellPath = getGeneralCombatSpellPath();
 
   return (
     <div>
@@ -305,22 +316,182 @@ export function Character() {
               {previewClass.fantasy}
             </div>
             <div style={{ color: "#8bc9e9", fontSize: 12, marginBottom: 8 }}>
-              Example class spells:{" "}
+              Class spells:{" "}
               {previewClass.classSpells.map((spell) => spell.name).join(", ")}
             </div>
             <div
               style={{
                 color: "#cfdde8",
                 fontSize: 12,
-                maxHeight: 120,
+                maxHeight: 180,
                 overflowY: "auto",
               }}
             >
               {previewClass.nodes.map((node) => (
-                <div key={node.id} style={{ marginBottom: 4 }}>
-                  {node.name} (max {node.maxRank})
+                <div
+                  key={node.id}
+                  style={{
+                    marginBottom: 6,
+                    border: "1px solid rgba(107, 138, 166, 0.25)",
+                    borderRadius: 8,
+                    padding: 6,
+                  }}
+                >
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      {node.name} (Rank{" "}
+                      {getClassNodeRank(state, previewClass.id, node.id)} /{" "}
+                      {node.maxRank})
+                    </div>
+                    <button
+                      disabled={
+                        !canUpgradeClassNode(state, previewClass.id, node.id)
+                      }
+                      onClick={() =>
+                        setState((prev) =>
+                          upgradeClassNode(prev, previewClass.id, node.id),
+                        )
+                      }
+                      style={{
+                        borderRadius: 6,
+                        border: "1px solid rgba(125, 168, 200, 0.5)",
+                        background: "rgba(24, 40, 58, 0.8)",
+                        color: "#d6ecff",
+                        padding: "2px 8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                    {node.description}
+                  </div>
                 </div>
               ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                borderTop: "1px solid #2f4459",
+                paddingTop: 8,
+              }}
+            >
+              <div
+                style={{
+                  color: "#eaf3fb",
+                  fontWeight: 600,
+                  fontSize: 12,
+                  marginBottom: 6,
+                }}
+              >
+                Spell Slots ({unlockedSpellSlots} unlocked)
+              </div>
+              {unlockedSpellSlots <= 0 && (
+                <div style={{ fontSize: 11, color: "#b6d6ea" }}>
+                  Spell slots unlock at level 10.
+                </div>
+              )}
+              {unlockedSpellSlots > 0 && (
+                <div style={{ display: "grid", gap: 6 }}>
+                  {Array.from({ length: unlockedSpellSlots }).map(
+                    (_, slotIndex) => {
+                      const classProgress =
+                        state.character.classProgress[previewClass.id];
+                      const selectedSpellId =
+                        classProgress.selectedSpellIds[slotIndex] ?? null;
+                      const availableGeneral = generalSpellPath.filter(
+                        (spell) =>
+                          state.playerProgress.level >= spell.requiredLevel,
+                      );
+                      const availableClassSpells = getClassCombatSpellsForClass(
+                        previewClass.id,
+                      ).filter(
+                        (spell) =>
+                          state.playerProgress.level >= spell.requiredLevel,
+                      );
+                      const availableSpells = [
+                        ...availableGeneral,
+                        ...availableClassSpells,
+                      ];
+
+                      return (
+                        <div
+                          key={`slot-${slotIndex}`}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "90px 1fr auto",
+                            gap: 6,
+                            alignItems: "center",
+                          }}
+                        >
+                          <div style={{ fontSize: 11 }}>
+                            Slot {slotIndex + 1}
+                          </div>
+                          <select
+                            value={selectedSpellId ?? ""}
+                            onChange={(event) => {
+                              const value = event.target.value || null;
+                              setState((prev) =>
+                                setClassSpellSlot(
+                                  prev,
+                                  previewClass.id,
+                                  slotIndex,
+                                  value,
+                                ),
+                              );
+                            }}
+                            style={{
+                              borderRadius: 6,
+                              border: "1px solid rgba(124, 155, 183, 0.35)",
+                              background: "rgba(20, 34, 47, 0.8)",
+                              color: "#e8f3ff",
+                              padding: "4px 6px",
+                              fontSize: 11,
+                            }}
+                          >
+                            <option value="">Unassigned</option>
+                            {availableSpells.map((spell) => (
+                              <option
+                                key={`${previewClass.id}-${slotIndex}-${spell.id}`}
+                                value={spell.id}
+                              >
+                                {spell.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() =>
+                              setState((prev) =>
+                                setClassSpellSlot(
+                                  prev,
+                                  previewClass.id,
+                                  slotIndex,
+                                  null,
+                                ),
+                              )
+                            }
+                            style={{
+                              borderRadius: 6,
+                              border: "1px solid rgba(191, 126, 126, 0.4)",
+                              background: "rgba(50, 18, 18, 0.55)",
+                              color: "#ffd1d1",
+                              padding: "3px 7px",
+                              fontSize: 11,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

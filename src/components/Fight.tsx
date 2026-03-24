@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  COMBAT_SPELL_DEFINITIONS,
+  getAvailableCombatSpellsForState,
+  getCombatSpellDefinition,
+  getGeneralCombatSpellPath,
   getPlayerAttacksPerSecond,
   getPlayerCritChance,
 } from "../game/combat";
+import { getSpellSlotsForLevel } from "../game/classes";
 import { getTotalStats } from "../game/engine";
 import { getItemDefSafe } from "../game/items";
 import { getXpForNextLevel } from "../game/progression";
@@ -148,6 +151,39 @@ export function Fight() {
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
   const spellCooldowns = combat.spellCooldowns ?? {};
   const consumableCooldowns = combat.consumableCooldowns ?? {};
+  const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
+  const generalSpellPath = getGeneralCombatSpellPath();
+  const availableSpells = getAvailableCombatSpellsForState(state);
+  const activeClassId = state.character.activeClassId;
+  const slottedSpells = useMemo(() => {
+    if (!state.playerProgress.unlockedSystems?.spells) return [];
+    if (unlockedSpellSlots <= 0) return [];
+
+    if (!activeClassId) {
+      return availableSpells.slice(0, unlockedSpellSlots);
+    }
+
+    const selectedIds = state.character.classProgress[
+      activeClassId
+    ].selectedSpellIds.slice(0, unlockedSpellSlots);
+    const uniqueIds = new Set<string>();
+    const result = [];
+    for (const spellId of selectedIds) {
+      if (!spellId || uniqueIds.has(spellId)) continue;
+      const spell = availableSpells.find((entry) => entry.id === spellId);
+      if (!spell) continue;
+      uniqueIds.add(spell.id);
+      result.push(spell);
+    }
+
+    return result;
+  }, [
+    activeClassId,
+    availableSpells,
+    state.character.classProgress,
+    state.playerProgress.unlockedSystems?.spells,
+    unlockedSpellSlots,
+  ]);
   const potionSummaries = useMemo(() => {
     const grouped = new Map<string, ConsumableSummary>();
 
@@ -428,8 +464,8 @@ export function Fight() {
 
         if (event.type === "spellCast") {
           const spellName =
-            COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === event.spellId)
-              ?.name ?? event.spellId;
+            getCombatSpellDefinition(event.spellId ?? "")?.name ??
+            event.spellId;
           return {
             id: `${now}-c-${index}`,
             text:
@@ -509,8 +545,8 @@ export function Fight() {
 
         if (event.type === "spellCast") {
           const spellName =
-            COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === event.spellId)
-              ?.name ?? event.spellId;
+            getCombatSpellDefinition(event.spellId ?? "")?.name ??
+            event.spellId;
           return {
             id: `${now}-toast-spell-${index}`,
             text: `Cast ${spellName}`,
@@ -1000,10 +1036,26 @@ export function Fight() {
           }}
         >
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
-            ⚡ Spells
+            ⚡ Spells {activeClassId ? `(Class: ${activeClassId})` : ""}
           </div>
+          <div style={{ fontSize: 11, color: "#99b9d6", marginBottom: 8 }}>
+            Slots unlocked: {unlockedSpellSlots} / 8
+          </div>
+
+          {unlockedSpellSlots <= 0 && (
+            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
+              Spell slots unlock at level 10. Continue leveling to equip spells.
+            </div>
+          )}
+
+          {unlockedSpellSlots > 0 && slottedSpells.length === 0 && (
+            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
+              No spells are slotted. Open Character and assign spells to slots.
+            </div>
+          )}
+
           <div style={{ display: "grid", gap: 8 }}>
-            {COMBAT_SPELL_DEFINITIONS.map((spell) => {
+            {slottedSpells.map((spell) => {
               const cooldownMs = spellCooldowns[spell.id] ?? 0;
               const canCast =
                 cooldownMs <= 0 && (playerMana ?? 0) >= spell.manaCost;
@@ -1043,7 +1095,7 @@ export function Fight() {
                       {spell.description}
                     </div>
                     <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>
-                      Mana {spell.manaCost} •{" "}
+                      Unlock Lv {spell.requiredLevel} • Mana {spell.manaCost} •{" "}
                       {cooldownMs > 0
                         ? `Cooldown ${formatRemainingMs(cooldownMs)}`
                         : "Ready"}
@@ -1053,6 +1105,41 @@ export function Fight() {
                 </button>
               );
             })}
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+              borderTop: "1px solid rgba(109, 144, 173, 0.25)",
+              paddingTop: 10,
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
+              Default Spell Path (XP Progression)
+            </div>
+            <div style={{ display: "grid", gap: 5 }}>
+              {generalSpellPath.map((spell) => {
+                const isUnlocked =
+                  state.playerProgress.level >= spell.requiredLevel;
+                return (
+                  <div
+                    key={`path-${spell.id}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "80px 1fr auto",
+                      gap: 8,
+                      alignItems: "center",
+                      fontSize: 11,
+                      color: isUnlocked ? "#d9f0ff" : "#8ea4b7",
+                    }}
+                  >
+                    <div>Lv {spell.requiredLevel}</div>
+                    <div>{spell.name}</div>
+                    <div>{isUnlocked ? "Unlocked" : "Locked"}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -38,6 +38,7 @@ const SPECIAL_DROP_POOLS: Record<
 };
 
 function getFarmerSpecialDropRank(state: GameState): number {
+  if (state.character.activeClassId !== "farmer") return 0;
   return Math.max(
     0,
     state.character.classProgress.farmer.unlockedNodeRanks.farmer_9 ?? 0,

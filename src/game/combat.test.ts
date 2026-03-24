@@ -115,6 +115,7 @@ describe("combat engine", () => {
 
   it("casts arcane bolt, spends mana, and starts spell cooldown", () => {
     const state = createDefaultState();
+    state.playerProgress.level = 8;
     state.playerProgress.unlockedSystems = {
       ...state.playerProgress.unlockedSystems,
       spells: true,

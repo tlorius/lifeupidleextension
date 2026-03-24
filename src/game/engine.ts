@@ -1,5 +1,6 @@
 import { getItemDefSafe } from "./items";
 import { uniqueSetDefinitions } from "./itemSets";
+import { getActiveClassNodeRank } from "./classes";
 import type { GameState, ItemInstance, Stats } from "./types";
 
 export const MAX_MANA = 100;
@@ -32,7 +33,30 @@ export function getManaRegenPerSecond(state: GameState): number {
 export function applyIdle(state: GameState, deltaMs: number): void {
   const seconds = deltaMs / 1000;
   const goldPerSecond = getGoldIncome(state);
-  state.resources.gold += goldPerSecond * seconds;
+
+  let idleGoldMultiplier = 1;
+  const longArcRank = getActiveClassNodeRank(state, "idler_1");
+  const patienceDividendRank = getActiveClassNodeRank(state, "idler_7");
+  const streakKeeperRank = getActiveClassNodeRank(state, "idler_4");
+  const currentStreak = Math.max(
+    0,
+    state.character.idleCheckIn?.streakDays ?? 0,
+  );
+
+  if (longArcRank > 0 || patienceDividendRank > 0 || streakKeeperRank > 0) {
+    const durationHours = Math.max(0, deltaMs / (1000 * 60 * 60));
+    idleGoldMultiplier += longArcRank * 0.1;
+    idleGoldMultiplier += Math.min(
+      1.2,
+      durationHours * (0.015 + patienceDividendRank * 0.006),
+    );
+    idleGoldMultiplier += Math.min(
+      0.6,
+      currentStreak * (0.01 + streakKeeperRank * 0.003),
+    );
+  }
+
+  state.resources.gold += goldPerSecond * seconds * idleGoldMultiplier;
 
   const currentMana = state.resources.energy ?? MAX_MANA;
   const manaRegenPerSecond = getManaRegenPerSecond(state);

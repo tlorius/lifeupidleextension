@@ -8,6 +8,11 @@ import {
   type CombatLevelConfig,
   type CombatLootEntry,
 } from "./combatConfig";
+import {
+  classDefinitions,
+  getActiveClassNodeRank,
+  type ClassId,
+} from "./classes";
 import { addItem, getTotalStats, usePotion } from "./engine";
 import { getItemDefSafe } from "./items";
 import { grantPlayerXp } from "./progression";
@@ -22,9 +27,12 @@ export interface CombatSpellDefinition {
   description: string;
   manaCost: number;
   cooldownMs: number;
+  requiredLevel: number;
+  source: "general" | "class";
+  classId?: ClassId;
 }
 
-export const COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
+const GENERAL_COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
   {
     id: "arcane_bolt",
     name: "Arcane Bolt",
@@ -32,6 +40,8 @@ export const COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
       "Fire a focused bolt that scales with attack and intelligence.",
     manaCost: 25,
     cooldownMs: 6000,
+    requiredLevel: 8,
+    source: "general",
   },
   {
     id: "second_wind",
@@ -39,8 +49,51 @@ export const COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
     description: "Restore a chunk of combat HP using mana.",
     manaCost: 35,
     cooldownMs: 12000,
+    requiredLevel: 10,
+    source: "general",
+  },
+  {
+    id: "mana_surge",
+    name: "Mana Surge",
+    description: "Replenish mana to sustain longer spell chains.",
+    manaCost: 18,
+    cooldownMs: 14000,
+    requiredLevel: 14,
+    source: "general",
+  },
+  {
+    id: "ember_lance",
+    name: "Ember Lance",
+    description: "Launch a burning lance that scales with intelligence.",
+    manaCost: 30,
+    cooldownMs: 9000,
+    requiredLevel: 18,
+    source: "general",
   },
 ] as const;
+
+export const COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] =
+  GENERAL_COMBAT_SPELL_DEFINITIONS;
+
+const CLASS_COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = Object.values(
+  classDefinitions,
+).flatMap((classDef) =>
+  classDef.classSpells.map((spell) => ({
+    id: spell.id,
+    name: spell.name,
+    description: spell.description,
+    manaCost: spell.manaCost,
+    cooldownMs: spell.cooldownMs,
+    requiredLevel: spell.requiredLevel,
+    source: "class" as const,
+    classId: classDef.id,
+  })),
+);
+
+const ALL_COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
+  ...GENERAL_COMBAT_SPELL_DEFINITIONS,
+  ...CLASS_COMBAT_SPELL_DEFINITIONS,
+];
 
 const COMBAT_CONSUMABLE_COOLDOWNS_MS: Record<string, number> = {
   health_potion: 12000,
@@ -209,7 +262,47 @@ export function getCombatConsumableCooldownMs(itemId: string): number {
 export function getCombatSpellDefinition(
   spellId: string,
 ): CombatSpellDefinition | null {
-  return COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === spellId) ?? null;
+  return (
+    ALL_COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === spellId) ?? null
+  );
+}
+
+export function getGeneralCombatSpellPath(): CombatSpellDefinition[] {
+  return [...GENERAL_COMBAT_SPELL_DEFINITIONS].sort(
+    (left, right) => left.requiredLevel - right.requiredLevel,
+  );
+}
+
+export function getAvailableGeneralCombatSpells(
+  level: number,
+): CombatSpellDefinition[] {
+  return GENERAL_COMBAT_SPELL_DEFINITIONS.filter(
+    (spell) => level >= spell.requiredLevel,
+  );
+}
+
+export function getClassCombatSpellsForClass(
+  classId: ClassId,
+): CombatSpellDefinition[] {
+  return CLASS_COMBAT_SPELL_DEFINITIONS.filter(
+    (spell) => spell.classId === classId,
+  );
+}
+
+export function getAvailableCombatSpellsForState(
+  state: GameState,
+): CombatSpellDefinition[] {
+  if (!state.playerProgress.unlockedSystems?.spells) return [];
+
+  const level = state.playerProgress.level;
+  const general = getAvailableGeneralCombatSpells(level);
+  const activeClassId = state.character.activeClassId;
+  if (!activeClassId) return general;
+
+  const classSpells = getClassCombatSpellsForClass(activeClassId).filter(
+    (spell) => level >= spell.requiredLevel,
+  );
+  return [...general, ...classSpells];
 }
 
 function applyLootDrops(state: GameState, drops: CombatLootDrop[]): GameState {
@@ -415,10 +508,35 @@ export function getPlayerMaxHp(state: GameState): number {
 export function getPlayerAttacksPerSecond(state: GameState): number {
   const stats = getTotalStats(state);
   const agility = Math.max(0, stats.agility ?? 0);
-  const aps =
+  let aps =
     COMBAT_PLAYER_CONFIG.baseAttacksPerSecond +
     agility * COMBAT_PLAYER_CONFIG.agilityToApsScale;
-  return Math.min(COMBAT_PLAYER_CONFIG.maxAttacksPerSecond, Math.max(0.2, aps));
+
+  const archerRapidDrawRank = getActiveClassNodeRank(state, "archer_1");
+  const archerWindstepRank = getActiveClassNodeRank(state, "archer_4");
+  const archerElasticStringRank = getActiveClassNodeRank(state, "archer_6");
+  const archerCapstoneRank = getActiveClassNodeRank(state, "archer_12");
+
+  if (
+    archerRapidDrawRank > 0 ||
+    archerWindstepRank > 0 ||
+    archerElasticStringRank > 0 ||
+    archerCapstoneRank > 0
+  ) {
+    aps += archerRapidDrawRank * 0.22;
+    aps += archerWindstepRank * 0.34;
+    aps *= 1 + archerElasticStringRank * 0.08;
+    if (archerCapstoneRank > 0) {
+      aps *= 1.15;
+    }
+  }
+
+  const capBonus = archerElasticStringRank * 2 + archerCapstoneRank * 20;
+  const hardCap = Math.min(
+    100,
+    COMBAT_PLAYER_CONFIG.maxAttacksPerSecond + capBonus,
+  );
+  return Math.min(hardCap, Math.max(0.2, aps));
 }
 
 export function getPlayerCritChance(state: GameState): number {
@@ -718,8 +836,9 @@ export function castCombatSpell(
   spellId: string,
   rng: CombatRng = Math.random,
 ): CombatTickResult {
-  const spell = getCombatSpellDefinition(spellId);
-  if (!spell || !state.playerProgress.unlockedSystems?.spells) {
+  const availableSpells = getAvailableCombatSpellsForState(state);
+  const spell = availableSpells.find((entry) => entry.id === spellId) ?? null;
+  if (!spell) {
     return { runtime, state, events: [] };
   }
 
@@ -789,6 +908,197 @@ export function castCombatSpell(
       ),
     };
     events[0].value = healAmount;
+  } else if (spellId === "mana_surge") {
+    const manaRestore = 42;
+    nextState = {
+      ...nextState,
+      resources: {
+        ...nextState.resources,
+        energy: Math.min(100, (nextState.resources.energy ?? 0) + manaRestore),
+      },
+    };
+    events[0].value = manaRestore;
+  } else if (spellId === "ember_lance") {
+    const totalStats = getTotalStats(nextState);
+    const baseDamage = Math.max(
+      1,
+      Math.round(
+        (totalStats.attack ?? 1) * 0.7 + (totalStats.intelligence ?? 0) * 4.2,
+      ),
+    );
+    const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - baseDamage);
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: baseDamage,
+      attackSource: "spell",
+      spellId,
+    });
+
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
+  } else if (spellId === "berserker_warcry") {
+    const totalStats = getTotalStats(nextState);
+    const baseDamage = Math.max(1, Math.round((totalStats.attack ?? 1) * 3.2));
+    const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - baseDamage);
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: baseDamage,
+      attackSource: "spell",
+      spellId,
+    });
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
+  } else if (spellId === "farmer_regrowth") {
+    const maxHp = getPlayerMaxHp(nextState);
+    const healAmount = Math.max(20, Math.round(maxHp * 0.35));
+    nextRuntime = {
+      ...nextRuntime,
+      playerCurrentHp: Math.min(
+        maxHp,
+        nextRuntime.playerCurrentHp + healAmount,
+      ),
+    };
+    events[0].value = healAmount;
+  } else if (spellId === "archer_hailfire") {
+    const totalStats = getTotalStats(nextState);
+    const baseDamage = Math.max(
+      1,
+      Math.round(
+        (totalStats.attack ?? 1) * 1.6 + (totalStats.agility ?? 0) * 12,
+      ),
+    );
+    const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - baseDamage);
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: baseDamage,
+      attackSource: "spell",
+      spellId,
+    });
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
+  } else if (spellId === "sorceress_nova") {
+    const totalStats = getTotalStats(nextState);
+    const baseDamage = Math.max(
+      1,
+      Math.round(
+        (totalStats.attack ?? 1) * 1.1 + (totalStats.intelligence ?? 0) * 5.1,
+      ),
+    );
+    const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - baseDamage);
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: baseDamage,
+      attackSource: "spell",
+      spellId,
+    });
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
+  } else if (spellId === "tamer_pack_howl") {
+    const totalStats = getTotalStats(nextState);
+    const petBurstDamage = Math.max(
+      1,
+      Math.round(
+        (totalStats.attack ?? 1) * 1.3 + (totalStats.petStrength ?? 0) * 20,
+      ),
+    );
+    const nextEnemyHp = Math.max(
+      0,
+      nextRuntime.enemy.currentHp - petBurstDamage,
+    );
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: petBurstDamage,
+      attackSource: "spell",
+      spellId,
+    });
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
+  } else if (spell.source === "class") {
+    const totalStats = getTotalStats(nextState);
+    const fallbackDamage = Math.max(
+      1,
+      Math.round(
+        (totalStats.attack ?? 1) * 1.8 + (totalStats.intelligence ?? 0) * 1.6,
+      ),
+    );
+    const nextEnemyHp = Math.max(
+      0,
+      nextRuntime.enemy.currentHp - fallbackDamage,
+    );
+    nextRuntime = {
+      ...nextRuntime,
+      enemy: {
+        ...nextRuntime.enemy,
+        currentHp: nextEnemyHp,
+      },
+    };
+    events.push({
+      type: "playerHit",
+      value: fallbackDamage,
+      attackSource: "spell",
+      spellId,
+    });
+    if (nextEnemyHp <= 0) {
+      const rewarded = applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      events.push(...rewarded.events);
+    }
   }
 
   return {

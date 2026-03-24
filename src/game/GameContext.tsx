@@ -3,6 +3,7 @@ import type { GameState } from "./types";
 import { createDefaultState } from "./state";
 import { load, save } from "./storage";
 import { applyIdle } from "./engine";
+import { applyIdlerDailyCheckIn } from "./classes";
 import { applyGardenIdle } from "./garden";
 import {
   castCombatSpell,
@@ -47,6 +48,8 @@ type InitializationResult = {
 
 function initializeGameState(): InitializationResult {
   let initialState = load() ?? createDefaultState();
+  const dailyCheckIn = applyIdlerDailyCheckIn(initialState);
+  initialState = dailyCheckIn.state;
   const now = Date.now();
   const lastUpdate =
     typeof initialState.meta.lastUpdate === "number"
@@ -115,6 +118,15 @@ function initializeGameState(): InitializationResult {
           },
         ]
       : [];
+
+  if (dailyCheckIn.gemsGranted > 0) {
+    idleEarnings.push({
+      resourceId: "gems",
+      label: "Daily Check-In Gems",
+      amount: dailyCheckIn.gemsGranted,
+      icon: "💎",
+    });
+  }
 
   return {
     state: initialState,
