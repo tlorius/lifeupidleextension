@@ -1,4 +1,5 @@
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import {
   allClassDefinitions,
   CLASS_SWITCH_GEM_COST,
@@ -27,7 +28,8 @@ const classPortraits: Record<string, string> = {
 };
 
 export function ClassSelectModal({ isOpen, onClose }: ClassSelectModalProps) {
-  const { state, dispatch } = useGame();
+  const { state } = useGame();
+  const { switchClass } = useGameActions();
 
   if (!isOpen) return null;
 
@@ -209,7 +211,7 @@ export function ClassSelectModal({ isOpen, onClose }: ClassSelectModalProps) {
                   <button
                     disabled={!canSwitch}
                     onClick={() => {
-                      dispatch({ type: "class/switch", classId: classDef.id });
+                      switchClass(classDef.id);
                       onClose();
                     }}
                     style={{

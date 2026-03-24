@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import {
   getClassCombatSpellsForClass,
   getGeneralCombatSpellPath,
@@ -12,7 +13,8 @@ interface SpellSelectModalProps {
 }
 
 export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
-  const { state, dispatch } = useGame();
+  const { state } = useGame();
+  const { setClassSpellSlot } = useGameActions();
 
   const activeClassId = state.character.activeClassId;
   const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
@@ -159,12 +161,7 @@ export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
                         {selectedSpell && (
                           <button
                             onClick={() => {
-                              dispatch({
-                                type: "class/setSpellSlot",
-                                classId: activeClassId,
-                                slotIndex,
-                                spellId: null,
-                              });
+                              setClassSpellSlot(activeClassId, slotIndex, null);
                             }}
                             style={{
                               borderRadius: 4,
@@ -193,12 +190,11 @@ export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
                             <button
                               key={spell.id}
                               onClick={() => {
-                                dispatch({
-                                  type: "class/setSpellSlot",
-                                  classId: activeClassId,
+                                setClassSpellSlot(
+                                  activeClassId,
                                   slotIndex,
-                                  spellId: spell.id,
-                                });
+                                  spell.id,
+                                );
                               }}
                               style={{
                                 textAlign: "left",

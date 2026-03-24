@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import { getItemDefSafe } from "../game/items";
 import { uniqueSetDefinitions } from "../game/itemSets";
 import { ItemDetail } from "./ItemDetail";
@@ -37,7 +38,8 @@ function calculateItemTotalStats(item: any, def: any): number {
 }
 
 export function Inventory() {
-  const { state, setState } = useGame();
+  const { state } = useGame();
+  const { sellSelectedItems: dispatchSellSelectedItems } = useGameActions();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
   const [selectedSellUids, setSelectedSellUids] = useState<string[]>([]);
   const [isMassSelectMode, setIsMassSelectMode] = useState(false);
@@ -246,7 +248,7 @@ export function Inventory() {
     });
   };
 
-  const sellSelectedItems = () => {
+  const handleSellSelectedItems = () => {
     if (selectedSellUids.length === 0) return;
 
     const baseMessage = `Sell ${selectedSellUids.length} selected item(s) for ${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold?`;
@@ -258,30 +260,7 @@ export function Inventory() {
     const confirmed = window.confirm(`${baseMessage}${uniqueWarning}`);
     if (!confirmed) return;
 
-    setState((prev) => {
-      const selectedSet = new Set(selectedSellUids);
-      const totalGold = prev.inventory
-        .filter(
-          (item) =>
-            selectedSet.has(item.uid) && !isItemEquipped(prev, item.uid),
-        )
-        .reduce((sum, item) => {
-          const def = getItemDefSafe(item.itemId);
-          return sum + (def?.sellPrice ?? 0);
-        }, 0);
-
-      return {
-        ...prev,
-        resources: {
-          ...prev.resources,
-          gold: prev.resources.gold + totalGold,
-        },
-        inventory: prev.inventory.filter(
-          (item) =>
-            !selectedSet.has(item.uid) || isItemEquipped(prev, item.uid),
-        ),
-      };
-    });
+    dispatchSellSelectedItems(selectedSellUids);
 
     if (selectedItemUid && selectedSellUids.includes(selectedItemUid)) {
       setSelectedItemUid(null);
@@ -425,7 +404,7 @@ export function Inventory() {
                     cursor:
                       selectedSellUids.length > 0 ? "pointer" : "not-allowed",
                   }}
-                  onClick={sellSelectedItems}
+                  onClick={handleSellSelectedItems}
                   disabled={selectedSellUids.length === 0}
                 >
                   Sell Selected

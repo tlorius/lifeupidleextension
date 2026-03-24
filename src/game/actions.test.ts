@@ -121,6 +121,105 @@ describe("actions reducer", () => {
     expect(next.inventory.length).toBeGreaterThan(state.inventory.length);
   });
 
+  it("equips an item through reducer action", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const weapon = seeded.inventory.find((item) => item.itemId === "sword_1");
+    expect(weapon).toBeTruthy();
+
+    const next = reduceGameAction(seeded, {
+      type: "inventory/equipItem",
+      itemUid: weapon!.uid,
+    });
+
+    expect(next.equipment.weapon).toBe(weapon!.uid);
+  });
+
+  it("upgrades an item through reducer action", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const item = seeded.inventory.find((entry) => entry.itemId === "sword_1");
+    expect(item).toBeTruthy();
+    const richState = {
+      ...seeded,
+      resources: {
+        ...seeded.resources,
+        gems: 999999,
+      },
+    };
+
+    const next = reduceGameAction(richState, {
+      type: "inventory/upgradeItem",
+      itemUid: item!.uid,
+    });
+    const upgraded = next.inventory.find((entry) => entry.uid === item!.uid);
+
+    expect(upgraded?.level).toBe((item?.level ?? 1) + 1);
+  });
+
+  it("sells one item through reducer action", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const item = seeded.inventory.find((entry) => entry.itemId === "sword_1");
+    expect(item).toBeTruthy();
+
+    const next = reduceGameAction(seeded, {
+      type: "inventory/sellItem",
+      itemUid: item!.uid,
+    });
+
+    expect(next.inventory.some((entry) => entry.uid === item!.uid)).toBe(false);
+    expect(next.resources.gold).toBeGreaterThanOrEqual(seeded.resources.gold);
+  });
+
+  it("sells selected non-equipped items in batch", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const candidates = seeded.inventory
+      .filter(
+        (entry) => entry.itemId === "sword_1" || entry.itemId === "armor_1",
+      )
+      .slice(0, 2)
+      .map((entry) => entry.uid);
+    expect(candidates.length).toBeGreaterThan(0);
+
+    const next = reduceGameAction(seeded, {
+      type: "inventory/sellSelectedItems",
+      itemUids: candidates,
+    });
+
+    for (const uid of candidates) {
+      expect(next.inventory.some((entry) => entry.uid === uid)).toBe(false);
+    }
+    expect(next.resources.gold).toBeGreaterThanOrEqual(seeded.resources.gold);
+  });
+
+  it("uses potion through reducer action", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const potion = seeded.inventory.find(
+      (entry) => entry.itemId === "mana_potion",
+    );
+    expect(potion).toBeTruthy();
+
+    const next = reduceGameAction(seeded, {
+      type: "inventory/usePotion",
+      itemUid: potion!.uid,
+    });
+
+    expect(next.inventory.length).toBeLessThanOrEqual(seeded.inventory.length);
+    expect(
+      next.temporaryEffects?.goldIncomeBoostUntil ?? 0,
+    ).toBeGreaterThanOrEqual(
+      seeded.temporaryEffects?.goldIncomeBoostUntil ?? 0,
+    );
+  });
+
   it("resets to default state", () => {
     const state = reduceGameAction(createDefaultState(), {
       type: "resource/addGold",

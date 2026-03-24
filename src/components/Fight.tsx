@@ -11,6 +11,7 @@ import { getTotalStats } from "../game/engine";
 import { getItemDefSafe } from "../game/items";
 import { getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import { formatCompactNumber } from "../game/numberFormat";
 import { SpellSelectModal } from "./SpellSelectModal";
 import playerPixel from "../assets/player-pixel.svg";
@@ -87,13 +88,9 @@ function getPotionIcon(itemId: string): string {
 }
 
 export function Fight() {
-  const {
-    state,
-    combatEvents,
-    performCombatClickAttack,
-    useCombatConsumable,
-    castCombatSpell,
-  } = useGame();
+  const { state, combatEvents } = useGame();
+  const { combatCastSpell, combatClickAttack, combatUseConsumable } =
+    useGameActions();
   const [floatingDamage, setFloatingDamage] = useState<FloatingDamage[]>([]);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [toasts, setToasts] = useState<CombatToast[]>([]);
@@ -817,7 +814,7 @@ export function Fight() {
         </div>
 
         <button
-          onClick={performCombatClickAttack}
+          onClick={combatClickAttack}
           style={{
             width: "100%",
             minHeight: 180,
@@ -1014,7 +1011,7 @@ export function Fight() {
                           (inv.quantity ?? 0) > 0,
                       );
                       if (potionInstance) {
-                        useCombatConsumable(potionInstance.uid);
+                        combatUseConsumable(potionInstance.uid);
                       }
                     }
                   }}
@@ -1140,7 +1137,7 @@ export function Fight() {
               return (
                 <button
                   key={spell.id}
-                  onClick={() => castCombatSpell(spell.id)}
+                  onClick={() => combatCastSpell(spell.id)}
                   disabled={!canCast}
                   style={{
                     display: "grid",

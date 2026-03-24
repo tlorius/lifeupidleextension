@@ -1,7 +1,15 @@
-import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 
 export function Main() {
-  const { dispatch } = useGame();
+  const {
+    addDebugItems,
+    addEnergy,
+    addGems,
+    addGold,
+    addGoldAndGems,
+    addSkillPoints,
+    resetState,
+  } = useGameActions();
   return (
     <div style={{ padding: 20 }}>
       <h1>Idle RPG</h1>
@@ -13,7 +21,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => dispatch({ type: "resource/addGold", amount: 10 })}
+        onClick={() => addGold(10)}
       >
         +10 Gold
       </button>
@@ -25,7 +33,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => dispatch({ type: "resource/addGold", amount: 1000 })}
+        onClick={() => addGold(1000)}
       >
         +1000 Gold
       </button>
@@ -37,7 +45,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => dispatch({ type: "resource/addGems", amount: 100 })}
+        onClick={() => addGems(100)}
       >
         +100 Gems
       </button>
@@ -49,7 +57,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => dispatch({ type: "resource/addGems", amount: 1000 })}
+        onClick={() => addGems(1000)}
       >
         +1000 Gems
       </button>
@@ -61,13 +69,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() =>
-          dispatch({
-            type: "resource/addGoldAndGems",
-            goldAmount: 100000,
-            gemsAmount: 100000,
-          })
-        }
+        onClick={() => addGoldAndGems(100000, 100000)}
       >
         +100000 Gold & Gems
       </button>
@@ -79,7 +81,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => dispatch({ type: "resource/addEnergy", amount: 1000 })}
+        onClick={() => addEnergy(1000)}
       >
         +1000 Mana
       </button>
@@ -91,9 +93,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() =>
-          dispatch({ type: "character/addSkillPoints", amount: 100 })
-        }
+        onClick={() => addSkillPoints(100)}
       >
         +100 Skill Points
       </button>
@@ -105,7 +105,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => dispatch({ type: "inventory/addDebugItems" })}
+        onClick={addDebugItems}
       >
         Add Items to debug
       </button>
@@ -121,7 +121,7 @@ export function Main() {
           if (
             confirm("Are you sure you want to reset the entire game state?")
           ) {
-            dispatch({ type: "state/resetToDefault" });
+            resetState();
           }
         }}
       >

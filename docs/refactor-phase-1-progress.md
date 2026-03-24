@@ -68,6 +68,46 @@ Goal: Introduce a centralized action layer for state writes without changing beh
 
 - Test suite passing after second-slice migration.
 
+## Completed in third slice
+
+1. Selected inventory actions moved to reducer/dispatch path:
+
+- src/game/actions.ts
+- Added inventory actions for:
+  - equip item (including accessory slot override)
+  - upgrade item
+  - sell single item
+  - use potion
+  - sell selected items in batch
+
+- src/components/Inventory.tsx
+- Batch sell now calls reducer action via helper layer.
+
+- src/components/ItemDetail.tsx
+- Equip/upgrade/sell/potion handlers now use centralized action path.
+
+2. Thin action helper layer introduced:
+
+- src/game/useGameActions.ts
+- Provides concise UI-facing methods that wrap dispatch actions.
+- Used by Main, class/skill/spell modals, inventory-related handlers, and fight combat handlers.
+
+3. Combat action wrappers introduced without changing simulation internals:
+
+- src/components/Fight.tsx now uses helper wrappers:
+  - combatClickAttack
+  - combatUseConsumable
+  - combatCastSpell
+
+4. Expanded tests:
+
+- src/game/actions.test.ts
+- Added inventory action tests for equip/upgrade/sell/sellSelected/usePotion.
+
+5. Validation:
+
+- Test suite and build passing after third-slice migration.
+
 ## Architectural decisions (Phase 1)
 
 - Decision: incremental migration instead of big-bang rewrite.
@@ -87,6 +127,10 @@ Goal: Introduce a centralized action layer for state writes without changing beh
 
 Completed from this list:
 
+- selected inventory actions
+
+Completed from this list:
+
 - class switch
 - skill node upgrade
 - spell slot updates
@@ -95,6 +139,10 @@ Completed from this list:
 
 - combat actions
 - garden actions (carefully, due complexity)
+
+Progress update:
+
+- Combat wrappers in UI are in place; combat reducer actions are still intentionally deferred to avoid mixing architecture migration with runtime event-pipeline changes.
 
 3. Add reducer-focused tests as each action group is introduced.
 
