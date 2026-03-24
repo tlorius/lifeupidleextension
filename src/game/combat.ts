@@ -19,7 +19,7 @@ import { grantPlayerXp } from "./progression";
 import type { GameState } from "./types";
 
 export type CombatRng = () => number;
-export type CombatAttackSource = "auto" | "click" | "spell";
+export type CombatAttackSource = "auto" | "click" | "spell" | "pet";
 
 export interface CombatSpellDefinition {
   id: string;
@@ -864,7 +864,10 @@ export function castCombatSpell(
     },
   };
 
-  const applySpellHit = (rawDamage: number): boolean => {
+  const applySpellHit = (
+    rawDamage: number,
+    attackSource: CombatAttackSource = "spell",
+  ): boolean => {
     const damage = Math.max(1, Math.round(rawDamage));
     const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - damage);
     nextRuntime = {
@@ -877,7 +880,7 @@ export function castCombatSpell(
     events.push({
       type: "playerHit",
       value: damage,
-      attackSource: "spell",
+      attackSource,
       spellId,
     });
 
@@ -1030,7 +1033,7 @@ export function castCombatSpell(
     const totalStats = getTotalStats(nextState);
     const petBurstDamage =
       (totalStats.attack ?? 1) * 1.3 + (totalStats.petStrength ?? 0) * 20;
-    applySpellHit(petBurstDamage);
+    applySpellHit(petBurstDamage, "pet");
   } else if (spellId === "tamer_beast_sync") {
     const totalStats = getTotalStats(nextState);
     const bondRank = getActiveClassNodeRank(nextState, "tamer_1");
@@ -1040,9 +1043,9 @@ export function castCombatSpell(
     const playerFollowup =
       (totalStats.attack ?? 1) * 1.05 + (totalStats.agility ?? 0) * 3.4;
 
-    const defeatedOnFirst = applySpellHit(petHit);
+    const defeatedOnFirst = applySpellHit(petHit, "pet");
     if (!defeatedOnFirst) {
-      applySpellHit(playerFollowup);
+      applySpellHit(playerFollowup, "spell");
     }
   } else if (spell.source === "class") {
     const totalStats = getTotalStats(nextState);

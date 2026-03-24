@@ -40,7 +40,7 @@ interface CombatToast {
 interface DamagePoint {
   timestamp: number;
   damage: number;
-  source: "auto" | "click" | "spell";
+  source: "auto" | "click" | "spell" | "pet";
 }
 
 interface ConsumableSummary {
@@ -228,7 +228,7 @@ export function Fight() {
       .map((event) => ({
         timestamp: now,
         damage: Math.max(0, event.value ?? 0),
-        source: event.attackSource ?? "auto",
+        source: (event.attackSource ?? "auto") as DamagePoint["source"],
       }));
 
     if (hits.length > 0) {
@@ -322,6 +322,10 @@ export function Fight() {
     () => getSourceDps("spell", clockNow - dpsWindowMs, clockNow),
     [clockNow, damageHistory, dpsWindowMs],
   );
+  const currentPetDps = useMemo(
+    () => getSourceDps("pet", clockNow - dpsWindowMs, clockNow),
+    [clockNow, damageHistory, dpsWindowMs],
+  );
 
   const dpsDelta = currentDps - previousDps;
   const dpsDeltaPercent =
@@ -349,10 +353,11 @@ export function Fight() {
         const isMobileViewport = window.innerWidth <= 768;
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
+          const isPetHit = event.attackSource === "pet";
           return {
             id: `${now}-p-${index}`,
             text: `${Math.round(event.value ?? 0)}`,
-            color: isCrit ? "#ffffff" : "#47d16d",
+            color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
             fontSize: isCrit
               ? isMobileViewport
                 ? 38
@@ -466,12 +471,22 @@ export function Fight() {
           const spellName =
             getCombatSpellDefinition(event.spellId ?? "")?.name ??
             event.spellId;
+          const petHits = combatEvents.filter(
+            (hit) =>
+              hit.type === "playerHit" &&
+              hit.spellId === event.spellId &&
+              hit.attackSource === "pet",
+          ).length;
+          const petTag =
+            petHits > 0
+              ? ` (${petHits} pet strike${petHits > 1 ? "s" : ""})`
+              : "";
           return {
             id: `${now}-c-${index}`,
             text:
               event.spellId === "second_wind"
                 ? `Cast ${spellName} and restored ${Math.round(event.value ?? 0)} HP`
-                : `Cast ${spellName}`,
+                : `Cast ${spellName}${petTag}`,
             color: "#9fd2ff",
           };
         }
@@ -1439,6 +1454,9 @@ export function Fight() {
           </div>
           <div>
             Spell DPS: <strong>{formatCompactNumber(currentSpellDps)}</strong>
+          </div>
+          <div>
+            Pet DPS: <strong>{formatCompactNumber(currentPetDps)}</strong>
           </div>
         </div>
 
