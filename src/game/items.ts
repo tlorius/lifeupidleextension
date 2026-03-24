@@ -116,6 +116,15 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 128000, agility: 380, intelligence: 18000 },
     sellPrice: 1920,
   },
+  windrazor_blade: {
+    id: "windrazor_blade",
+    name: "Windrazor Blade",
+    type: "weapon",
+    rarity: "unique",
+    setId: "windrazor",
+    stats: { attack: 116000, agility: 740, critChance: 80 },
+    sellPrice: 1940,
+  },
 
   // Armor - Common
   armor_1: {
@@ -231,6 +240,15 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { defense: 70000, hp: 250000, agility: 440, attack: 46000 },
     sellPrice: 1890,
   },
+  windrazor_mail: {
+    id: "windrazor_mail",
+    name: "Windrazor Mail",
+    type: "armor",
+    rarity: "unique",
+    setId: "windrazor",
+    stats: { defense: 64000, hp: 230000, agility: 680, attack: 38000 },
+    sellPrice: 1910,
+  },
 
   // Accessories - Common
   ring_1: {
@@ -345,6 +363,15 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     setId: "bloodletter",
     stats: { attack: 91000, agility: 360, critChance: 120 },
     sellPrice: 1870,
+  },
+  windrazor_charm: {
+    id: "windrazor_charm",
+    name: "Windrazor Charm",
+    type: "accessory",
+    rarity: "unique",
+    setId: "windrazor",
+    stats: { attack: 86000, agility: 620, critChance: 90 },
+    sellPrice: 1890,
   },
 
   // Tools - Common
@@ -786,6 +813,27 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     rarity: "rare",
     sellPrice: 15,
   },
+  astral_lotus_seed_epic: {
+    id: "astral_lotus_seed_epic",
+    name: "Astral Lotus Seed",
+    type: "seed",
+    rarity: "epic",
+    sellPrice: 80,
+  },
+  void_truffle_seed_legendary: {
+    id: "void_truffle_seed_legendary",
+    name: "Void Truffle Seed",
+    type: "seed",
+    rarity: "legendary",
+    sellPrice: 180,
+  },
+  phoenix_bloom_seed_unique: {
+    id: "phoenix_bloom_seed_unique",
+    name: "Phoenix Bloom Seed",
+    type: "seed",
+    rarity: "unique",
+    sellPrice: 420,
+  },
   // Seeds - Epic
   moonflower_seed: {
     id: "moonflower_seed",
@@ -922,6 +970,16 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 122000, agility: 640, intelligence: 28000 },
     sellPrice: 2120,
     petBonus: { bonusType: "agility", bonusAmount: 1.35 },
+  },
+  windrazor_raptor: {
+    id: "windrazor_raptor",
+    name: "Windrazor Raptor",
+    type: "pet",
+    rarity: "unique",
+    setId: "windrazor",
+    stats: { attack: 118000, agility: 820, critChance: 140 },
+    sellPrice: 2140,
+    petBonus: { bonusType: "agility", bonusAmount: 1.6 },
   },
 };
 

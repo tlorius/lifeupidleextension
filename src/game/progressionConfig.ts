@@ -21,6 +21,7 @@ export const STARTING_PLAYER_PROGRESS: PlayerProgress = {
   unspentPoints: 0,
   unlockedSystems: {
     spells: false,
+    classes: false,
   },
 };
 
@@ -38,6 +39,7 @@ export const PROGRESSION_CONFIG = {
   },
   unlocks: {
     spellsAtLevel: 8,
+    classesAtLevel: 10,
   },
   levelUpGains: {
     hpPerLevel: 18,

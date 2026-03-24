@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Inventory } from "./components/Inventory";
-import { Equipment } from "./components/Equipment";
+import { Character } from "./components/Equipment";
 import { Main } from "./components/Main";
 import { Upgrades } from "./components/Upgrades";
 import { Garden } from "./components/Garden";
@@ -12,7 +12,7 @@ import { IdleEarningsModal } from "./components/IdleEarningsModal";
 type Screen =
   | "main"
   | "inventory"
-  | "equipment"
+  | "character"
   | "upgrades"
   | "garden"
   | "fight";
@@ -58,11 +58,11 @@ function App() {
             Inventory
           </button>
           <button
-            className={screen === "equipment" ? "btn-selected" : ""}
+            className={screen === "character" ? "btn-selected" : ""}
             style={{ flex: "1 1 auto" }}
-            onClick={() => setScreen("equipment")}
+            onClick={() => setScreen("character")}
           >
-            Equipment
+            Character
           </button>
           <button
             className={screen === "upgrades" ? "btn-selected" : ""}
@@ -89,7 +89,7 @@ function App() {
       </div>
 
       {screen === "inventory" && <Inventory />}
-      {screen === "equipment" && <Equipment />}
+      {screen === "character" && <Character />}
       {screen === "upgrades" && <Upgrades />}
       {screen === "garden" && <Garden />}
       {screen === "fight" && <Fight />}

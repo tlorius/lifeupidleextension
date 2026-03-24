@@ -29,8 +29,8 @@ export interface CombatLootTable {
 
 export const COMBAT_PLAYER_CONFIG = {
   baseAttacksPerSecond: 1,
-  agilityToApsScale: 0.12,
-  maxAttacksPerSecond: 4.5,
+  agilityToApsScale: 0.2,
+  maxAttacksPerSecond: 100,
   autoAdvanceAfterVictory: true,
   deathCheckpointMode: "boss" as const,
   offlineResolutionMode: "expected-value" as const,
@@ -479,6 +479,10 @@ export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
       { itemId: "bloodletter_blade", weight: 18 },
       { itemId: "bloodletter_garb", weight: 18 },
       { itemId: "blood_raptor", weight: 10 },
+      { itemId: "windrazor_blade", weight: 18 },
+      { itemId: "windrazor_mail", weight: 18 },
+      { itemId: "windrazor_charm", weight: 16 },
+      { itemId: "windrazor_raptor", weight: 10 },
       { itemId: "chaos_potion", weight: 14 },
       { itemId: "wateringcan_unique", weight: 10 },
       { itemId: "scythe_unique", weight: 10 },

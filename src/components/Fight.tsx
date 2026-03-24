@@ -310,13 +310,20 @@ export function Fight() {
         (event) => event.type === "playerHit" || event.type === "enemyHit",
       )
       .map((event, index) => {
+        const isMobileViewport = window.innerWidth <= 768;
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
           return {
             id: `${now}-p-${index}`,
             text: `${Math.round(event.value ?? 0)}`,
             color: isCrit ? "#ffffff" : "#47d16d",
-            fontSize: isCrit ? 50 : 21,
+            fontSize: isCrit
+              ? isMobileViewport
+                ? 38
+                : 48
+              : isMobileViewport
+                ? 17
+                : 20,
             top: 24 + Math.random() * 42,
             left: 70 + Math.random() * 20,
           } as FloatingDamage;

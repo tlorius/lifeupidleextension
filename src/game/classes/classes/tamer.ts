@@ -1,0 +1,113 @@
+import type { CharacterClassDefinition } from "../types";
+
+export const tamerClass: CharacterClassDefinition = {
+  id: "tamer",
+  name: "Tamer",
+  summary:
+    "Massive pet amplification with passive and active companion support.",
+  fantasy: "A bond-driven fighter whose companions become the main weapon.",
+  portraitAsset: "tamer",
+  nodes: [
+    {
+      id: "tamer_1",
+      name: "Bond Strength",
+      description: "Increase pet damage multipliers.",
+      maxRank: 5,
+    },
+    {
+      id: "tamer_2",
+      name: "Companion Instinct",
+      description: "Increase pet attack frequency.",
+      maxRank: 5,
+      prerequisites: ["tamer_1"],
+    },
+    {
+      id: "tamer_3",
+      name: "Shared Resolve",
+      description: "Split incoming pressure with pet.",
+      maxRank: 3,
+      prerequisites: ["tamer_1"],
+    },
+    {
+      id: "tamer_4",
+      name: "Feral Training",
+      description: "Improve pet crit and burst.",
+      maxRank: 5,
+      prerequisites: ["tamer_2"],
+    },
+    {
+      id: "tamer_5",
+      name: "Pack Tactics",
+      description: "Player and pet amplify each other.",
+      maxRank: 5,
+      prerequisites: ["tamer_2"],
+    },
+    {
+      id: "tamer_6",
+      name: "Echo Command",
+      description: "Repeat recent pet strikes.",
+      maxRank: 3,
+      prerequisites: ["tamer_3"],
+    },
+    {
+      id: "tamer_7",
+      name: "Predator Pace",
+      description: "Scale pet output with agility.",
+      maxRank: 5,
+      prerequisites: ["tamer_4"],
+    },
+    {
+      id: "tamer_8",
+      name: "Wild Bulwark",
+      description: "Defensive boost while pet is active.",
+      maxRank: 3,
+      prerequisites: ["tamer_5"],
+    },
+    {
+      id: "tamer_9",
+      name: "Alpha Signal",
+      description: "Command windows spike pet damage.",
+      maxRank: 5,
+      prerequisites: ["tamer_6"],
+    },
+    {
+      id: "tamer_10",
+      name: "Companion Frenzy",
+      description: "Burst mode for pet attacks.",
+      maxRank: 3,
+      prerequisites: ["tamer_7", "tamer_8"],
+    },
+    {
+      id: "tamer_11",
+      name: "Guardian Bond",
+      description: "Emergency save from lethal pressure.",
+      maxRank: 1,
+      prerequisites: ["tamer_9"],
+    },
+    {
+      id: "tamer_12",
+      name: "Primal Concord",
+      description: "Capstone for full pet-centric dominance.",
+      maxRank: 1,
+      prerequisites: ["tamer_10", "tamer_11"],
+    },
+  ],
+  classSpells: [
+    {
+      id: "tamer_pack_howl",
+      name: "Pack Howl",
+      description: "Boost pet damage and speed for a short duration.",
+      manaCost: 30,
+      cooldownMs: 16000,
+      requiredLevel: 10,
+    },
+    {
+      id: "tamer_beast_sync",
+      name: "Beast Sync",
+      description: "Synchronize player and pet strikes for burst events.",
+      manaCost: 40,
+      cooldownMs: 22000,
+      requiredLevel: 20,
+    },
+  ],
+};

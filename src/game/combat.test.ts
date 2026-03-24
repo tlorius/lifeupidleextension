@@ -33,7 +33,7 @@ describe("combat engine", () => {
     const state = createDefaultState();
     state.stats.agility = 500;
 
-    expect(getPlayerAttacksPerSecond(state)).toBe(4.5);
+    expect(getPlayerAttacksPerSecond(state)).toBe(100);
   });
 
   it("calculates crit damage using rng", () => {

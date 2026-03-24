@@ -1,3 +1,5 @@
+import type { CharacterState } from "./classes/types";
+
 export interface Meta {
   version: number;
   lastUpdate: number;
@@ -207,6 +209,7 @@ export interface PlayerProgress {
   unspentPoints?: number;
   unlockedSystems?: {
     spells?: boolean;
+    classes?: boolean;
   };
   lastLevelUpAt?: number;
 }
@@ -252,6 +255,7 @@ export interface GameState {
 
   inventory: ItemInstance[];
   equipment: Equipment;
+  character: CharacterState;
 
   upgrades: Upgrade[];
   pets: Pet[];

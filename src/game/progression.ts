@@ -5,6 +5,10 @@ export function isSpellSystemUnlocked(level: number): boolean {
   return level >= PROGRESSION_CONFIG.unlocks.spellsAtLevel;
 }
 
+export function isClassSystemUnlocked(level: number): boolean {
+  return level >= PROGRESSION_CONFIG.unlocks.classesAtLevel;
+}
+
 export function getHardLevelCap(): number {
   return PROGRESSION_CONFIG.levelCaps.hardCapLevel;
 }
@@ -119,6 +123,16 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
     nextProgress.level += 1;
     leveledUp = true;
 
+    if (nextProgress.level >= PROGRESSION_CONFIG.unlocks.classesAtLevel) {
+      state = {
+        ...state,
+        character: {
+          ...state.character,
+          availableSkillPoints: state.character.availableSkillPoints + 1,
+        },
+      };
+    }
+
     const gains = getLevelUpGains(nextProgress.level);
     for (const [key, value] of Object.entries(gains)) {
       const statKey = key as keyof Stats;
@@ -136,6 +150,7 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
   nextProgress.unlockedSystems = {
     ...nextProgress.unlockedSystems,
     spells: isSpellSystemUnlocked(nextProgress.level),
+    classes: isClassSystemUnlocked(nextProgress.level),
   };
 
   if (leveledUp) {
