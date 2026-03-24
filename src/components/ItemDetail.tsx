@@ -1,19 +1,17 @@
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import { uniqueSetDefinitions } from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import {
   getItemStats,
   calculateUpgradeCost,
   isItemEquipped,
-  equipItem,
-  upgradeItem,
-  sellItem,
-  usePotion,
 } from "../game/engine";
 import { useState } from "react";
 import type { Equipment, Stats } from "../game/types";
 import { formatCompactNumber } from "../game/numberFormat";
 import type { ItemInstance } from "../game/types";
+import { reduceGameAction } from "../game/actions";
 
 export type PotionToastTone = "positive" | "mixed" | "negative" | "neutral";
 
@@ -29,7 +27,8 @@ interface ItemDetailProps {
 }
 
 export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
-  const { state, setState } = useGame();
+  const { state } = useGame();
+  const { equipItem, sellItem, upgradeItem, usePotion } = useGameActions();
   const [accessoryTargetSlot, setAccessoryTargetSlot] = useState<
     "accessory1" | "accessory2"
   >("accessory1");
@@ -555,15 +554,16 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 borderRadius: 4,
               }}
               onClick={() => {
-                let toastPayload: PotionToastPayload = {
-                  message: "Potion used",
-                  tone: "neutral",
-                };
-                setState((prev) => {
-                  const next = usePotion(prev, item.uid);
-                  toastPayload = getPotionEffectToastMessage(prev, next);
-                  return next;
+                const projectedState = reduceGameAction(state, {
+                  type: "inventory/usePotion",
+                  itemUid: item.uid,
                 });
+                const toastPayload = getPotionEffectToastMessage(
+                  state,
+                  projectedState,
+                );
+
+                usePotion(item.uid);
                 onPotionUsed?.(toastPayload);
                 onClose();
               }}
@@ -628,9 +628,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                     borderRadius: 4,
                   }}
                   onClick={() => {
-                    setState((prev) =>
-                      equipItem(prev, item.uid, accessoryTargetSlot),
-                    );
+                    equipItem(item.uid, accessoryTargetSlot);
                   }}
                 >
                   Equip in {slotLabel[accessoryTargetSlot]}
@@ -651,7 +649,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 }}
                 onClick={() => {
                   if (!equipped && isEquipableType) {
-                    setState((prev) => equipItem(prev, item.uid));
+                    equipItem(item.uid);
                   }
                 }}
                 disabled={equipped || !isEquipableType}
@@ -674,7 +672,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
             }}
             onClick={() => {
               if (canAffordUpgrade) {
-                setState((prev) => upgradeItem(prev, item.uid));
+                upgradeItem(item.uid);
               }
             }}
             disabled={!canAffordUpgrade}
@@ -694,7 +692,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
               borderRadius: 4,
             }}
             onClick={() => {
-              setState((prev) => sellItem(prev, item.uid));
+              sellItem(item.uid);
               onClose();
             }}
           >

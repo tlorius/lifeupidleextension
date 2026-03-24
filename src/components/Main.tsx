@@ -1,9 +1,15 @@
-import { useGame } from "../game/GameContext";
-import { addDebugItems } from "../game/items";
-import { createDefaultState } from "../game/state";
+import { useGameActions } from "../game/useGameActions";
 
 export function Main() {
-  const { setState } = useGame();
+  const {
+    addDebugItems,
+    addEnergy,
+    addGems,
+    addGold,
+    addGoldAndGems,
+    addSkillPoints,
+    resetState,
+  } = useGameActions();
   return (
     <div style={{ padding: 20 }}>
       <h1>Idle RPG</h1>
@@ -15,15 +21,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + 10,
-            },
-          }));
-        }}
+        onClick={() => addGold(10)}
       >
         +10 Gold
       </button>
@@ -35,15 +33,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + 1000,
-            },
-          }));
-        }}
+        onClick={() => addGold(1000)}
       >
         +1000 Gold
       </button>
@@ -55,15 +45,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gems: (prev.resources.gems ?? 0) + 100,
-            },
-          }));
-        }}
+        onClick={() => addGems(100)}
       >
         +100 Gems
       </button>
@@ -75,15 +57,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gems: (prev.resources.gems ?? 0) + 1000,
-            },
-          }));
-        }}
+        onClick={() => addGems(1000)}
       >
         +1000 Gems
       </button>
@@ -95,16 +69,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + 100000,
-              gems: (prev.resources.gems ?? 0) + 100000,
-            },
-          }));
-        }}
+        onClick={() => addGoldAndGems(100000, 100000)}
       >
         +100000 Gold & Gems
       </button>
@@ -116,15 +81,7 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => ({
-            ...prev,
-            resources: {
-              ...prev.resources,
-              energy: (prev.resources.energy ?? 0) + 1000,
-            },
-          }));
-        }}
+        onClick={() => addEnergy(1000)}
       >
         +1000 Mana
       </button>
@@ -136,9 +93,19 @@ export function Main() {
           width: "100%",
           marginBottom: 8,
         }}
-        onClick={() => {
-          setState((prev) => addDebugItems(prev));
+        onClick={() => addSkillPoints(100)}
+      >
+        +100 Skill Points
+      </button>
+
+      <button
+        style={{
+          padding: "12px",
+          fontSize: "15px",
+          width: "100%",
+          marginBottom: 8,
         }}
+        onClick={addDebugItems}
       >
         Add Items to debug
       </button>
@@ -154,7 +121,7 @@ export function Main() {
           if (
             confirm("Are you sure you want to reset the entire game state?")
           ) {
-            setState(createDefaultState());
+            resetState();
           }
         }}
       >

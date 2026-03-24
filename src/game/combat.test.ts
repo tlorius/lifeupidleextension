@@ -33,7 +33,7 @@ describe("combat engine", () => {
     const state = createDefaultState();
     state.stats.agility = 500;
 
-    expect(getPlayerAttacksPerSecond(state)).toBe(4.5);
+    expect(getPlayerAttacksPerSecond(state)).toBe(100);
   });
 
   it("calculates crit damage using rng", () => {
@@ -115,6 +115,7 @@ describe("combat engine", () => {
 
   it("casts arcane bolt, spends mana, and starts spell cooldown", () => {
     const state = createDefaultState();
+    state.playerProgress.level = 8;
     state.playerProgress.unlockedSystems = {
       ...state.playerProgress.unlockedSystems,
       spells: true,
@@ -137,6 +138,43 @@ describe("combat engine", () => {
     expect(result.runtime.enemy.currentHp).toBeLessThan(
       runtime.enemy.currentHp,
     );
+  });
+
+  it("emits pet-source hit events for tamer beast sync", () => {
+    const state = createDefaultState();
+    state.playerProgress.level = 25;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.character.activeClassId = "tamer";
+    state.resources.energy = 100;
+    state.stats.attack = 24;
+    state.stats.agility = 12;
+    state.stats.petStrength = 8;
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 400;
+
+    const result = castCombatSpell(
+      runtime,
+      state,
+      "tamer_beast_sync",
+      () => 0.4,
+    );
+
+    expect(result.state.resources.energy).toBe(60);
+    expect(result.runtime.enemy.currentHp).toBeLessThan(
+      runtime.enemy.currentHp,
+    );
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === "playerHit" &&
+          event.spellId === "tamer_beast_sync" &&
+          event.attackSource === "pet",
+      ),
+    ).toBe(true);
   });
 
   it("prevents combat consumables from being used again while on cooldown", () => {

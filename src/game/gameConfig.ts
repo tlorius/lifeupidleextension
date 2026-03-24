@@ -45,6 +45,9 @@ export const SEED_MAKER_CONFIG = {
     wheat_seed_common: { gemCost: 1, resourceCost: 1 },
     corn_seed_rare: { gemCost: 1, resourceCost: 1 },
     grape_seed_common: { gemCost: 1, resourceCost: 1 },
+    astral_lotus_seed_epic: { gemCost: 4, resourceCost: 25 },
+    void_truffle_seed_legendary: { gemCost: 8, resourceCost: 45 },
+    phoenix_bloom_seed_unique: { gemCost: 16, resourceCost: 80 },
   },
 } as const;
 
@@ -191,6 +194,47 @@ export const CROP_CONFIG = {
     baseGold: 150,
     isPerennial: true, // Perennial crop
     rarity: "common" as const,
+    spriteStages: 1,
+  },
+
+  // Special crops - explicit special category seeds/plants
+  astral_lotus_epic: {
+    id: "astral_lotus_epic",
+    name: "Astral Lotus",
+    seedItemId: "astral_lotus_seed_epic",
+    category: "special" as const,
+    growthTimeMinutes: 210,
+    baseYield: 60,
+    baseXP: 48,
+    baseGold: 220,
+    isPerennial: false,
+    rarity: "epic" as const,
+    spriteStages: 1,
+  },
+  void_truffle_legendary: {
+    id: "void_truffle_legendary",
+    name: "Void Truffle",
+    seedItemId: "void_truffle_seed_legendary",
+    category: "special" as const,
+    growthTimeMinutes: 300,
+    baseYield: 72,
+    baseXP: 62,
+    baseGold: 340,
+    isPerennial: false,
+    rarity: "legendary" as const,
+    spriteStages: 1,
+  },
+  phoenix_bloom_unique: {
+    id: "phoenix_bloom_unique",
+    name: "Phoenix Bloom",
+    seedItemId: "phoenix_bloom_seed_unique",
+    category: "special" as const,
+    growthTimeMinutes: 420,
+    baseYield: 86,
+    baseXP: 90,
+    baseGold: 520,
+    isPerennial: false,
+    rarity: "unique" as const,
     spriteStages: 1,
   },
 } as const;

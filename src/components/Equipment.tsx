@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
+import { CLASS_UNLOCK_LEVEL, isClassSystemUnlocked } from "../game/classes";
 import { uniqueSetDefinitions } from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import { ItemDetail } from "./ItemDetail";
+import { ClassSelectModal } from "./ClassSelectModal";
+import { SkillTreeModal } from "./SkillTreeModal";
 import type { ItemType } from "../game/types";
 
 function getItemIcon(itemType: ItemType, _rarity: string): string {
@@ -21,9 +25,12 @@ function getItemIcon(itemType: ItemType, _rarity: string): string {
   return typeIcons[itemType] || "📦";
 }
 
-export function Equipment() {
+export function Character() {
   const { state } = useGame();
+  const { freeRespecClass } = useGameActions();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
+  const [isClassSelectOpen, setIsClassSelectOpen] = useState(false);
+  const [isSkillTreeOpen, setIsSkillTreeOpen] = useState(false);
 
   function renderSlot(slot: keyof typeof state.equipment) {
     const uid = state.equipment[slot];
@@ -153,10 +160,62 @@ export function Equipment() {
   }
 
   const selectedItem = state.inventory.find((i) => i.uid === selectedItemUid);
+  const activeClassId = state.character.activeClassId;
+  const classSystemUnlocked = isClassSystemUnlocked(state.playerProgress.level);
 
   return (
     <div>
-      <h2>Equipment</h2>
+      <h2>Character</h2>
+
+      <div
+        style={{
+          border: "1px solid #2f4459",
+          borderRadius: 10,
+          background: "linear-gradient(135deg, #112131 0%, #18354b 100%)",
+          padding: 12,
+          marginBottom: 14,
+        }}
+      >
+        <div style={{ marginBottom: 8, fontSize: 13, color: "#b8d5ea" }}>
+          Class unlock: Level {CLASS_UNLOCK_LEVEL}
+        </div>
+        <div style={{ marginBottom: 10, fontSize: 13, color: "#cfe1ef" }}>
+          Current class: {activeClassId ?? "None"} | Skill points:{" "}
+          {state.character.availableSkillPoints}
+        </div>
+        {!classSystemUnlocked && (
+          <div style={{ color: "#ffd9a3", fontSize: 12 }}>
+            Reach level {CLASS_UNLOCK_LEVEL} to select a class.
+          </div>
+        )}
+
+        {classSystemUnlocked && (
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              marginTop: 10,
+            }}
+          >
+            <button onClick={() => setIsClassSelectOpen(true)}>
+              Switch Class
+            </button>
+            <button onClick={() => setIsSkillTreeOpen(true)}>
+              Open Skill Tree
+            </button>
+          </div>
+        )}
+
+        {activeClassId && (
+          <div style={{ marginTop: 12 }}>
+            <button onClick={() => freeRespecClass(activeClassId)}>
+              Free Respec Active Class
+            </button>
+          </div>
+        )}
+      </div>
+
       {renderSlot("weapon")}
       {renderSlot("armor")}
       {renderSlot("accessory1")}
@@ -170,6 +229,18 @@ export function Equipment() {
           onClose={() => setSelectedItemUid(null)}
         />
       )}
+
+      <ClassSelectModal
+        isOpen={isClassSelectOpen}
+        onClose={() => setIsClassSelectOpen(false)}
+      />
+
+      <SkillTreeModal
+        isOpen={isSkillTreeOpen}
+        onClose={() => setIsSkillTreeOpen(false)}
+      />
     </div>
   );
 }
+
+export const Equipment = Character;

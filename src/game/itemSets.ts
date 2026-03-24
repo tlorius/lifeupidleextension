@@ -81,4 +81,17 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       intelligence: 260,
     },
   },
+  windrazor: {
+    id: "windrazor",
+    name: "Windrazor Tempest",
+    twoPiece: {
+      agility: 320,
+      attack: 440,
+    },
+    fourPiece: {
+      agility: 980,
+      attack: 1800,
+      critChance: 36,
+    },
+  },
 };

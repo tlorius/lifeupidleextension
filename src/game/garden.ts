@@ -11,6 +11,7 @@ import {
   WATER_CONFIG,
   SEED_MAKER_CONFIG,
 } from "./gameConfig";
+import { addItem } from "./engine";
 
 /**
  * CROP DEFINITIONS - Re-exported from game config
@@ -25,6 +26,91 @@ export const toolDefinitions: Record<string, any> = TOOL_CONFIG as any;
 
 const HARVESTER_CHECK_INTERVAL_MS = 5000;
 const PLANTER_CHECK_INTERVAL_MS = 5000;
+
+const SPECIAL_DROP_POOLS: Record<
+  "rare" | "epic" | "legendary" | "unique",
+  string[]
+> = {
+  rare: ["hammer_1", "chainmail_aegis", "battle_charm"],
+  epic: ["greataxe_1", "runesteel_plate", "dragon_ring"],
+  legendary: ["titan_cleaver", "aegis_of_ages", "sovereign_signet"],
+  unique: ["windrazor_blade", "windrazor_mail", "windrazor_charm"],
+};
+
+function getFarmerSpecialDropRank(state: GameState): number {
+  if (state.character.activeClassId !== "farmer") return 0;
+  const ranks = state.character.classProgress.farmer.unlockedNodeRanks;
+  return Math.max(0, ranks.farmer_9 ?? 0);
+}
+
+function rollSpecialHarvestDrop(
+  state: GameState,
+  rng: () => number = Math.random,
+): { itemId: string; itemLevel: number } | null {
+  const rank = getFarmerSpecialDropRank(state);
+  const farmerRanks = state.character.classProgress.farmer.unlockedNodeRanks;
+  const bountifulHandsRank = Math.max(0, farmerRanks.farmer_4 ?? 0);
+  const granaryMindRank = Math.max(0, farmerRanks.farmer_6 ?? 0);
+  const vaultOfSeasonsRank = Math.max(0, farmerRanks.farmer_11 ?? 0);
+  const verdantSovereignRank = Math.max(0, farmerRanks.farmer_12 ?? 0);
+
+  // Base rare chance starts at 1%. Farmer tree can push higher tiers over time.
+  const rareChance = Math.min(
+    0.05,
+    0.01 + rank * 0.006 + bountifulHandsRank * 0.0015,
+  );
+  const epicChance = Math.min(
+    0.03,
+    rank >= 2 ? 0.003 + (rank - 1) * 0.003 + granaryMindRank * 0.001 : 0,
+  );
+  const legendaryChance = Math.min(
+    0.02,
+    rank >= 3 ? 0.0015 + (rank - 2) * 0.0025 + vaultOfSeasonsRank * 0.0012 : 0,
+  );
+  const uniqueChance = Math.min(
+    0.01,
+    rank >= 4
+      ? 0.002 +
+          (rank - 3) * 0.002 +
+          vaultOfSeasonsRank * 0.001 +
+          verdantSovereignRank * 0.001
+      : 0,
+  );
+
+  const roll = rng();
+  const thresholds: Array<{
+    rarity: "unique" | "legendary" | "epic" | "rare";
+    chance: number;
+  }> = [
+    { rarity: "unique", chance: uniqueChance },
+    { rarity: "legendary", chance: legendaryChance },
+    { rarity: "epic", chance: epicChance },
+    { rarity: "rare", chance: rareChance },
+  ];
+
+  let cursor = 0;
+  for (const threshold of thresholds) {
+    cursor += threshold.chance;
+    if (roll > cursor) continue;
+
+    const pool = SPECIAL_DROP_POOLS[threshold.rarity];
+    if (pool.length === 0) return null;
+
+    const pick = pool[Math.floor(rng() * pool.length)];
+    const itemLevel =
+      threshold.rarity === "unique"
+        ? 4 + vaultOfSeasonsRank + verdantSovereignRank
+        : threshold.rarity === "legendary"
+          ? 3 + Math.floor((granaryMindRank + vaultOfSeasonsRank) / 3)
+          : threshold.rarity === "epic"
+            ? 2 + Math.floor(granaryMindRank / 4)
+            : 1;
+
+    return { itemId: pick, itemLevel };
+  }
+
+  return null;
+}
 
 /**
  * ROCK CONFIGURATION - Re-exported from game config
@@ -1142,6 +1228,18 @@ export function harvestCrop(
 
   // Add gold
   newState.resources.gold += goldReward;
+
+  if (cropDef.category === "special") {
+    const specialDrop = rollSpecialHarvestDrop(newState);
+    if (specialDrop) {
+      newState = addItem(
+        newState,
+        specialDrop.itemId,
+        1,
+        specialDrop.itemLevel,
+      );
+    }
+  }
 
   // Update mastery progression
   newState.garden.cropMastery = {

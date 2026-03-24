@@ -1,17 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  COMBAT_SPELL_DEFINITIONS,
+  getAvailableCombatSpellsForState,
+  getCombatSpellDefinition,
+  getGeneralCombatSpellPath,
   getPlayerAttacksPerSecond,
   getPlayerCritChance,
 } from "../game/combat";
+import { getSpellSlotsForLevel } from "../game/classes";
 import { getTotalStats } from "../game/engine";
 import { getItemDefSafe } from "../game/items";
 import { getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import { formatCompactNumber } from "../game/numberFormat";
+import { SpellSelectModal } from "./SpellSelectModal";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
 import enemyBossPixel from "../assets/enemy-boss-pixel.svg";
+import petCompanionPixel from "../assets/pet-companion-pixel.svg";
 
 interface FloatingDamage {
   id: string;
@@ -37,7 +43,7 @@ interface CombatToast {
 interface DamagePoint {
   timestamp: number;
   damage: number;
-  source: "auto" | "click" | "spell";
+  source: "auto" | "click" | "spell" | "pet";
 }
 
 interface ConsumableSummary {
@@ -82,13 +88,9 @@ function getPotionIcon(itemId: string): string {
 }
 
 export function Fight() {
-  const {
-    state,
-    combatEvents,
-    performCombatClickAttack,
-    useCombatConsumable,
-    castCombatSpell,
-  } = useGame();
+  const { state, combatEvents } = useGame();
+  const { combatCastSpell, combatClickAttack, combatUseConsumable } =
+    useGameActions();
   const [floatingDamage, setFloatingDamage] = useState<FloatingDamage[]>([]);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [toasts, setToasts] = useState<CombatToast[]>([]);
@@ -97,6 +99,7 @@ export function Fight() {
   const [isDpsExpanded, setIsDpsExpanded] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [isPlayerStatsExpanded, setIsPlayerStatsExpanded] = useState(false);
+  const [isPetPulseActive, setIsPetPulseActive] = useState(false);
   const [equippedConsumables, setEquippedConsumables] = useState<
     [string | null, string | null]
   >([null, null]);
@@ -104,6 +107,7 @@ export function Fight() {
   const [selectedConsumableSlot, setSelectedConsumableSlot] = useState<0 | 1>(
     0,
   );
+  const [isSpellSelectOpen, setIsSpellSelectOpen] = useState(false);
 
   const combat = state.combat;
   const totalStats = getTotalStats(state);
@@ -148,6 +152,39 @@ export function Fight() {
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
   const spellCooldowns = combat.spellCooldowns ?? {};
   const consumableCooldowns = combat.consumableCooldowns ?? {};
+  const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
+  const generalSpellPath = getGeneralCombatSpellPath();
+  const availableSpells = getAvailableCombatSpellsForState(state);
+  const activeClassId = state.character.activeClassId;
+  const slottedSpells = useMemo(() => {
+    if (!state.playerProgress.unlockedSystems?.spells) return [];
+    if (unlockedSpellSlots <= 0) return [];
+
+    if (!activeClassId) {
+      return availableSpells.slice(0, unlockedSpellSlots);
+    }
+
+    const selectedIds = state.character.classProgress[
+      activeClassId
+    ].selectedSpellIds.slice(0, unlockedSpellSlots);
+    const uniqueIds = new Set<string>();
+    const result = [];
+    for (const spellId of selectedIds) {
+      if (!spellId || uniqueIds.has(spellId)) continue;
+      const spell = availableSpells.find((entry) => entry.id === spellId);
+      if (!spell) continue;
+      uniqueIds.add(spell.id);
+      result.push(spell);
+    }
+
+    return result;
+  }, [
+    activeClassId,
+    availableSpells,
+    state.character.classProgress,
+    state.playerProgress.unlockedSystems?.spells,
+    unlockedSpellSlots,
+  ]);
   const potionSummaries = useMemo(() => {
     const grouped = new Map<string, ConsumableSummary>();
 
@@ -192,7 +229,7 @@ export function Fight() {
       .map((event) => ({
         timestamp: now,
         damage: Math.max(0, event.value ?? 0),
-        source: event.attackSource ?? "auto",
+        source: (event.attackSource ?? "auto") as DamagePoint["source"],
       }));
 
     if (hits.length > 0) {
@@ -207,6 +244,22 @@ export function Fight() {
       prev.filter((entry) => clockNow - entry.timestamp <= 300_000),
     );
   }, [clockNow]);
+
+  useEffect(() => {
+    if (combatEvents.length === 0) return;
+
+    const hasPetHit = combatEvents.some(
+      (event) => event.type === "playerHit" && event.attackSource === "pet",
+    );
+    if (!hasPetHit) return;
+
+    setIsPetPulseActive(true);
+    const timer = window.setTimeout(() => {
+      setIsPetPulseActive(false);
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [combatEvents]);
 
   useEffect(() => {
     setEquippedConsumables((prev) => {
@@ -286,6 +339,10 @@ export function Fight() {
     () => getSourceDps("spell", clockNow - dpsWindowMs, clockNow),
     [clockNow, damageHistory, dpsWindowMs],
   );
+  const currentPetDps = useMemo(
+    () => getSourceDps("pet", clockNow - dpsWindowMs, clockNow),
+    [clockNow, damageHistory, dpsWindowMs],
+  );
 
   const dpsDelta = currentDps - previousDps;
   const dpsDeltaPercent =
@@ -310,13 +367,21 @@ export function Fight() {
         (event) => event.type === "playerHit" || event.type === "enemyHit",
       )
       .map((event, index) => {
+        const isMobileViewport = window.innerWidth <= 768;
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
+          const isPetHit = event.attackSource === "pet";
           return {
             id: `${now}-p-${index}`,
             text: `${Math.round(event.value ?? 0)}`,
-            color: isCrit ? "#ffffff" : "#47d16d",
-            fontSize: isCrit ? 50 : 21,
+            color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
+            fontSize: isCrit
+              ? isMobileViewport
+                ? 38
+                : 48
+              : isMobileViewport
+                ? 17
+                : 20,
             top: 24 + Math.random() * 42,
             left: 70 + Math.random() * 20,
           } as FloatingDamage;
@@ -421,14 +486,24 @@ export function Fight() {
 
         if (event.type === "spellCast") {
           const spellName =
-            COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === event.spellId)
-              ?.name ?? event.spellId;
+            getCombatSpellDefinition(event.spellId ?? "")?.name ??
+            event.spellId;
+          const petHits = combatEvents.filter(
+            (hit) =>
+              hit.type === "playerHit" &&
+              hit.spellId === event.spellId &&
+              hit.attackSource === "pet",
+          ).length;
+          const petTag =
+            petHits > 0
+              ? ` (${petHits} pet strike${petHits > 1 ? "s" : ""})`
+              : "";
           return {
             id: `${now}-c-${index}`,
             text:
               event.spellId === "second_wind"
                 ? `Cast ${spellName} and restored ${Math.round(event.value ?? 0)} HP`
-                : `Cast ${spellName}`,
+                : `Cast ${spellName}${petTag}`,
             color: "#9fd2ff",
           };
         }
@@ -502,8 +577,8 @@ export function Fight() {
 
         if (event.type === "spellCast") {
           const spellName =
-            COMBAT_SPELL_DEFINITIONS.find((spell) => spell.id === event.spellId)
-              ?.name ?? event.spellId;
+            getCombatSpellDefinition(event.spellId ?? "")?.name ??
+            event.spellId;
           return {
             id: `${now}-toast-spell-${index}`,
             text: `Cast ${spellName}`,
@@ -739,7 +814,7 @@ export function Fight() {
         </div>
 
         <button
-          onClick={performCombatClickAttack}
+          onClick={combatClickAttack}
           style={{
             width: "100%",
             minHeight: 180,
@@ -798,6 +873,23 @@ export function Fight() {
                   filter: "drop-shadow(0 6px 4px rgba(0,0,0,0.45))",
                 }}
               />
+              {activeClassId === "tamer" && (
+                <img
+                  src={petCompanionPixel}
+                  alt="Pet companion pixel art"
+                  width={46}
+                  height={46}
+                  style={{
+                    marginTop: -10,
+                    imageRendering: "pixelated",
+                    transform: isPetPulseActive ? "scale(1.12)" : "scale(1)",
+                    transition: "transform 120ms ease-out",
+                    filter: isPetPulseActive
+                      ? "drop-shadow(0 0 8px rgba(255, 179, 71, 0.85))"
+                      : "drop-shadow(0 4px 3px rgba(0,0,0,0.45))",
+                  }}
+                />
+              )}
             </div>
 
             <div style={{ display: "grid", justifyItems: "center", gap: 4 }}>
@@ -919,7 +1011,7 @@ export function Fight() {
                           (inv.quantity ?? 0) > 0,
                       );
                       if (potionInstance) {
-                        useCombatConsumable(potionInstance.uid);
+                        combatUseConsumable(potionInstance.uid);
                       }
                     }
                   }}
@@ -992,18 +1084,60 @@ export function Fight() {
             padding: 12,
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
-            ⚡ Spells
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              ⚡ Spells {activeClassId ? `(Class: ${activeClassId})` : ""}
+            </div>
+            {activeClassId && unlockedSpellSlots > 0 && (
+              <button
+                onClick={() => setIsSpellSelectOpen(true)}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: 11,
+                  borderRadius: 7,
+                  border: "1px solid rgba(109, 144, 173, 0.35)",
+                  background: "rgba(20, 35, 50, 0.65)",
+                  color: "#9fc6ff",
+                  cursor: "pointer",
+                }}
+              >
+                Manage Spells
+              </button>
+            )}
           </div>
+          <div style={{ fontSize: 11, color: "#99b9d6", marginBottom: 8 }}>
+            Slots unlocked: {unlockedSpellSlots} / 8
+          </div>
+
+          {unlockedSpellSlots <= 0 && (
+            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
+              Spell slots unlock at level 10. Continue leveling to equip spells.
+            </div>
+          )}
+
+          {unlockedSpellSlots > 0 && slottedSpells.length === 0 && (
+            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
+              No spells are slotted. Open Character and assign spells to slots.
+            </div>
+          )}
+
           <div style={{ display: "grid", gap: 8 }}>
-            {COMBAT_SPELL_DEFINITIONS.map((spell) => {
+            {slottedSpells.map((spell) => {
               const cooldownMs = spellCooldowns[spell.id] ?? 0;
               const canCast =
                 cooldownMs <= 0 && (playerMana ?? 0) >= spell.manaCost;
               return (
                 <button
                   key={spell.id}
-                  onClick={() => castCombatSpell(spell.id)}
+                  onClick={() => combatCastSpell(spell.id)}
                   disabled={!canCast}
                   style={{
                     display: "grid",
@@ -1036,7 +1170,7 @@ export function Fight() {
                       {spell.description}
                     </div>
                     <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>
-                      Mana {spell.manaCost} •{" "}
+                      Unlock Lv {spell.requiredLevel} • Mana {spell.manaCost} •{" "}
                       {cooldownMs > 0
                         ? `Cooldown ${formatRemainingMs(cooldownMs)}`
                         : "Ready"}
@@ -1046,6 +1180,41 @@ export function Fight() {
                 </button>
               );
             })}
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+              borderTop: "1px solid rgba(109, 144, 173, 0.25)",
+              paddingTop: 10,
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
+              Default Spell Path (XP Progression)
+            </div>
+            <div style={{ display: "grid", gap: 5 }}>
+              {generalSpellPath.map((spell) => {
+                const isUnlocked =
+                  state.playerProgress.level >= spell.requiredLevel;
+                return (
+                  <div
+                    key={`path-${spell.id}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "80px 1fr auto",
+                      gap: 8,
+                      alignItems: "center",
+                      fontSize: 11,
+                      color: isUnlocked ? "#d9f0ff" : "#8ea4b7",
+                    }}
+                  >
+                    <div>Lv {spell.requiredLevel}</div>
+                    <div>{spell.name}</div>
+                    <div>{isUnlocked ? "Unlocked" : "Locked"}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -1346,6 +1515,9 @@ export function Fight() {
           <div>
             Spell DPS: <strong>{formatCompactNumber(currentSpellDps)}</strong>
           </div>
+          <div>
+            Pet DPS: <strong>{formatCompactNumber(currentPetDps)}</strong>
+          </div>
         </div>
 
         {isDpsExpanded && (
@@ -1486,6 +1658,11 @@ export function Fight() {
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }`}
       </style>
+
+      <SpellSelectModal
+        isOpen={isSpellSelectOpen}
+        onClose={() => setIsSpellSelectOpen(false)}
+      />
     </div>
   );
 }

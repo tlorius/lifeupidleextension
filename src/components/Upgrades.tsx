@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useGame } from "../game/GameContext";
+import { useGameActions } from "../game/useGameActions";
 import {
   getUpgradeTrees,
   getUpgradesByTree,
   getUpgradeLevel,
-  buyUpgrade,
   getUpgradeDef,
   isUpgradeUnlocked,
   areUpgradePrerequisitesMet,
@@ -14,7 +14,8 @@ import { formatCompactNumber } from "../game/numberFormat";
 import type { Upgrade } from "../game/types";
 
 export function Upgrades() {
-  const { state, setState } = useGame();
+  const { state } = useGame();
+  const { buyUpgrade } = useGameActions();
   const [selectedTree, setSelectedTree] = useState<string | null>(null);
   const [isTreeView, setIsTreeView] = useState(false);
   const [treeModalUpgradeId, setTreeModalUpgradeId] = useState<string | null>(
@@ -784,7 +785,7 @@ export function Upgrades() {
                     color: presentation.canPurchase ? undefined : "#8ea3b8",
                   }}
                   onClick={() => {
-                    setState((prev) => buyUpgrade(prev, upgradeDef.id));
+                    buyUpgrade(upgradeDef.id);
                   }}
                   disabled={
                     !presentation.isUnlocked || !presentation.canPurchase
@@ -916,7 +917,7 @@ export function Upgrades() {
                     : "#8ea3b8",
                 }}
                 onClick={() => {
-                  setState((prev) => buyUpgrade(prev, selectedModalUpgrade.id));
+                  buyUpgrade(selectedModalUpgrade.id);
                 }}
                 disabled={
                   !selectedModalPresentation.isUnlocked ||

@@ -1,5 +1,6 @@
 import type { GameState } from "./types";
 import { createEnemyInstance } from "./combat";
+import { createDefaultCharacterState } from "./classes";
 import {
   STARTING_PLAYER_PROGRESS,
   STARTING_PLAYER_STATS,
@@ -10,7 +11,7 @@ export function createDefaultState(): GameState {
 
   return {
     meta: {
-      version: 2,
+      version: 3,
       lastUpdate: now,
     },
     resources: {
@@ -27,6 +28,7 @@ export function createDefaultState(): GameState {
       pet: null,
       tool: null,
     },
+    character: createDefaultCharacterState(),
     upgrades: [],
     pets: [],
     stats: { ...STARTING_PLAYER_STATS },

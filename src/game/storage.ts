@@ -1,5 +1,6 @@
 import type { GameState } from "./types";
 import { createDefaultState } from "./state";
+import { ensureCharacterStateShape } from "./classes";
 
 const KEY = "idle_save";
 
@@ -73,7 +74,7 @@ function migrateState(loaded: unknown): GameState {
     return merged;
   }
 
-  const migrated = mergeWithDefaults(loadedObj, freshDefaultState) as GameState;
+  let migrated = mergeWithDefaults(loadedObj, freshDefaultState) as GameState;
 
   const cropStorageCurrent = migrated.garden.cropStorage.current;
   const cropStorageLimits = migrated.garden.cropStorage.limits;
@@ -91,6 +92,8 @@ function migrateState(loaded: unknown): GameState {
   if (typeof migrated.meta.lastUpdate !== "number") {
     migrated.meta.lastUpdate = Date.now();
   }
+
+  migrated = ensureCharacterStateShape(migrated);
 
   return migrated;
 }
