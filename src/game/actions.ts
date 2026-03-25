@@ -181,7 +181,6 @@ export function applyGameAction(
         combatEvents: [],
       };
 
-    case "garden/replaceState":
     case "garden/reconcileRocks":
     case "garden/craftSeed":
     case "garden/startSeedMaker":
@@ -193,6 +192,10 @@ export function applyGameAction(
     case "garden/harvestCrop":
     case "garden/prestigeCrop":
     case "garden/unlockField":
+    case "garden/reduceCropGrowthTime":
+    case "garden/setCropSprinkler":
+    case "garden/placeSprinkler":
+    case "garden/removeSprinkler":
     case "garden/breakRock":
     case "garden/moveCropArea":
     case "garden/toggleSprinkler":

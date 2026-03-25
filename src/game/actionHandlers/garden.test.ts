@@ -3,22 +3,61 @@ import { createDefaultState } from "../state";
 import { applyGardenAction } from "./garden";
 
 describe("garden action handler", () => {
-  it("replaces state when explicitly requested", () => {
+  it("sets and removes crop sprinkler through explicit actions", () => {
     const state = createDefaultState();
-    const nextState = {
-      ...state,
-      resources: {
-        ...state.resources,
-        gold: state.resources.gold + 123,
-      },
-    };
-
-    const next = applyGardenAction(state, {
-      type: "garden/replaceState",
-      nextState,
+    const withCrop = applyGardenAction(state, {
+      type: "garden/plantCrop",
+      cropId: "sunflower_common",
+      row: 0,
+      col: 0,
     });
 
-    expect(next).toBe(nextState);
+    const withSprinkler = applyGardenAction(withCrop, {
+      type: "garden/setCropSprinkler",
+      row: 0,
+      col: 0,
+      sprinklerId: "sprinkler_common",
+    });
+
+    expect(withSprinkler.garden.crops.sunflower_common[0].hasSprinkler).toBe(
+      true,
+    );
+
+    const withoutSprinkler = applyGardenAction(withSprinkler, {
+      type: "garden/setCropSprinkler",
+      row: 0,
+      col: 0,
+      sprinklerId: null,
+    });
+
+    expect(withoutSprinkler.garden.crops.sunflower_common[0].hasSprinkler).toBe(
+      false,
+    );
+  });
+
+  it("reduces crop growth time through explicit action", () => {
+    const state = createDefaultState();
+    const planted = applyGardenAction(state, {
+      type: "garden/plantCrop",
+      cropId: "sunflower_common",
+      row: 0,
+      col: 0,
+    });
+    planted.resources.gems = 500;
+    const plantedAt = planted.garden.crops.sunflower_common[0].plantedAt;
+
+    const reduced = applyGardenAction(planted, {
+      type: "garden/reduceCropGrowthTime",
+      cropId: "sunflower_common",
+      cropIndex: 0,
+      minutes: 10,
+      gemCost: 100,
+    });
+
+    expect(reduced.garden.crops.sunflower_common[0].plantedAt).toBe(
+      plantedAt - 10 * 60 * 1000,
+    );
+    expect(reduced.resources.gems).toBe(400);
   });
 
   it("starts and stops seed maker with timer reset", () => {

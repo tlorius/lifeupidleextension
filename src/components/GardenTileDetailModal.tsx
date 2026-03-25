@@ -1,15 +1,10 @@
 import {
-  harvestCrop,
   placeHarvesterOnField,
   placePlanterOnField,
-  placeSprinklerOnField,
-  reduceCropGrowthTime,
-  removeHarvesterFromField,
-  removePlanterFromField,
-  removeSprinklerFromField,
   rockConfig,
   setCropSprinkler,
 } from "../game/garden";
+import type { GardenAction } from "../game/actionHandlers/garden";
 import { getItemDefSafe } from "../game/items";
 import { formatCompactNumber } from "../game/numberFormat";
 import {
@@ -66,7 +61,7 @@ interface GardenTileDetailModalProps {
     closeTileModal?: boolean,
   ) => void;
   onSetSprinklerPreview: (preview: SprinklerPreviewStateLike | null) => void;
-  onStateChange: (nextState: GameState) => void;
+  onGardenAction: (action: GardenAction) => void;
 }
 
 export function GardenTileDetailModal({
@@ -83,7 +78,7 @@ export function GardenTileDetailModal({
   onOpenRockBreakModal,
   onOpenPlanterSeedSelection,
   onSetSprinklerPreview,
-  onStateChange,
+  onGardenAction,
 }: GardenTileDetailModalProps) {
   if (!tileDetailModal.isOpen) {
     return null;
@@ -151,7 +146,7 @@ export function GardenTileDetailModal({
             onClose={onClose}
             onOpenPlanterSeedSelection={onOpenPlanterSeedSelection}
             onSetSprinklerPreview={onSetSprinklerPreview}
-            onStateChange={onStateChange}
+            onGardenAction={onGardenAction}
           />
         )}
 
@@ -177,7 +172,7 @@ export function GardenTileDetailModal({
             onOpenPlantModal={onOpenPlantModal}
             onOpenPlanterSeedSelection={onOpenPlanterSeedSelection}
             onSetSprinklerPreview={onSetSprinklerPreview}
-            onStateChange={onStateChange}
+            onGardenAction={onGardenAction}
           />
         )}
       </div>
@@ -195,7 +190,7 @@ function GardenCropTileDetailSection({
   onClose,
   onOpenPlanterSeedSelection,
   onSetSprinklerPreview,
-  onStateChange,
+  onGardenAction,
 }: {
   state: GameState;
   view: NonNullable<ReturnType<typeof selectGardenCropTileDetailView>>;
@@ -213,7 +208,7 @@ function GardenCropTileDetailSection({
     closeTileModal?: boolean,
   ) => void;
   onSetSprinklerPreview: (preview: SprinklerPreviewStateLike | null) => void;
-  onStateChange: (nextState: GameState) => void;
+  onGardenAction: (action: GardenAction) => void;
 }) {
   const {
     cropId,
@@ -347,7 +342,12 @@ function GardenCropTileDetailSection({
               <button
                 style={dangerSmallButtonStyle}
                 onClick={() =>
-                  onStateChange(setCropSprinkler(state, cropRow, cropCol, null))
+                  onGardenAction({
+                    type: "garden/setCropSprinkler",
+                    row: cropRow,
+                    col: cropCol,
+                    sprinklerId: null,
+                  })
                 }
               >
                 Remove Sprinkler
@@ -386,7 +386,12 @@ function GardenCropTileDetailSection({
                         );
                         return;
                       }
-                      onStateChange(nextState);
+                      onGardenAction({
+                        type: "garden/setCropSprinkler",
+                        row: cropRow,
+                        col: cropCol,
+                        sprinklerId,
+                      });
                     }}
                     onMouseEnter={() =>
                       onSetSprinklerPreview({
@@ -424,9 +429,11 @@ function GardenCropTileDetailSection({
               <button
                 style={dangerSmallButtonStyle}
                 onClick={() =>
-                  onStateChange(
-                    removeHarvesterFromField(state, cropRow, cropCol),
-                  )
+                  onGardenAction({
+                    type: "garden/removeHarvester",
+                    row: cropRow,
+                    col: cropCol,
+                  })
                 }
               >
                 Remove Harvester
@@ -456,7 +463,12 @@ function GardenCropTileDetailSection({
                         );
                         return;
                       }
-                      onStateChange(nextState);
+                      onGardenAction({
+                        type: "garden/placeHarvester",
+                        row: cropRow,
+                        col: cropCol,
+                        harvesterId,
+                      });
                     }}
                   >
                     Install {harvesterDef?.name ?? harvesterId}
@@ -493,9 +505,11 @@ function GardenCropTileDetailSection({
                 <button
                   style={dangerSmallButtonStyle}
                   onClick={() =>
-                    onStateChange(
-                      removePlanterFromField(state, cropRow, cropCol),
-                    )
+                    onGardenAction({
+                      type: "garden/removePlanter",
+                      row: cropRow,
+                      col: cropCol,
+                    })
                   }
                 >
                   Remove Planter
@@ -555,7 +569,13 @@ function GardenCropTileDetailSection({
                         );
                         return;
                       }
-                      onStateChange(nextState);
+                      onGardenAction({
+                        type: "garden/placePlanter",
+                        row: cropRow,
+                        col: cropCol,
+                        planterId,
+                        seedId: state.garden.selectedPlanterSeedId ?? null,
+                      });
                     }}
                   >
                     Install {planterDef?.name ?? planterId}
@@ -621,15 +641,13 @@ function GardenCropTileDetailSection({
             }}
             disabled={(state.resources.gems ?? 0) < speedUpGemCost}
             onClick={() =>
-              onStateChange(
-                reduceCropGrowthTime(
-                  state,
-                  cropId,
-                  cropIndex,
-                  speedUpMinutes,
-                  speedUpGemCost,
-                ),
-              )
+              onGardenAction({
+                type: "garden/reduceCropGrowthTime",
+                cropId,
+                cropIndex,
+                minutes: speedUpMinutes,
+                gemCost: speedUpGemCost,
+              })
             }
           >
             Reduce {speedUpMinutes}m ({formatCompactNumber(speedUpGemCost)}💎)
@@ -642,7 +660,11 @@ function GardenCropTileDetailSection({
               backgroundColor: "#51cf66",
             }}
             onClick={() => {
-              onStateChange(harvestCrop(state, cropId, cropIndex));
+              onGardenAction({
+                type: "garden/harvestCrop",
+                cropId,
+                cropIndex,
+              });
               onClose();
             }}
           >
@@ -746,7 +768,7 @@ function GardenEmptyTileDetailSection({
   onOpenPlantModal,
   onOpenPlanterSeedSelection,
   onSetSprinklerPreview,
-  onStateChange,
+  onGardenAction,
 }: {
   state: GameState;
   emptyMode: "choice" | "automation" | undefined;
@@ -765,7 +787,7 @@ function GardenEmptyTileDetailSection({
     closeTileModal?: boolean,
   ) => void;
   onSetSprinklerPreview: (preview: SprinklerPreviewStateLike | null) => void;
-  onStateChange: (nextState: GameState) => void;
+  onGardenAction: (action: GardenAction) => void;
 }) {
   const {
     emptyRow,
@@ -855,14 +877,12 @@ function GardenEmptyTileDetailSection({
                       );
                       if (!proceed) return;
                     }
-                    onStateChange(
-                      placeSprinklerOnField(
-                        state,
-                        emptyRow,
-                        emptyCol,
-                        sprinklerId,
-                      ),
-                    );
+                    onGardenAction({
+                      type: "garden/placeSprinkler",
+                      row: emptyRow,
+                      col: emptyCol,
+                      sprinklerId,
+                    });
                   }}
                   onMouseEnter={() =>
                     onSetSprinklerPreview({
@@ -908,7 +928,12 @@ function GardenEmptyTileDetailSection({
                       );
                       return;
                     }
-                    onStateChange(nextState);
+                    onGardenAction({
+                      type: "garden/placeHarvester",
+                      row: emptyRow,
+                      col: emptyCol,
+                      harvesterId,
+                    });
                   }}
                 >
                   Place {harvesterDef?.name ?? harvesterId}
@@ -960,7 +985,13 @@ function GardenEmptyTileDetailSection({
                       );
                       return;
                     }
-                    onStateChange(nextState);
+                    onGardenAction({
+                      type: "garden/placePlanter",
+                      row: emptyRow,
+                      col: emptyCol,
+                      planterId,
+                      seedId: state.garden.selectedPlanterSeedId ?? null,
+                    });
                   }}
                 >
                   Place {planterDef?.name ?? planterId}
@@ -1012,12 +1043,25 @@ function GardenEmptyTileDetailSection({
                 border: "1px solid #f1998e",
               }}
               onClick={() => {
-                const nextState = fieldSprinklerId
-                  ? removeSprinklerFromField(state, emptyRow, emptyCol)
-                  : fieldHarvesterId
-                    ? removeHarvesterFromField(state, emptyRow, emptyCol)
-                    : removePlanterFromField(state, emptyRow, emptyCol);
-                onStateChange(nextState);
+                if (fieldSprinklerId) {
+                  onGardenAction({
+                    type: "garden/removeSprinkler",
+                    row: emptyRow,
+                    col: emptyCol,
+                  });
+                } else if (fieldHarvesterId) {
+                  onGardenAction({
+                    type: "garden/removeHarvester",
+                    row: emptyRow,
+                    col: emptyCol,
+                  });
+                } else {
+                  onGardenAction({
+                    type: "garden/removePlanter",
+                    row: emptyRow,
+                    col: emptyCol,
+                  });
+                }
               }}
             >
               Remove Tool

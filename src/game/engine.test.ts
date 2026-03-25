@@ -127,6 +127,18 @@ describe("engine", () => {
     expect(getGoldIncome(state)).toBeCloseTo(10, 8);
   });
 
+  it("evaluates temporary boost deterministically with explicit now", () => {
+    const state = makeState();
+    state.stats.attack = 10;
+    state.temporaryEffects = {
+      goldIncomeBoostPercent: 50,
+      goldIncomeBoostUntil: 1_000,
+    };
+
+    expect(getGoldIncome(state, 900)).toBeCloseTo(15, 8);
+    expect(getGoldIncome(state, 1_000)).toBeCloseTo(10, 8);
+  });
+
   it("does not apply pet gold-income bonus when pet is not equipped", () => {
     const now = 1_700_000_000_000;
     vi.spyOn(Date, "now").mockReturnValue(now);
@@ -247,6 +259,28 @@ describe("engine", () => {
     expect(next.inventory).toHaveLength(0);
     expect(next.combat.playerCurrentHp).toBe(60);
     expect(next.resources.energy).toBe(100);
+  });
+
+  it("uses deterministic now/rng options for chaos potion effects", () => {
+    const state = makeState();
+    state.inventory = [
+      {
+        uid: "potion-chaos",
+        itemId: "chaos_potion",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = usePotion(state, "potion-chaos", {
+      now: 2_000,
+      rng: () => 0.7, // floor(0.7 * 5) => 3, gold boost branch
+    });
+
+    expect(next.temporaryEffects?.goldIncomeBoostPercent).toBe(300);
+    expect(next.temporaryEffects?.goldIncomeBoostUntil).toBe(
+      2_000 + 10 * 60 * 1000,
+    );
   });
 
   it("equips accessories into the first free accessory slot", () => {

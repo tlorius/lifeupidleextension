@@ -1,7 +1,7 @@
 # Refactor Phase 8 Plan: Runtime Determinism and Boundary Hardening
 
 Date started: 2026-03-25
-Status: Planned
+Status: In progress
 Goal: Tighten deterministic runtime seams, remove generic mutation escape hatches, and establish the next multi-phase architecture roadmap after Phase 7 completion.
 
 ## Why this phase exists
@@ -134,6 +134,125 @@ Current deterministic seam gaps:
 5. Slice 5: Final pass and roadmap handoff
    - Summarize remaining decomposition targets for Phase 9.
    - Confirm Phase 8 exit criteria.
+
+## Progress
+
+- Completed: Slice 1 determinism seam audit and first-batch target selection.
+- Completed: Slice 2 first-batch runtime seam introduction for selected engine and garden functions.
+- Completed: Slice 3 garden boundary tightening (remove generic replace-state path).
+- Next: Slice 4 deterministic and boundary regression test expansion.
+
+## Slice 1 Output: Determinism seam map and first migration batch
+
+Audit basis: direct `Date.now()` and `Math.random` usage in runtime modules, plus boundary-loosening mutation seams.
+
+### Determinism seam inventory (runtime-impacting)
+
+High-priority (player-facing outcome timing/randomness):
+
+- `src/game/engine.ts`
+  - `getGoldIncome(...)` uses `Date.now()` for temporary effect expiry checks.
+  - `usePotion(...)` uses `Date.now()` for potion-duration windows and `Math.random()` for chaos potion roll.
+- `src/game/garden.ts`
+  - `plantCrop(...)` stamps `plantedAt` with `Date.now()`.
+  - `harvestCrop(...)` resets perennial `plantedAt` with `Date.now()`.
+  - `reduceCropGrowthTime(...)` computes elapsed from `Date.now()`.
+  - `rollSpecialHarvestDrop(...)` already accepts `rng` with default `Math.random` (good seam, unevenly threaded).
+
+Medium-priority (progression/meta timestamps):
+
+- `src/game/progression.ts` stores `lastLevelUpAt` via `Date.now()`.
+- `src/game/classes/state.ts` uses `Date.now()` for class swap and daily-check keying.
+- `src/game/state.ts` seeds initial timestamps via `Date.now()`.
+
+Low-priority for Phase 8 (orchestration/persistence edge):
+
+- `src/game/GameContext.tsx` initialization timestamp capture via `Date.now()`.
+- `src/game/storage.ts` migration/load fallback timestamps via `Date.now()`.
+
+### Boundary strictness inventory
+
+- `src/game/actionHandlers/garden.ts` includes `garden/replaceState` (generic state replacement action).
+- `src/components/Garden.tsx` routes tile-detail modal updates through `garden/replaceState` callback.
+- `src/components/GardenTileDetailModal.tsx` still produces next-state objects directly via `onStateChange(nextState)` for automation/sprinkler/harvest/speed-up operations.
+
+### First low-risk migration batch (selected)
+
+Batch objective: introduce deterministic seams where behavior impact is high and change surface is small, without changing gameplay logic.
+
+1. Engine deterministic seam injection
+   - Add optional `now` to `getGoldIncome(state, now?)` (default `Date.now()`).
+   - Add optional context to `usePotion(state, itemUid, options?)`:
+     - `options.now` for duration math
+     - `options.rng` for chaos potion roll
+   - Keep existing call signatures behavior-compatible through defaults.
+
+2. Garden deterministic timestamp seam injection
+   - Add optional `now` param to:
+     - `plantCrop(state, cropId, row, col, now?)`
+     - `harvestCrop(state, cropId, cropIndex, now?)` (perennial reset path)
+     - `reduceCropGrowthTime(state, cropId, cropIndex, minutes, gemCost, now?)`
+   - Preserve default behavior by falling back to `Date.now()`.
+
+3. Test hardening for this batch
+   - Add deterministic unit tests asserting fixed-time outputs for:
+     - potion duration end timestamps
+     - chaos potion branch selection with seeded rng
+     - crop planted/reset timestamps
+     - growth-time reduction math with fixed `now`
+
+### Explicitly deferred from first batch
+
+- Removing `garden/replaceState` (target Slice 3 after deterministic seam work lands).
+- Provider/storage timestamp policy redesign (Phase 10 scope).
+- Broad runtime context threading across every domain function in one pass.
+
+## Slice 2 Outcome: First deterministic seam migration batch
+
+Implemented changes:
+
+- `src/game/engine.ts`
+  - Added optional deterministic-time seam to `getGoldIncome(state, now?)`.
+  - Added optional deterministic context seam to `usePotion(state, itemUid, options?)` with:
+    - `options.now` for duration handling
+    - `options.rng` for chaos-potion branch roll
+- `src/game/garden.ts`
+  - Added optional `now` seam to:
+    - `plantCrop(state, cropId, row, col, now?)`
+    - `harvestCrop(state, cropId, cropIndex, now?)`
+    - `reduceCropGrowthTime(state, cropId, cropIndex, minutes, gemCost, now?)`
+  - Preserved default behavior through `Date.now()` fallbacks.
+- Added deterministic branch tests:
+  - `src/game/engine.test.ts`: explicit `now` for gold income expiry behavior; deterministic `rng` branch for chaos potion.
+  - `src/game/garden.test.ts`: explicit `now` for plant timestamp, perennial reset timestamp, and growth-time reduction math.
+
+Validation run:
+
+- Focused tests passed: `src/game/engine.test.ts`, `src/game/garden.test.ts`.
+- Full Vitest suite passed: 20 files, 213 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Slice 3 Outcome: Garden boundary tightening
+
+Implemented changes:
+
+- Removed generic `garden/replaceState` action from the garden action union and reducer handling.
+- Added explicit garden actions for tile-detail modal operations that previously flowed through generic state replacement:
+  - `garden/reduceCropGrowthTime`
+  - `garden/setCropSprinkler`
+  - `garden/placeSprinkler`
+  - `garden/removeSprinkler`
+- Reworked `GardenTileDetailModal` to emit explicit `GardenAction` intents via `onGardenAction` instead of emitting precomputed `nextState` objects.
+- Updated `Garden` root wiring to pass `dispatch` directly as `onGardenAction`.
+- Updated action routing and handler tests to align with explicit action boundaries.
+
+Validation run:
+
+- Focused tests passed: `src/game/actionHandlers/garden.test.ts`, `src/game/garden.test.ts`, `src/game/actions.test.ts`.
+- Full Vitest suite passed: 20 files, 214 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
 
 ## Validation
 

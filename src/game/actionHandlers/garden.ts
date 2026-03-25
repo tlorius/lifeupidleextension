@@ -3,10 +3,14 @@ import {
   craftSeedFromSeedMaker,
   plantCrop,
   harvestCrop,
+  reduceCropGrowthTime,
   prestigeCropType,
   unlockField,
   breakRock,
   moveCropArea,
+  setCropSprinkler,
+  placeSprinklerOnField,
+  removeSprinklerFromField,
   toggleSprinkler,
   placeHarvesterOnField,
   removeHarvesterFromField,
@@ -20,7 +24,6 @@ import { resolveGardenCropIdFromSeed } from "../selectors/garden";
 import type { GameState, FieldPosition } from "../types";
 
 export type GardenAction =
-  | { type: "garden/replaceState"; nextState: GameState }
   | { type: "garden/reconcileRocks" }
   | { type: "garden/craftSeed"; seedId: string }
   | { type: "garden/startSeedMaker"; seedId: string }
@@ -44,11 +47,31 @@ export type GardenAction =
   | { type: "garden/prestigeCrop"; cropId: string }
   | { type: "garden/unlockField"; row: number; col: number }
   | {
+      type: "garden/reduceCropGrowthTime";
+      cropId: string;
+      cropIndex: number;
+      minutes: number;
+      gemCost: number;
+    }
+  | {
       type: "garden/breakRock";
       row: number;
       col: number;
       pickaxeId: string;
     }
+  | {
+      type: "garden/setCropSprinkler";
+      row: number;
+      col: number;
+      sprinklerId: string | null;
+    }
+  | {
+      type: "garden/placeSprinkler";
+      row: number;
+      col: number;
+      sprinklerId: string;
+    }
+  | { type: "garden/removeSprinkler"; row: number; col: number }
   | {
       type: "garden/moveCropArea";
       sourceRow: number;
@@ -410,9 +433,6 @@ export function applyGardenAction(
   action: GardenAction,
 ): GameState {
   switch (action.type) {
-    case "garden/replaceState":
-      return action.nextState;
-
     case "garden/reconcileRocks":
       return reconcileGardenRocksForPreview(state);
 
@@ -513,6 +533,34 @@ export function applyGardenAction(
 
     case "garden/unlockField":
       return unlockField(state, action.row, action.col);
+
+    case "garden/reduceCropGrowthTime":
+      return reduceCropGrowthTime(
+        state,
+        action.cropId,
+        action.cropIndex,
+        action.minutes,
+        action.gemCost,
+      );
+
+    case "garden/setCropSprinkler":
+      return setCropSprinkler(
+        state,
+        action.row,
+        action.col,
+        action.sprinklerId,
+      );
+
+    case "garden/placeSprinkler":
+      return placeSprinklerOnField(
+        state,
+        action.row,
+        action.col,
+        action.sprinklerId,
+      );
+
+    case "garden/removeSprinkler":
+      return removeSprinklerFromField(state, action.row, action.col);
 
     case "garden/breakRock": {
       const result = breakRock(state, action.row, action.col, action.pickaxeId);

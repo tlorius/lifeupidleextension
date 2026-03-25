@@ -7,15 +7,22 @@ import type { GameState, ItemInstance, Stats } from "./types";
 export const MAX_MANA = 100;
 const BASE_MANA_REGEN_PER_SECOND = 2;
 
+interface RuntimeDeterminismOptions {
+  now?: number;
+  rng?: () => number;
+}
+
 /**
  * Calculate gold income per second based on player stats and upgrades
  */
-export function getGoldIncome(state: GameState): number {
+export function getGoldIncome(
+  state: GameState,
+  now: number = Date.now(),
+): number {
   const baseGoldPerSecond = state.stats.attack || 1;
   const totalStats = getTotalStats(state);
   const goldIncomeBonus = totalStats.goldIncome ?? 0;
 
-  const now = Date.now();
   const tempGoldBoost =
     (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
       ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
@@ -235,7 +242,11 @@ function consumeInventoryItem(
   return { inventory: nextInventory, item };
 }
 
-export function usePotion(state: GameState, itemUid: string): GameState {
+export function usePotion(
+  state: GameState,
+  itemUid: string,
+  options?: RuntimeDeterminismOptions,
+): GameState {
   const consumed = consumeInventoryItem(state, itemUid);
   if (!consumed?.item) return state;
 
@@ -243,7 +254,8 @@ export function usePotion(state: GameState, itemUid: string): GameState {
   const def = getItemDefSafe(item.itemId);
   if (!def || def.type !== "potion") return state;
 
-  const now = Date.now();
+  const now = options?.now ?? Date.now();
+  const rng = options?.rng ?? Math.random;
   const tempEffects = {
     goldIncomeBoostPercent: state.temporaryEffects?.goldIncomeBoostPercent ?? 0,
     goldIncomeBoostUntil: state.temporaryEffects?.goldIncomeBoostUntil ?? 0,
@@ -377,7 +389,7 @@ export function usePotion(state: GameState, itemUid: string): GameState {
       },
     };
   } else if (def.id === "chaos_potion") {
-    const roll = Math.floor(Math.random() * 5);
+    const roll = Math.floor(rng() * 5);
     if (roll === 0) {
       nextState = {
         ...nextState,

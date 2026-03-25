@@ -3,6 +3,7 @@ import { createDefaultState, defaultState } from "./state";
 import {
   plantCrop,
   harvestCrop,
+  reduceCropGrowthTime,
   calculateYield,
   calculateYieldWithMastery,
   calculateGoldWithMastery,
@@ -70,6 +71,15 @@ describe("Garden System - Unit Tests", () => {
       const plantedTime = newState.garden.crops["mint_common"][0].plantedAt;
       expect(plantedTime).toBeGreaterThanOrEqual(beforePlanting);
       expect(plantedTime).toBeLessThanOrEqual(afterPlanting);
+    });
+
+    it("should allow deterministic plantedAt via explicit now", () => {
+      const fixedNow = 123_456;
+      const newState = plantCrop(testState, "sunflower_common", 2, 3, fixedNow);
+
+      expect(newState.garden.crops["sunflower_common"][0].plantedAt).toBe(
+        fixedNow,
+      );
     });
 
     it("should allow multiple crops at different positions", () => {
@@ -147,6 +157,39 @@ describe("Garden System - Unit Tests", () => {
       expect(newState.garden.crops["grape_common"][0].plantedAt).not.toBe(
         crop.plantedAt,
       );
+    });
+
+    it("should use explicit now when resetting perennial crop after harvest", () => {
+      const initialNow = 1_000;
+      let newState = plantCrop(testState, "grape_common", 0, 0, initialNow);
+      newState.garden.crops["grape_common"][0].plantedAt = 0;
+
+      const harvestNow = 2_000;
+      newState = harvestCrop(newState, "grape_common", 0, harvestNow);
+
+      expect(newState.garden.crops["grape_common"][0].plantedAt).toBe(
+        harvestNow,
+      );
+    });
+
+    it("should use explicit now when calculating growth-time reduction", () => {
+      const plantedAt = 1_000;
+      let newState = plantCrop(testState, "sunflower_common", 0, 0, plantedAt);
+      newState.resources.gems = 1_000;
+
+      const reduced = reduceCropGrowthTime(
+        newState,
+        "sunflower_common",
+        0,
+        10,
+        100,
+        plantedAt,
+      );
+
+      expect(reduced.garden.crops["sunflower_common"][0].plantedAt).toBe(
+        plantedAt - 10 * 60 * 1000,
+      );
+      expect(reduced.resources.gems).toBe((newState.resources.gems ?? 0) - 100);
     });
 
     it("should add resources to crop storage", () => {

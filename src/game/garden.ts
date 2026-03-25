@@ -1149,6 +1149,7 @@ export function plantCrop(
   cropId: string,
   row: number,
   col: number,
+  now: number = Date.now(),
 ): GameState {
   const cropDef = getCropDef(cropId);
   if (!cropDef) return state;
@@ -1158,7 +1159,7 @@ export function plantCrop(
   const newCrop: CropInstance = {
     position: { row, col },
     seedId: cropId,
-    plantedAt: Date.now(),
+    plantedAt: now,
     waterLevel: placedSprinklerId ? WATER_CONFIG.fullWaterThreshold : 0,
     xpLevel: 1,
     prestige: 0,
@@ -1185,6 +1186,7 @@ export function harvestCrop(
   state: GameState,
   cropId: string,
   cropIndex: number,
+  now: number = Date.now(),
 ): GameState {
   const cropDef = getCropDef(cropId);
   if (!cropDef) return state;
@@ -1266,7 +1268,7 @@ export function harvestCrop(
     // Reset perennial for next cycle
     newState.garden.crops[cropId][cropIndex] = {
       ...crop,
-      plantedAt: Date.now(),
+      plantedAt: now,
       waterLevel: 0,
     };
   }
@@ -1280,6 +1282,7 @@ export function reduceCropGrowthTime(
   cropIndex: number,
   minutes: number,
   gemCost: number,
+  now: number = Date.now(),
 ): GameState {
   const cropDef = getCropDef(cropId);
   if (!cropDef) return state;
@@ -1290,7 +1293,7 @@ export function reduceCropGrowthTime(
   if (!crop) return state;
 
   const maxElapsedMs = cropDef.growthTimeMinutes * 60 * 1000;
-  const currentElapsedMs = Date.now() - crop.plantedAt;
+  const currentElapsedMs = now - crop.plantedAt;
   const requestedReductionMs = minutes * 60 * 1000;
   const appliedReductionMs = Math.min(
     requestedReductionMs,

@@ -1683,9 +1683,7 @@ export function Garden() {
         }}
         onOpenPlanterSeedSelection={openPlanterSeedSelection}
         onSetSprinklerPreview={setSprinklerPreview}
-        onStateChange={(nextState) =>
-          dispatch({ type: "garden/replaceState", nextState })
-        }
+        onGardenAction={dispatch}
       />
     </div>
   );
