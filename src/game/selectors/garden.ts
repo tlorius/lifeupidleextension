@@ -1,12 +1,20 @@
 import {
+  calculateGoldWithMastery,
+  calculateYieldWithMastery,
   cropDefinitions,
   getCropDef,
+  getGrowthProgress,
   getSeedMakerCost,
   getSeedMakerDurationMs,
 } from "../garden";
 import { getItemDefSafe } from "../items";
 import { getUpgradeLevel } from "../upgrades";
-import type { CropCategory, CropDefinition, GameState } from "../types";
+import type {
+  CropCategory,
+  CropDefinition,
+  CropInstance,
+  GameState,
+} from "../types";
 
 const SEED_MAKER_UPGRADE_ID = "seedmaker_lab";
 
@@ -55,6 +63,47 @@ export interface GardenSeedViewModel {
   seedMakerRemainingMs: number;
   isSeedMakerRunning: boolean;
   defaultSeedMakerSeedId: string | null;
+}
+
+export interface GardenOwnedAutomationToolIds {
+  sprinklerIds: string[];
+  harvesterIds: string[];
+  planterIds: string[];
+}
+
+export interface GardenCropTileDetailView {
+  cropId: string;
+  cropIndex: number;
+  cropRow: number;
+  cropCol: number;
+  cropDef: CropDefinition;
+  cropInstance: CropInstance;
+  progress: number;
+  isReady: boolean;
+  timeRemainingMinutes: number;
+  yieldAtHarvest: number;
+  goldYield: number;
+  harvesterOnTile: string | null;
+  planterOnTile: string | null;
+  ownedSprinklerIds: string[];
+  ownedHarvesterIds: string[];
+  ownedPlanterIds: string[];
+  planterSeedForTile: string | null;
+  planterSeedForTilePresentation: GardenSeedPresentation | null;
+}
+
+export interface GardenEmptyTileAutomationView {
+  emptyRow: number;
+  emptyCol: number;
+  fieldSprinklerId: string | null;
+  fieldHarvesterId: string | null;
+  fieldPlanterId: string | null;
+  installedToolLabel: string;
+  ownedSprinklerIds: string[];
+  ownedHarvesterIds: string[];
+  ownedPlanterIds: string[];
+  selectedSeedForTile: string | null;
+  selectedSeedForTilePresentation: GardenSeedPresentation | null;
 }
 
 export function formatGardenCategoryLabel(category: string): string {
@@ -242,4 +291,178 @@ export function selectGardenSeedView(
     defaultSeedMakerSeedId:
       selectedSeedMakerSeedId ?? seedMakerRecipes[0]?.seedId ?? null,
   };
+}
+
+export function selectGardenOwnedAutomationToolIds(
+  state: GameState,
+): GardenOwnedAutomationToolIds {
+  const sprinklerIds = getOwnedAutomationToolIds(state, "sprinkler");
+  const harvesterIds = getOwnedAutomationToolIds(state, "harvester");
+  const planterIds = getOwnedAutomationToolIds(state, "planter");
+
+  return {
+    sprinklerIds,
+    harvesterIds,
+    planterIds,
+  };
+}
+
+export function getGardenAutomationToolAtField(
+  state: GameState,
+  row: number,
+  col: number,
+): { type: "sprinkler" | "harvester" | "planter"; id: string } | null {
+  const sprinklerId = getPlacedToolIdAtField(state.garden.sprinklers, row, col);
+  if (sprinklerId) return { type: "sprinkler", id: sprinklerId };
+
+  const harvesterId = getPlacedToolIdAtField(state.garden.harvesters, row, col);
+  if (harvesterId) return { type: "harvester", id: harvesterId };
+
+  const planterId = getPlacedToolIdAtField(state.garden.planters, row, col);
+  if (planterId) return { type: "planter", id: planterId };
+
+  return null;
+}
+
+export function selectGardenCropTileDetailView(
+  state: GameState,
+  options: {
+    cropId: string;
+    cropIndex: number;
+    row: number;
+    col: number;
+    now?: number;
+  },
+): GardenCropTileDetailView | null {
+  const cropInstance = state.garden.crops[options.cropId]?.[options.cropIndex];
+  const cropDef = getCropDef(options.cropId);
+  if (!cropInstance || !cropDef) return null;
+
+  const now = options.now ?? Date.now();
+  const progress = getGrowthProgress(cropInstance, cropDef);
+  const ownedToolIds = selectGardenOwnedAutomationToolIds(state);
+  const planterOnTile = getPlacedToolIdAtField(
+    state.garden.planters,
+    options.row,
+    options.col,
+  );
+  const planterSeedForTile =
+    state.garden.planterSeedSelections?.[`${options.row},${options.col}`] ??
+    state.garden.selectedPlanterSeedId ??
+    null;
+
+  return {
+    cropId: options.cropId,
+    cropIndex: options.cropIndex,
+    cropRow: options.row,
+    cropCol: options.col,
+    cropDef,
+    cropInstance,
+    progress,
+    isReady: progress >= 100,
+    timeRemainingMinutes: Math.max(
+      0,
+      cropDef.growthTimeMinutes - (now - cropInstance.plantedAt) / (60 * 1000),
+    ),
+    yieldAtHarvest: calculateYieldWithMastery(
+      state,
+      options.cropId,
+      cropDef,
+      cropInstance.waterLevel,
+    ),
+    goldYield: calculateGoldWithMastery(state, options.cropId, cropDef),
+    harvesterOnTile: getPlacedToolIdAtField(
+      state.garden.harvesters,
+      options.row,
+      options.col,
+    ),
+    planterOnTile,
+    ownedSprinklerIds: ownedToolIds.sprinklerIds,
+    ownedHarvesterIds: ownedToolIds.harvesterIds,
+    ownedPlanterIds: ownedToolIds.planterIds,
+    planterSeedForTile,
+    planterSeedForTilePresentation: planterSeedForTile
+      ? getGardenSeedPresentation(planterSeedForTile)
+      : null,
+  };
+}
+
+export function selectGardenEmptyTileAutomationView(
+  state: GameState,
+  options: {
+    row: number;
+    col: number;
+  },
+): GardenEmptyTileAutomationView {
+  const automationTool = getGardenAutomationToolAtField(
+    state,
+    options.row,
+    options.col,
+  );
+  const ownedToolIds = selectGardenOwnedAutomationToolIds(state);
+  const fieldSprinklerId =
+    automationTool?.type === "sprinkler" ? automationTool.id : null;
+  const fieldHarvesterId =
+    automationTool?.type === "harvester" ? automationTool.id : null;
+  const fieldPlanterId =
+    automationTool?.type === "planter" ? automationTool.id : null;
+  const selectedSeedForTile = fieldPlanterId
+    ? (state.garden.planterSeedSelections?.[`${options.row},${options.col}`] ??
+      state.garden.selectedPlanterSeedId ??
+      null)
+    : null;
+
+  return {
+    emptyRow: options.row,
+    emptyCol: options.col,
+    fieldSprinklerId,
+    fieldHarvesterId,
+    fieldPlanterId,
+    installedToolLabel: fieldSprinklerId
+      ? `Installed: ${getItemDefSafe(fieldSprinklerId)?.name ?? fieldSprinklerId}`
+      : fieldHarvesterId
+        ? `Installed: ${getItemDefSafe(fieldHarvesterId)?.name ?? fieldHarvesterId}`
+        : fieldPlanterId
+          ? `Installed: ${getItemDefSafe(fieldPlanterId)?.name ?? fieldPlanterId}`
+          : "No automation tool installed on this field",
+    ownedSprinklerIds: ownedToolIds.sprinklerIds,
+    ownedHarvesterIds: ownedToolIds.harvesterIds,
+    ownedPlanterIds: ownedToolIds.planterIds,
+    selectedSeedForTile,
+    selectedSeedForTilePresentation: selectedSeedForTile
+      ? getGardenSeedPresentation(selectedSeedForTile)
+      : null,
+  };
+}
+
+function getOwnedAutomationToolIds(
+  state: GameState,
+  toolName: "sprinkler" | "harvester" | "planter",
+): string[] {
+  const ids = state.inventory
+    .filter((item) => {
+      const def = getItemDefSafe(item.itemId);
+      return def?.type === "tool" && item.itemId.includes(toolName);
+    })
+    .map((item) => item.itemId);
+
+  return Array.from(new Set(ids));
+}
+
+function getPlacedToolIdAtField(
+  placements: Record<string, { row: number; col: number }[]> | undefined,
+  row: number,
+  col: number,
+): string | null {
+  if (!placements) return null;
+
+  for (const [toolId, positions] of Object.entries(placements)) {
+    if (
+      positions.some((position) => position.row === row && position.col === col)
+    ) {
+      return toolId;
+    }
+  }
+
+  return null;
 }

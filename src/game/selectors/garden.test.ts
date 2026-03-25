@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { cropDefinitions, getSeedMakerDurationMs } from "../garden";
+import {
+  cropDefinitions,
+  getSeedMakerDurationMs,
+  placePlanterOnField,
+  placeHarvesterOnField,
+  plantCrop,
+} from "../garden";
 import { getItemDefSafe } from "../items";
 import { createDefaultState } from "../state";
 import { upgradeDefinitions } from "../upgrades";
@@ -8,6 +14,9 @@ import {
   getGardenCategoryIcon,
   getGardenSeedPresentation,
   resolveGardenCropIdFromSeed,
+  selectGardenCropTileDetailView,
+  selectGardenEmptyTileAutomationView,
+  selectGardenOwnedAutomationToolIds,
   selectGardenSeedView,
 } from "./garden";
 
@@ -110,6 +119,84 @@ describe("garden selectors", () => {
     );
     expect(getGardenSeedPresentation("wateringcan_common").label).toBe(
       toolName,
+    );
+  });
+
+  it("builds crop tile detail view with progress, harvest values, and automation inventory", () => {
+    const state = createDefaultState();
+    const cropId = "sunflower_common";
+    const planterSeedId = cropDefinitions.grape_common.seedItemId;
+
+    state.inventory.push(
+      { uid: "harv-1", itemId: "harvester_common", quantity: 1, level: 1 },
+      { uid: "harv-2", itemId: "harvester_common", quantity: 1, level: 1 },
+      { uid: "plant-1", itemId: "planter_common", quantity: 1, level: 1 },
+      { uid: "sprink-1", itemId: "sprinkler_common", quantity: 1, level: 1 },
+    );
+
+    let nextState = plantCrop(state, cropId, 0, 0);
+    nextState.garden.selectedPlanterSeedId = planterSeedId;
+    nextState = placeHarvesterOnField(nextState, 0, 0, "harvester_common");
+    nextState.garden.crops[cropId][0].waterLevel = 50;
+    nextState.garden.crops[cropId][0].plantedAt = Date.now() - 30 * 60 * 1000;
+
+    const view = selectGardenCropTileDetailView(nextState, {
+      cropId,
+      cropIndex: 0,
+      row: 0,
+      col: 0,
+      now: Date.now(),
+    });
+
+    expect(view).not.toBeNull();
+    expect(view?.cropDef.id).toBe(cropId);
+    expect(view?.harvesterOnTile).toBe("harvester_common");
+    expect(view?.planterOnTile).toBeNull();
+    expect(view?.ownedHarvesterIds).toEqual(["harvester_common"]);
+    expect(view?.ownedPlanterIds).toEqual(["planter_common"]);
+    expect(view?.ownedSprinklerIds).toEqual(["sprinkler_common"]);
+    expect(view?.planterSeedForTilePresentation?.label).toBe(
+      cropDefinitions.grape_common.name,
+    );
+    expect(view?.yieldAtHarvest).toBeGreaterThan(0);
+    expect(view?.goldYield).toBeGreaterThan(0);
+    expect(view?.progress).toBeGreaterThan(0);
+  });
+
+  it("builds empty tile automation view with installed tool and per-tile planter seed", () => {
+    const state = createDefaultState();
+    const seedId = cropDefinitions.grape_common.seedItemId;
+
+    state.inventory.push(
+      { uid: "planter-a", itemId: "planter_common", quantity: 1, level: 1 },
+      { uid: "planter-b", itemId: "planter_common", quantity: 1, level: 1 },
+      { uid: "sprink-a", itemId: "sprinkler_common", quantity: 1, level: 1 },
+    );
+    state.garden.selectedPlanterSeedId =
+      cropDefinitions.sunflower_common.seedItemId;
+    state.garden.planterSeedSelections = { "1,1": seedId };
+
+    const nextState = placePlanterOnField(
+      state,
+      1,
+      1,
+      "planter_common",
+      seedId,
+    );
+
+    const toolIds = selectGardenOwnedAutomationToolIds(nextState);
+    const view = selectGardenEmptyTileAutomationView(nextState, {
+      row: 1,
+      col: 1,
+    });
+
+    expect(toolIds.planterIds).toEqual(["planter_common"]);
+    expect(toolIds.sprinklerIds).toEqual(["sprinkler_common"]);
+    expect(view.fieldPlanterId).toBe("planter_common");
+    expect(view.installedToolLabel).toContain("Planter");
+    expect(view.selectedSeedForTile).toBe(seedId);
+    expect(view.selectedSeedForTilePresentation?.label).toBe(
+      cropDefinitions.grape_common.name,
     );
   });
 });

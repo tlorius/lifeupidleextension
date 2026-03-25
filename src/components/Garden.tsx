@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { GardenSeedMakerModal } from "./GardenSeedMakerModal";
 import { useGame } from "../game/GameContext";
 import {
   getCropDef,
@@ -40,8 +41,9 @@ import { formatCompactNumber } from "../game/numberFormat";
 import {
   formatGardenCategoryLabel,
   getGardenCategoryIcon,
-  getGardenSeedPresentation,
   resolveGardenCropIdFromSeed,
+  selectGardenCropTileDetailView,
+  selectGardenEmptyTileAutomationView,
   selectGardenSeedView,
 } from "../game/selectors/garden";
 import type { CropInstance, FieldPosition } from "../game/types";
@@ -343,6 +345,38 @@ export function Garden() {
         },
       },
     }));
+  };
+
+  const handleSeedMakerRecipeSelect = (
+    seedId: string,
+    canSelectRecipe: boolean,
+  ) => {
+    if (!canSelectRecipe) {
+      alert(
+        "Seedmaker is currently crafting. Stop it before changing the selected seed.",
+      );
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      garden: {
+        ...prev.garden,
+        seedMaker: {
+          ...(prev.garden.seedMaker ?? {}),
+          selectedSeedId: seedId,
+        },
+      },
+    }));
+  };
+
+  const handleCraftOneSeed = () => {
+    if (!selectedSeedMakerSeedId) {
+      alert("Select a seed recipe first.");
+      return;
+    }
+
+    craftSeedFromStorage(selectedSeedMakerSeedId);
   };
 
   const formatDuration = (milliseconds: number): string => {
@@ -2599,221 +2633,26 @@ export function Garden() {
         </div>
       )}
 
-      {showSeedMakerModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1200,
-          }}
-          onClick={() => setShowSeedMakerModal(false)}
-        >
-          <div
-            style={{
-              padding: isMobile ? 10 : 12,
-              backgroundColor: "#16212d",
-              borderRadius: 8,
-              border: "1px solid #2a3a4c",
-              width: isMobile ? "94vw" : "560px",
-              maxWidth: "560px",
-              maxHeight: isMobile ? "88vh" : "80vh",
-              overflow: "auto",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-              color: "#e5edf5",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: 8,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span>Seedmaker</span>
-              <button
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: "#253649",
-                  border: "1px solid #3f546a",
-                  color: "#eaf2fb",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() => setShowSeedMakerModal(false)}
-              >
-                Close
-              </button>
-            </div>
-
-            <div
-              style={{
-                fontSize: 12,
-                color: "#9eb0c2",
-                marginBottom: 10,
-              }}
-            >
-              Convert crop resources into seeds. Crafting takes{" "}
-              {formatDuration(seedMakerCycleMs)} per seed at current Seedmaker
-              level and runs continuously until you stop it.
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                flexWrap: "wrap",
-                marginBottom: 10,
-              }}
-            >
-              <button
-                type="button"
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: isSeedMakerRunning ? "#7f1f1f" : "#1f7f43",
-                  border: "1px solid #3f546a",
-                  color: "#fff",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() => {
-                  if (isSeedMakerRunning) {
-                    stopSeedMaker();
-                  } else {
-                    startSeedMaker();
-                  }
-                }}
-              >
-                {isSeedMakerRunning
-                  ? "Stop Auto Seedmaker"
-                  : "Start Auto Seedmaker"}
-              </button>
-
-              <button
-                type="button"
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#2d3f52",
-                  border: "1px solid #3f546a",
-                  color: "#fff",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() => {
-                  if (!selectedSeedMakerSeedId) {
-                    alert("Select a seed recipe first.");
-                    return;
-                  }
-                  craftSeedFromStorage(selectedSeedMakerSeedId);
-                }}
-              >
-                Craft One Now
-              </button>
-
-              <span style={{ fontSize: 11, color: "#c7d8e8" }}>
-                Status: {isSeedMakerRunning ? "Running" : "Stopped"}
-                {isSeedMakerRunning
-                  ? ` | Next seed in ${formatDuration(seedMakerRemainingMs)}`
-                  : ""}
-              </span>
-            </div>
-
-            {seedMakerRecipes.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#9eb0c2" }}>
-                No seed recipes available.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                  gap: 8,
-                }}
-              >
-                {seedMakerRecipes.map((recipe) => {
-                  return (
-                    <button
-                      key={`seedmaker-${recipe.seedId}`}
-                      type="button"
-                      className={recipe.isSelected ? "btn-selected" : ""}
-                      style={{
-                        padding: 8,
-                        backgroundColor: recipe.isSelected
-                          ? "#1f7f43"
-                          : "#1b2d3f",
-                        border: recipe.isSelected
-                          ? "2px solid #2f9e44"
-                          : "1px solid #34516a",
-                        borderRadius: 4,
-                        cursor:
-                          recipe.canCraft && recipe.canSelectRecipe
-                            ? "pointer"
-                            : "not-allowed",
-                        opacity:
-                          recipe.canCraft && recipe.canSelectRecipe ? 1 : 0.68,
-                        fontSize: 11,
-                        textAlign: "left",
-                        color: "#e5edf5",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 4,
-                      }}
-                      onClick={() => {
-                        if (!recipe.canSelectRecipe) {
-                          alert(
-                            "Seedmaker is currently crafting. Stop it before changing the selected seed.",
-                          );
-                          return;
-                        }
-
-                        setState((prev) => ({
-                          ...prev,
-                          garden: {
-                            ...prev.garden,
-                            seedMaker: {
-                              ...(prev.garden.seedMaker ?? {}),
-                              selectedSeedId: recipe.seedId,
-                            },
-                          },
-                        }));
-                      }}
-                      title={`${recipe.cropName} Seed`}
-                    >
-                      <div style={{ fontWeight: "bold" }}>
-                        {recipe.categoryIcon} {recipe.cropName} Seed
-                      </div>
-                      <div style={{ fontSize: 10, color: "#9eb0c2" }}>
-                        Category: {recipe.categoryLabel}
-                      </div>
-                      <div style={{ fontSize: 10 }}>
-                        Cost: 💎 {recipe.cost.gemCost} +{" "}
-                        {recipe.cost.resourceCost} {recipe.categoryLabel}
-                      </div>
-                      <div style={{ fontSize: 10, color: "#c7d8e8" }}>
-                        Available: {recipe.availableResource}{" "}
-                        {recipe.categoryLabel}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <GardenSeedMakerModal
+        isOpen={showSeedMakerModal}
+        isMobile={isMobile}
+        cycleDurationLabel={formatDuration(seedMakerCycleMs)}
+        isSeedMakerRunning={isSeedMakerRunning}
+        remainingDurationLabel={
+          isSeedMakerRunning ? formatDuration(seedMakerRemainingMs) : null
+        }
+        seedMakerRecipes={seedMakerRecipes}
+        onClose={() => setShowSeedMakerModal(false)}
+        onToggleAuto={() => {
+          if (isSeedMakerRunning) {
+            stopSeedMaker();
+          } else {
+            startSeedMaker();
+          }
+        }}
+        onCraftOne={handleCraftOneSeed}
+        onSelectRecipe={handleSeedMakerRecipeSelect}
+      />
 
       {/* Garden Grid */}
       <div
@@ -4173,46 +4012,34 @@ export function Garden() {
               tileDetailModal.cropId &&
               tileDetailModal.cropIndex !== undefined &&
               (() => {
-                const cropInstance =
-                  garden.crops[tileDetailModal.cropId]?.[
-                    tileDetailModal.cropIndex
-                  ];
-                const cropDef = getCropDef(tileDetailModal.cropId);
-                if (!cropInstance || !cropDef) return null;
+                const cropTileDetailView = selectGardenCropTileDetailView(
+                  state,
+                  {
+                    cropId: tileDetailModal.cropId,
+                    cropIndex: tileDetailModal.cropIndex,
+                    row: tileDetailModal.row,
+                    col: tileDetailModal.col,
+                  },
+                );
+                if (!cropTileDetailView) return null;
 
-                const progress = getGrowthProgress(cropInstance, cropDef);
-                const isReady = progress >= 100;
-                const timeRemaining = Math.max(
-                  0,
-                  cropDef.growthTimeMinutes -
-                    (Date.now() - cropInstance.plantedAt) / (60 * 1000),
-                );
-                const yield_ = calculateYieldWithMastery(
-                  state,
-                  tileDetailModal.cropId,
+                const {
                   cropDef,
-                  cropInstance.waterLevel,
-                );
-                const goldYield = calculateGoldWithMastery(
-                  state,
-                  tileDetailModal.cropId,
-                  cropDef,
-                );
-                const cropRow = tileDetailModal.row;
-                const cropCol = tileDetailModal.col;
-                const harvesterOnTile = getHarvesterAtField(cropRow, cropCol);
-                const planterOnTile = getPlanterAtField(cropRow, cropCol);
-                const ownedSprinklerIds = getOwnedSprinklerIds();
-                const ownedHarvesterIds = getOwnedHarvesterIds();
-                const ownedPlanterIds = getOwnedPlanterIds();
-                const planterSeedKey = `${cropRow},${cropCol}`;
-                const planterSeedForTile =
-                  state.garden.planterSeedSelections?.[planterSeedKey] ??
-                  state.garden.selectedPlanterSeedId ??
-                  null;
-                const planterSeedForTilePresentation = planterSeedForTile
-                  ? getGardenSeedPresentation(planterSeedForTile)
-                  : null;
+                  cropInstance,
+                  progress,
+                  isReady,
+                  timeRemainingMinutes: timeRemaining,
+                  yieldAtHarvest: yield_,
+                  goldYield,
+                  cropRow,
+                  cropCol,
+                  harvesterOnTile,
+                  planterOnTile,
+                  ownedSprinklerIds,
+                  ownedHarvesterIds,
+                  ownedPlanterIds,
+                  planterSeedForTilePresentation,
+                } = cropTileDetailView;
 
                 return (
                   <>
@@ -4881,35 +4708,23 @@ export function Garden() {
 
             {tileDetailModal.type === "empty" &&
               (() => {
-                const emptyRow = tileDetailModal.row;
-                const emptyCol = tileDetailModal.col;
-                const fieldAutomationTool = getAutomationToolAtField(
+                const emptyTileAutomationView =
+                  selectGardenEmptyTileAutomationView(state, {
+                    row: tileDetailModal.row,
+                    col: tileDetailModal.col,
+                  });
+                const {
                   emptyRow,
                   emptyCol,
-                );
-                const fieldSprinklerId =
-                  fieldAutomationTool?.type === "sprinkler"
-                    ? fieldAutomationTool.id
-                    : null;
-                const fieldHarvesterId =
-                  fieldAutomationTool?.type === "harvester"
-                    ? fieldAutomationTool.id
-                    : null;
-                const fieldPlanterId =
-                  fieldAutomationTool?.type === "planter"
-                    ? fieldAutomationTool.id
-                    : null;
-                const ownedSprinklerIds = getOwnedSprinklerIds();
-                const ownedHarvesterIds = getOwnedHarvesterIds();
-                const ownedPlanterIds = getOwnedPlanterIds();
-                const planterSeedKey = `${emptyRow},${emptyCol}`;
-                const selectedSeedForTile = fieldPlanterId
-                  ? (state.garden.planterSeedSelections?.[planterSeedKey] ??
-                    state.garden.selectedPlanterSeedId)
-                  : null;
-                const selectedSeedForTilePresentation = selectedSeedForTile
-                  ? getGardenSeedPresentation(selectedSeedForTile)
-                  : null;
+                  fieldSprinklerId,
+                  fieldHarvesterId,
+                  fieldPlanterId,
+                  installedToolLabel,
+                  ownedSprinklerIds,
+                  ownedHarvesterIds,
+                  ownedPlanterIds,
+                  selectedSeedForTilePresentation,
+                } = emptyTileAutomationView;
 
                 if (tileDetailModal.emptyMode === "automation") {
                   return (
@@ -4935,13 +4750,7 @@ export function Garden() {
                             marginBottom: 6,
                           }}
                         >
-                          {fieldSprinklerId
-                            ? `Installed: ${getItemDefSafe(fieldSprinklerId)?.name ?? fieldSprinklerId}`
-                            : fieldHarvesterId
-                              ? `Installed: ${getItemDefSafe(fieldHarvesterId)?.name ?? fieldHarvesterId}`
-                              : fieldPlanterId
-                                ? `Installed: ${getItemDefSafe(fieldPlanterId)?.name ?? fieldPlanterId}`
-                                : "No automation tool installed on this field"}
+                          {installedToolLabel}
                         </div>
                         <div style={{ fontSize: 11, color: "#b8cadb" }}>
                           Place a sprinkler, harvester, or planter. Only one

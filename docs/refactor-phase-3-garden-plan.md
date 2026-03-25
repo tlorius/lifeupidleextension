@@ -104,7 +104,9 @@ This phase should treat Garden as a dedicated vertical slice, not as a continuat
 - Completed: Defined Phase 3 scope, constraints, and stop rule.
 - Completed: Added the first Garden selector slice for seed resolution, seed bag presentation, and seed maker recipe state.
 - Completed: Rewired src/components/Garden.tsx to consume the selector-backed seed and seed maker view model.
-- Next: Target a tile or modal read-model extraction with a clear boundary and existing test coverage.
+- Completed: Extracted the seed maker modal into a dedicated Garden component file.
+- Completed: Extracted crop tile-detail and empty-field automation modal read models into tested Garden selectors.
+- Next: Use the new tile-detail selector boundary to split the tile-detail modal UI into smaller components.
 
 ## Implementation rules
 
