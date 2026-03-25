@@ -1,17 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGame } from "../game/GameContext";
 import { useGameActions } from "../game/useGameActions";
 import {
-  getUpgradeTrees,
-  getUpgradesByTree,
-  getUpgradeLevel,
-  getUpgradeDef,
-  isUpgradeUnlocked,
-  areUpgradePrerequisitesMet,
-  getUnlockedUpgrades,
-} from "../game/upgrades";
+  selectUpgradeTreeSummaries,
+  selectUpgradeTreeView,
+} from "../game/selectors/upgrades";
 import { formatCompactNumber } from "../game/numberFormat";
-import type { Upgrade } from "../game/types";
 
 export function Upgrades() {
   const { state } = useGame();
@@ -25,7 +19,19 @@ export function Upgrades() {
     typeof window !== "undefined" ? window.innerWidth : 1024,
   );
 
-  const trees = getUpgradeTrees();
+  const trees = useMemo(() => selectUpgradeTreeSummaries(state), [state]);
+  const selectedTreeView = useMemo(
+    () =>
+      selectedTree
+        ? selectUpgradeTreeView(
+            state,
+            selectedTree,
+            viewportWidth,
+            treeModalUpgradeId,
+          )
+        : null,
+    [state, selectedTree, treeModalUpgradeId, viewportWidth],
+  );
   const hasItems = state.inventory.length > 0;
   const panelStyle = {
     backgroundColor: "#16212d",
@@ -41,240 +47,31 @@ export function Upgrades() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const getTreeIcon = (tree: string): string => {
-    switch (tree) {
-      case "combat":
-        return "⚔️";
-      case "resource":
-        return "💰";
-      case "magic":
-        return "✨";
-      case "farming":
-        return "🌿";
-      case "expedition":
-        return "🧭";
-      default:
-        return "🌳";
-    }
-  };
-
-  const getUpgradeIcon = (upgradeDef: Upgrade): string => {
-    if (upgradeDef.id.includes("attack") || upgradeDef.id.includes("blade")) {
-      return "⚔️";
-    }
-    if (upgradeDef.id.includes("defense") || upgradeDef.id.includes("skin")) {
-      return "🛡️";
-    }
-    if (upgradeDef.id.includes("gold") || upgradeDef.id.includes("wealth")) {
-      return "💰";
-    }
-    if (upgradeDef.id.includes("energy") || upgradeDef.id.includes("mana")) {
-      return "⚡";
-    }
-    if (upgradeDef.id.includes("gem")) {
-      return "💎";
-    }
-    if (upgradeDef.id.includes("water")) {
-      return "💧";
-    }
-    if (upgradeDef.id.includes("plant") || upgradeDef.tree === "farming") {
-      return "🌿";
-    }
-    if (upgradeDef.id.includes("mage") || upgradeDef.id.includes("arcane")) {
-      return "🔮";
-    }
-    if (upgradeDef.id.includes("spell")) {
-      return "✨";
-    }
-    return getTreeIcon(upgradeDef.tree);
-  };
-
-  const getUpgradePresentation = (upgradeDef: Upgrade) => {
-    const level = getUpgradeLevel(state, upgradeDef.id);
-    const cost = Math.ceil(
-      upgradeDef.baseCost * Math.pow(upgradeDef.scaling, level),
-    );
-    const canAfford = state.resources.gold >= cost;
-    const prerequisites = upgradeDef.prerequisites ?? [];
-    const isUnlocked = isUpgradeUnlocked(state, upgradeDef.id);
-    const preqsMet = areUpgradePrerequisitesMet(state, upgradeDef.id);
-    const unlockedByThis = getUnlockedUpgrades(state, upgradeDef.id);
-    const canPurchase = isUnlocked && preqsMet && canAfford;
-
-    const prereqText =
-      prerequisites.length > 0
-        ? `Requires: ${prerequisites
-            .map((preqId) => {
-              const preqDef = getUpgradeDef(preqId);
-              const linkedRequirement = preqDef?.linkedUpgrades?.find(
-                (linked) => linked.upgradeId === upgradeDef.id,
-              );
-              const requiredLevel = linkedRequirement?.unlocksAtLevel ?? 1;
-              return `${preqDef?.name} (Lvl ${requiredLevel})`;
-            })
-            .join(", ")}`
-        : "";
-
-    const linkedText =
-      unlockedByThis.length > 0
-        ? `Unlocks: ${unlockedByThis
-            .map((unlockId) => {
-              const unlockDef = getUpgradeDef(unlockId);
-              const linkedUpgrade = upgradeDef.linkedUpgrades?.find(
-                (linked) => linked.upgradeId === unlockId,
-              );
-              const requiredLevel = linkedUpgrade?.unlocksAtLevel ?? 1;
-              return `${unlockDef?.name} (at level ${requiredLevel})`;
-            })
-            .join(", ")}`
-        : "";
-
-    return {
-      level,
-      cost,
-      canAfford,
-      prerequisites,
-      isUnlocked,
-      preqsMet,
-      unlockedByThis,
-      canPurchase,
-      prereqText,
-      linkedText,
-    };
-  };
-
   if (selectedTree) {
-    const upgrades = getUpgradesByTree(selectedTree);
-    const upgradesById = new Map(
-      upgrades.map((upgrade) => [upgrade.id, upgrade]),
-    );
-    const tierCache = new Map<string, number>();
-    const getUpgradeTier = (upgradeId: string): number => {
-      const cachedTier = tierCache.get(upgradeId);
-      if (cachedTier !== undefined) return cachedTier;
-
-      const upgradeDef = upgradesById.get(upgradeId);
-      if (!upgradeDef) return 0;
-
-      const localPrerequisites = (upgradeDef.prerequisites ?? []).filter((id) =>
-        upgradesById.has(id),
-      );
-
-      const tier =
-        localPrerequisites.length === 0
-          ? 0
-          : Math.max(...localPrerequisites.map(getUpgradeTier)) + 1;
-
-      tierCache.set(upgradeId, tier);
-      return tier;
-    };
-
-    const tierEntries = Object.entries(
-      upgrades.reduce<Record<number, Upgrade[]>>((acc, upgradeDef) => {
-        const tier = getUpgradeTier(upgradeDef.id);
-        if (!acc[tier]) {
-          acc[tier] = [];
-        }
-        acc[tier].push(upgradeDef);
-        return acc;
-      }, {}),
-    )
-      .map(([tier, tierUpgrades]) => ({
-        tier: Number(tier),
-        upgrades: tierUpgrades.sort((a, b) => a.name.localeCompare(b.name)),
-      }))
-      .sort((a, b) => a.tier - b.tier);
-
-    const selectedModalUpgrade = treeModalUpgradeId
-      ? getUpgradeDef(treeModalUpgradeId)
-      : null;
-    const selectedModalPresentation = selectedModalUpgrade
-      ? getUpgradePresentation(selectedModalUpgrade)
-      : null;
-    const isMobileTree = viewportWidth <= 768;
-    const treeNodeWidth = isMobileTree ? 160 : 220;
-    const treeColumnGap = isMobileTree ? 12 : 26;
-    const treeNodeHeight = isMobileTree ? 170 : 188;
-    const treeRowGap = isMobileTree ? 32 : 54;
-    const treeHeaderHeight = isMobileTree ? 28 : 34;
-    const treeNodePadding = isMobileTree ? 10 : 12;
-    const treeTitleFontSize = isMobileTree ? 12 : 13;
-    const treeMetaFontSize = isMobileTree ? 10 : 11;
-    const treeBadgeFontSize = isMobileTree ? 9 : 10;
-    const treeIconSize = isMobileTree ? 20 : 24;
-    const maxTierSize = Math.max(
-      1,
-      ...tierEntries.map((tierEntry) => tierEntry.upgrades.length),
-    );
-    const treeBoardWidth =
-      maxTierSize * treeNodeWidth +
-      Math.max(0, maxTierSize - 1) * treeColumnGap;
-    const treeBoardHeight =
-      tierEntries.length * (treeHeaderHeight + treeNodeHeight) +
-      Math.max(0, tierEntries.length - 1) * treeRowGap;
-    const nodeLookup = new Map<
-      string,
-      { tierIndex: number; rowIndex: number; x: number; y: number }
-    >();
-
-    tierEntries.forEach((tierEntry, tierIndex) => {
-      tierEntry.upgrades.forEach((upgradeDef, rowIndex) => {
-        const tierWidth =
-          tierEntry.upgrades.length * treeNodeWidth +
-          Math.max(0, tierEntry.upgrades.length - 1) * treeColumnGap;
-        const xOffset = (treeBoardWidth - tierWidth) / 2;
-        const x = xOffset + rowIndex * (treeNodeWidth + treeColumnGap);
-        const y =
-          tierIndex * (treeHeaderHeight + treeNodeHeight + treeRowGap) +
-          treeHeaderHeight;
-        nodeLookup.set(upgradeDef.id, { tierIndex, rowIndex, x, y });
-      });
-    });
-
-    const treeConnectors = tierEntries.flatMap((tierEntry) =>
-      tierEntry.upgrades.flatMap((upgradeDef) => {
-        const childNode = nodeLookup.get(upgradeDef.id);
-        if (!childNode) return [];
-
-        return (upgradeDef.prerequisites ?? [])
-          .map((preqId) => {
-            const parentNode = nodeLookup.get(preqId);
-            if (!parentNode) return null;
-
-            const startX = parentNode.x + treeNodeWidth / 2;
-            const startY = parentNode.y + treeNodeHeight;
-            const endX = childNode.x + treeNodeWidth / 2;
-            const endY = childNode.y;
-            const verticalDistance = endY - startY;
-            const bendOffset = Math.max(28, verticalDistance * 0.45);
-
-            return {
-              key: `${preqId}-${upgradeDef.id}`,
-              startX,
-              startY,
-              endX,
-              endY,
-              controlY1: startY + bendOffset,
-              controlY2: endY - bendOffset,
-              purchased: getUpgradeLevel(state, preqId) > 0,
-            };
-          })
-          .filter(
-            (
-              connector,
-            ): connector is {
-              key: string;
-              startX: number;
-              startY: number;
-              endX: number;
-              endY: number;
-              controlY1: number;
-              controlY2: number;
-              purchased: boolean;
-            } => connector !== null,
-          );
-      }),
-    );
+    const {
+      upgrades,
+      tierEntries,
+      treeConnectors,
+      selectedModalPresentation,
+      layout,
+      treeIcon,
+      treeTitle,
+    } = selectedTreeView!;
+    const {
+      isMobileTree,
+      treeNodeWidth,
+      treeColumnGap,
+      treeNodeHeight,
+      treeRowGap,
+      treeHeaderHeight,
+      treeNodePadding,
+      treeTitleFontSize,
+      treeMetaFontSize,
+      treeBadgeFontSize,
+      treeIconSize,
+      treeBoardWidth,
+      treeBoardHeight,
+    } = layout;
 
     return (
       <div style={{ padding: 16, color: "#e5edf5" }}>
@@ -314,7 +111,7 @@ export function Upgrades() {
             aria-label="Toggle tree view"
             title={isTreeView ? "Switch to normal view" : "Switch to tree view"}
           >
-            <span>{getTreeIcon(selectedTree)}</span>
+            <span>{treeIcon}</span>
             <span>{isTreeView ? "Normal View" : "Tree View"}</span>
           </button>
         </div>
@@ -327,10 +124,8 @@ export function Upgrades() {
             gap: 10,
           }}
         >
-          <span>{getTreeIcon(selectedTree)}</span>
-          <span>
-            {selectedTree.charAt(0).toUpperCase() + selectedTree.slice(1)} Tree
-          </span>
+          <span>{treeIcon}</span>
+          <span>{treeTitle}</span>
         </h2>
 
         {upgrades.length === 0 && (
@@ -458,24 +253,14 @@ export function Upgrades() {
                           flexWrap: "nowrap",
                         }}
                       >
-                        {tierEntry.upgrades.map((upgradeDef) => {
-                          const presentation =
-                            getUpgradePresentation(upgradeDef);
-                          const prerequisiteNames = presentation.prerequisites
-                            .map((preqId) => getUpgradeDef(preqId)?.name)
-                            .filter(Boolean);
-                          const linkedNames = (upgradeDef.linkedUpgrades ?? [])
-                            .map((linked) => {
-                              const unlockDef = getUpgradeDef(linked.upgradeId);
-                              return unlockDef
-                                ? `${unlockDef.name} @ Lv ${linked.unlocksAtLevel ?? 1}`
-                                : null;
-                            })
-                            .filter(Boolean);
+                        {tierEntry.upgrades.map((presentation) => {
+                          const prerequisiteNames =
+                            presentation.prerequisiteNames;
+                          const linkedNames = presentation.linkedNames;
 
                           return (
                             <button
-                              key={upgradeDef.id}
+                              key={presentation.upgrade.id}
                               style={{
                                 ...panelStyle,
                                 position: "relative",
@@ -497,9 +282,9 @@ export function Upgrades() {
                                 flex: `0 0 ${treeNodeWidth}px`,
                               }}
                               onClick={() =>
-                                setTreeModalUpgradeId(upgradeDef.id)
+                                setTreeModalUpgradeId(presentation.upgrade.id)
                               }
-                              title={`Open ${upgradeDef.name}`}
+                              title={`Open ${presentation.upgrade.name}`}
                             >
                               <div
                                 style={{
@@ -510,7 +295,7 @@ export function Upgrades() {
                                 }}
                               >
                                 <span style={{ fontSize: treeIconSize }}>
-                                  {getUpgradeIcon(upgradeDef)}
+                                  {presentation.icon}
                                 </span>
                                 <span
                                   style={{
@@ -541,7 +326,7 @@ export function Upgrades() {
                                     marginBottom: 4,
                                   }}
                                 >
-                                  {upgradeDef.name}
+                                  {presentation.upgrade.name}
                                 </div>
                                 <div
                                   style={{
@@ -570,7 +355,7 @@ export function Upgrades() {
                                   }}
                                 >
                                   {prerequisiteNames.length > 0 ? (
-                                    prerequisiteNames.map((name) => (
+                                    prerequisiteNames.map((name: string) => (
                                       <span
                                         key={name}
                                         style={{
@@ -613,7 +398,7 @@ export function Upgrades() {
                                   }}
                                 >
                                   {linkedNames.length > 0 ? (
-                                    linkedNames.map((name) => (
+                                    linkedNames.map((name: string) => (
                                       <span
                                         key={name}
                                         style={{
@@ -659,8 +444,8 @@ export function Upgrades() {
             </div>
           </div>
         ) : (
-          upgrades.map((upgradeDef) => {
-            const presentation = getUpgradePresentation(upgradeDef);
+          upgrades.map((presentation) => {
+            const upgradeDef = presentation.upgrade;
 
             return (
               <div
@@ -811,7 +596,7 @@ export function Upgrades() {
           })
         )}
 
-        {isTreeView && selectedModalUpgrade && selectedModalPresentation && (
+        {isTreeView && selectedModalPresentation && (
           <div
             style={{
               position: "fixed",
@@ -850,10 +635,12 @@ export function Upgrades() {
               >
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <span style={{ fontSize: 28 }}>
-                    {getUpgradeIcon(selectedModalUpgrade)}
+                    {selectedModalPresentation.icon}
                   </span>
                   <div>
-                    <h3 style={{ margin: 0 }}>{selectedModalUpgrade.name}</h3>
+                    <h3 style={{ margin: 0 }}>
+                      {selectedModalPresentation.upgrade.name}
+                    </h3>
                     <div
                       style={{ fontSize: 12, color: "#9eb0c2", marginTop: 4 }}
                     >
@@ -867,9 +654,9 @@ export function Upgrades() {
                 </button>
               </div>
 
-              {selectedModalUpgrade.description && (
+              {selectedModalPresentation.upgrade.description && (
                 <p style={{ color: "#c8d7e5", marginBottom: 10 }}>
-                  {selectedModalUpgrade.description}
+                  {selectedModalPresentation.upgrade.description}
                 </p>
               )}
 
@@ -917,7 +704,7 @@ export function Upgrades() {
                     : "#8ea3b8",
                 }}
                 onClick={() => {
-                  buyUpgrade(selectedModalUpgrade.id);
+                  buyUpgrade(selectedModalPresentation.upgrade.id);
                 }}
                 disabled={
                   !selectedModalPresentation.isUnlocked ||
@@ -980,18 +767,9 @@ export function Upgrades() {
         }}
       >
         {trees.map((tree) => {
-          const upgrades = getUpgradesByTree(tree);
-          const totalLevel = upgrades.reduce(
-            (sum, u) => sum + getUpgradeLevel(state, u.id),
-            0,
-          );
-          const unlockedCount = upgrades.filter((u) =>
-            isUpgradeUnlocked(state, u.id),
-          ).length;
-
           return (
             <button
-              key={tree}
+              key={tree.tree}
               className="btn-selected"
               style={{
                 ...panelStyle,
@@ -1004,7 +782,7 @@ export function Upgrades() {
                 boxShadow: "0 10px 24px rgba(0, 0, 0, 0.22)",
               }}
               onClick={() => {
-                setSelectedTree(tree);
+                setSelectedTree(tree.tree);
                 setIsTreeView(false);
                 setTreeModalUpgradeId(null);
               }}
@@ -1035,7 +813,7 @@ export function Upgrades() {
                   color: "#f3f7fb",
                 }}
               >
-                {tree.charAt(0).toUpperCase() + tree.slice(1)}
+                {tree.title.replace(/ Tree$/, "")}
               </h3>
               <p
                 style={{
@@ -1046,8 +824,11 @@ export function Upgrades() {
                   lineHeight: 1.45,
                 }}
               >
-                {upgrades.length} upgrades ({unlockedCount} unlocked) • Level{" "}
-                {formatCompactNumber(totalLevel, { minCompactValue: 1000 })}
+                {tree.upgradesCount} upgrades ({tree.unlockedCount} unlocked) •
+                Level{" "}
+                {formatCompactNumber(tree.totalLevel, {
+                  minCompactValue: 1000,
+                })}
               </p>
             </button>
           );

@@ -1,7 +1,7 @@
 # Refactor Phase 2 Plan: Selector Extraction
 
 Date started: 2026-03-24
-Status: In progress
+Status: Complete
 Goal: Extract pure, reusable selectors for read-heavy UI state so components stop owning domain calculations.
 
 ## Why this phase exists
@@ -61,6 +61,46 @@ That makes components harder to test, harder to extend, and easier to break when
 2. Inventory
 3. Upgrades
 4. Reassess remaining read hot spots
+
+## Progress
+
+- Completed: Fight + ResourcesDisplay selector extraction.
+- Completed: Inventory selector extraction.
+- Completed: Upgrades selector extraction.
+- Completed: Reassessed remaining read hot spots and closed Phase 2.
+
+## Reassessment Outcome
+
+Phase 2 is complete.
+
+Why it is complete:
+
+- The originally targeted read-heavy components now consume selector-backed view models.
+- New selector modules have direct unit-test coverage.
+- The remaining non-Garden read logic is relatively small, component-local, and not a strong candidate for another dedicated selector slice.
+
+Residual read hotspots kept in components for now:
+
+- SpellSelectModal: small spell-list filtering and slot projection.
+- ItemDetail: item-comparison display assembly and potion toast messaging.
+- Equipment: local equipped-item slot rendering.
+- PlayerProgressTile: lightweight progression preview and progress-bar math.
+
+Why these were not pulled into Phase 2:
+
+- They are materially smaller than the Fight, Inventory, and Upgrades hotspots.
+- Extracting them now would add churn without a proportional architectural gain.
+- Garden remains the only major read-heavy area, and it is still explicitly out of scope for this phase.
+
+Phase 2 stop rule:
+
+- Do not continue selector extraction in Phase 2 unless a newly identified hotspot is comparable in complexity to the slices already completed.
+- Treat any future Garden selector work as a separate, explicitly scoped phase or vertical slice.
+
+Phase 3 handoff:
+
+- Garden is the next major candidate, but only as a dedicated phase with its own scope, validation gates, and stop conditions.
+- See docs/refactor-phase-3-garden-plan.md.
 
 ## Implementation rules
 

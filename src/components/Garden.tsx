@@ -32,19 +32,19 @@ import {
   removePlanterFromField,
   rockConfig,
   getSeedMakerCost,
-  getSeedMakerDurationMs,
   craftSeedFromSeedMaker,
   canCraftSeedFromSeedMaker,
 } from "../game/garden";
 import { getItemDefSafe } from "../game/items";
 import { formatCompactNumber } from "../game/numberFormat";
-import { getUpgradeLevel } from "../game/upgrades";
-import type { CropCategory, CropInstance, FieldPosition } from "../game/types";
-
-interface SeedBagItem {
-  seedId: string;
-  count: number;
-}
+import {
+  formatGardenCategoryLabel,
+  getGardenCategoryIcon,
+  getGardenSeedPresentation,
+  resolveGardenCropIdFromSeed,
+  selectGardenSeedView,
+} from "../game/selectors/garden";
+import type { CropInstance, FieldPosition } from "../game/types";
 
 interface PlantModalState {
   isOpen: boolean;
@@ -95,12 +95,6 @@ interface PendingPlanterActionState {
   row: number;
   col: number;
   planterId: string;
-}
-
-interface SeedMakerRecipe {
-  seedId: string;
-  cropName: string;
-  category: CropCategory;
 }
 
 export function Garden() {
@@ -159,22 +153,6 @@ export function Garden() {
   );
 
   const garden = state.garden;
-  const seedMakerUpgradeId = "seedmaker_lab";
-  const seedMakerLevel = getUpgradeLevel(state, seedMakerUpgradeId);
-  const isSeedMakerUnlocked = seedMakerLevel > 0;
-  const selectedSeedMakerSeedId =
-    state.garden.seedMaker?.selectedSeedId ?? null;
-  const seedMakerCycleMs = getSeedMakerDurationMs(
-    seedMakerLevel,
-    selectedSeedMakerSeedId,
-  );
-  const seedMakerRemainderMs =
-    state.garden.automationTimers?.seedMakerRemainderMs ?? 0;
-  const seedMakerRemainingMs =
-    (state.garden.seedMaker?.isRunning ?? false)
-      ? Math.max(0, seedMakerCycleMs - seedMakerRemainderMs)
-      : seedMakerCycleMs;
-  const isSeedMakerRunning = state.garden.seedMaker?.isRunning ?? false;
   const [toolTypeFilter, setToolTypeFilter] = useState<string | null>(null);
   const equippedToolItem = state.equipment.tool
     ? (state.inventory.find((item) => item.uid === state.equipment.tool) ??
@@ -189,6 +167,21 @@ export function Garden() {
   const toolbarIconSize = isMobile ? 22 : 26;
   const toolbarBadgeSize = isMobile ? 28 : 24;
   const toolbarCornerActionSize = isMobile ? 24 : 20;
+  const {
+    seedBag,
+    seedMakerRecipes,
+    isSeedMakerUnlocked,
+    selectedSeedMakerSeedId,
+    selectedSeedMakerPresentation,
+    selectedPlanterSeedPresentation,
+    activeSeedBagSeedPresentation,
+    seedMakerCycleMs,
+    seedMakerRemainingMs,
+    isSeedMakerRunning,
+    defaultSeedMakerSeedId,
+  } = selectGardenSeedView(state, {
+    activeSeedBagSeedId,
+  });
 
   const isFieldUnlocked = (row: number, col: number): boolean => {
     const unlocked = garden.unlockedFields;
@@ -196,37 +189,6 @@ export function Garden() {
       return unlocked.some((f) => f.row === row && f.col === col);
     }
     return row < garden.gridSize.rows && col < garden.gridSize.cols;
-  };
-
-  const resolveCropIdFromSeed = (seedId: string): string | null => {
-    const fromDefinition = Object.values(cropDefinitions).find(
-      (crop) => crop.seedItemId === seedId,
-    );
-    if (fromDefinition) return fromDefinition.id;
-
-    const seedMatch = seedId.match(
-      /^(.+)_seed(?:_(common|rare|epic|legendary|unique))?$/,
-    );
-    if (seedMatch) {
-      const [, base, rarity] = seedMatch;
-      if (rarity) {
-        const directCrop = `${base}_${rarity}`;
-        if (getCropDef(directCrop)) return directCrop;
-      }
-      const commonCrop = `${base}_common`;
-      if (getCropDef(commonCrop)) return commonCrop;
-
-      const anyVariant = Object.values(cropDefinitions).find(
-        (crop) =>
-          crop.id.startsWith(`${base}_`) ||
-          crop.seedItemId.startsWith(`${base}_seed`),
-      );
-      if (anyVariant) return anyVariant.id;
-    }
-
-    // Backward-compatible fallback for legacy IDs like "sunflower_seed_common".
-    const fallbackCropId = seedId.replace("_seed", "");
-    return getCropDef(fallbackCropId) ? fallbackCropId : null;
   };
 
   const isTreeCrop = (cropDef: { category: string; isPerennial: boolean }) =>
@@ -288,42 +250,6 @@ export function Garden() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Collect seeds from inventory. Keep compatibility with older save IDs
-  // that may not exist in the latest item definition table.
-  const seedBag: SeedBagItem[] = [];
-  for (const item of state.inventory) {
-    const def = getItemDefSafe(item.itemId);
-    const isSeedLike = def?.type === "seed" || item.itemId.includes("_seed");
-    const isPlantableSeed = resolveCropIdFromSeed(item.itemId) !== null;
-    if (isSeedLike && isPlantableSeed && item.quantity > 0) {
-      const existing = seedBag.find((s) => s.seedId === item.itemId);
-      if (existing) {
-        existing.count += item.quantity;
-      } else {
-        seedBag.push({ seedId: item.itemId, count: item.quantity });
-      }
-    }
-  }
-
-  const seedMakerRecipeMap = Object.values(cropDefinitions).reduce<
-    Record<string, SeedMakerRecipe>
-  >((acc, cropDef) => {
-    if (!acc[cropDef.seedItemId]) {
-      acc[cropDef.seedItemId] = {
-        seedId: cropDef.seedItemId,
-        cropName: cropDef.name,
-        category: cropDef.category,
-      };
-    }
-    return acc;
-  }, {});
-
-  const seedMakerRecipes = Object.values(seedMakerRecipeMap).sort((a, b) => {
-    const categoryDelta = a.category.localeCompare(b.category);
-    if (categoryDelta !== 0) return categoryDelta;
-    return a.cropName.localeCompare(b.cropName);
-  });
-
   const craftSeedFromStorage = (seedId: string) => {
     const recipe = seedMakerRecipes.find((entry) => entry.seedId === seedId);
     if (!recipe) return;
@@ -340,7 +266,7 @@ export function Garden() {
 
     if (currentCategoryAmount < cost.resourceCost) {
       alert(
-        `Need ${cost.resourceCost} ${formatCategoryLabel(recipe.category)} resource to create this seed.`,
+        `Need ${cost.resourceCost} ${formatGardenCategoryLabel(recipe.category)} resource to create this seed.`,
       );
       return;
     }
@@ -353,8 +279,7 @@ export function Garden() {
   };
 
   const startSeedMaker = () => {
-    const seedId =
-      selectedSeedMakerSeedId ?? seedMakerRecipes[0]?.seedId ?? null;
+    const seedId = defaultSeedMakerSeedId;
     if (!seedId) {
       alert("Select a seed recipe first.");
       return;
@@ -377,7 +302,7 @@ export function Garden() {
 
       if (selectedRecipe && availableCategoryAmount < cost.resourceCost) {
         alert(
-          `Cannot start Seedmaker. Need ${cost.resourceCost} ${formatCategoryLabel(selectedRecipe.category)} resource for the selected recipe.`,
+          `Cannot start Seedmaker. Need ${cost.resourceCost} ${formatGardenCategoryLabel(selectedRecipe.category)} resource for the selected recipe.`,
         );
         return;
       }
@@ -433,30 +358,6 @@ export function Garden() {
   const compactGridLabels = isMobile || previewCols >= 8;
   const minimumCellSize = isMobile ? 34 : 42;
 
-  const formatCategoryLabel = (category: string) =>
-    category.charAt(0).toUpperCase() + category.slice(1);
-
-  const getCategoryIcon = (category: string): string => {
-    switch (category) {
-      case "flower":
-        return "🌸";
-      case "vegetable":
-        return "🥕";
-      case "fruit":
-        return "🍎";
-      case "herb":
-        return "🌿";
-      case "grains":
-        return "🌾";
-      case "grape":
-        return "🍇";
-      case "special":
-        return "✨";
-      default:
-        return "📦";
-    }
-  };
-
   const getRaritySortValue = (rarity: string | null | undefined): number => {
     const rarityOrder: Record<string, number> = {
       common: 0,
@@ -480,19 +381,6 @@ export function Garden() {
     if (isScytheTool(toolId)) return "🔪";
     if (isSeedBagTool(toolId)) return "🎒";
     return "🔧";
-  };
-
-  const getSeedPresentation = (seedId: string) => {
-    const cropId = resolveCropIdFromSeed(seedId);
-    const cropDef = cropId ? getCropDef(cropId) : null;
-    const itemDef = getItemDefSafe(seedId);
-
-    return {
-      cropId,
-      cropDef,
-      icon: cropDef ? getCategoryIcon(cropDef.category) : "🌱",
-      label: cropDef?.name ?? itemDef?.name ?? seedId,
-    };
   };
 
   const handleSeedBagSeedSelect = (
@@ -557,18 +445,6 @@ export function Garden() {
       setShowSeedBag(false);
     }
   };
-
-  const activeSeedBagSeedPresentation = activeSeedBagSeedId
-    ? getSeedPresentation(activeSeedBagSeedId)
-    : null;
-
-  const selectedSeedMakerPresentation = selectedSeedMakerSeedId
-    ? getSeedPresentation(selectedSeedMakerSeedId)
-    : null;
-
-  const selectedPlanterSeedPresentation = state.garden.selectedPlanterSeedId
-    ? getSeedPresentation(state.garden.selectedPlanterSeedId)
-    : null;
 
   const openPlanterSeedSelection = (
     action: PendingPlanterActionState,
@@ -811,7 +687,7 @@ export function Garden() {
     toolId: string,
     seedId: string,
   ) => {
-    const cropId = resolveCropIdFromSeed(seedId);
+    const cropId = resolveGardenCropIdFromSeed(seedId);
     if (!cropId) {
       return {
         nextState: currentState,
@@ -1929,14 +1805,14 @@ export function Garden() {
                 fontSize: toolbarIconSize,
               }}
               onClick={() => {
-                if (!selectedSeedMakerSeedId && seedMakerRecipes.length > 0) {
+                if (!selectedSeedMakerSeedId && defaultSeedMakerSeedId) {
                   setState((prev) => ({
                     ...prev,
                     garden: {
                       ...prev.garden,
                       seedMaker: {
                         ...(prev.garden.seedMaker ?? {}),
-                        selectedSeedId: seedMakerRecipes[0].seedId,
+                        selectedSeedId: defaultSeedMakerSeedId,
                       },
                     },
                   }));
@@ -2425,7 +2301,7 @@ export function Garden() {
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {seedBag.map((seed) => {
-                      const seedPresentation = getSeedPresentation(seed.seedId);
+                      const seedPresentation = seed.presentation;
 
                       return (
                         <button
@@ -2487,7 +2363,7 @@ export function Garden() {
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {seedBag.map((seed) => {
-                      const seedPresentation = getSeedPresentation(seed.seedId);
+                      const seedPresentation = seed.presentation;
 
                       return (
                         <button
@@ -2669,7 +2545,7 @@ export function Garden() {
                       : state.garden.selectedPlanterSeedId;
 
                   return seedBag.map((seed) => {
-                    const seedPresentation = getSeedPresentation(seed.seedId);
+                    const seedPresentation = seed.presentation;
                     const isSelected =
                       seedSelectionTarget === "planter"
                         ? selectedPlanterSeedForModal === seed.seedId
@@ -2868,33 +2744,26 @@ export function Garden() {
                 }}
               >
                 {seedMakerRecipes.map((recipe) => {
-                  const cost = getSeedMakerCost(recipe.seedId);
-                  const availableResource =
-                    state.garden.cropStorage.current[recipe.category] ?? 0;
-                  const availableGems = state.resources.gems ?? 0;
-                  const canCraft =
-                    availableResource >= cost.resourceCost &&
-                    availableGems >= cost.gemCost;
-                  const isSelected = selectedSeedMakerSeedId === recipe.seedId;
-                  const canSelectRecipe = !isSeedMakerRunning || isSelected;
-
                   return (
                     <button
                       key={`seedmaker-${recipe.seedId}`}
                       type="button"
-                      className={isSelected ? "btn-selected" : ""}
+                      className={recipe.isSelected ? "btn-selected" : ""}
                       style={{
                         padding: 8,
-                        backgroundColor: isSelected ? "#1f7f43" : "#1b2d3f",
-                        border: isSelected
+                        backgroundColor: recipe.isSelected
+                          ? "#1f7f43"
+                          : "#1b2d3f",
+                        border: recipe.isSelected
                           ? "2px solid #2f9e44"
                           : "1px solid #34516a",
                         borderRadius: 4,
                         cursor:
-                          canCraft && canSelectRecipe
+                          recipe.canCraft && recipe.canSelectRecipe
                             ? "pointer"
                             : "not-allowed",
-                        opacity: canCraft && canSelectRecipe ? 1 : 0.68,
+                        opacity:
+                          recipe.canCraft && recipe.canSelectRecipe ? 1 : 0.68,
                         fontSize: 11,
                         textAlign: "left",
                         color: "#e5edf5",
@@ -2903,7 +2772,7 @@ export function Garden() {
                         gap: 4,
                       }}
                       onClick={() => {
-                        if (!canSelectRecipe) {
+                        if (!recipe.canSelectRecipe) {
                           alert(
                             "Seedmaker is currently crafting. Stop it before changing the selected seed.",
                           );
@@ -2924,19 +2793,18 @@ export function Garden() {
                       title={`${recipe.cropName} Seed`}
                     >
                       <div style={{ fontWeight: "bold" }}>
-                        {getCategoryIcon(recipe.category)} {recipe.cropName}{" "}
-                        Seed
+                        {recipe.categoryIcon} {recipe.cropName} Seed
                       </div>
                       <div style={{ fontSize: 10, color: "#9eb0c2" }}>
-                        Category: {formatCategoryLabel(recipe.category)}
+                        Category: {recipe.categoryLabel}
                       </div>
                       <div style={{ fontSize: 10 }}>
-                        Cost: 💎 {cost.gemCost} + {cost.resourceCost}{" "}
-                        {formatCategoryLabel(recipe.category)}
+                        Cost: 💎 {recipe.cost.gemCost} +{" "}
+                        {recipe.cost.resourceCost} {recipe.categoryLabel}
                       </div>
                       <div style={{ fontSize: 10, color: "#c7d8e8" }}>
-                        Available: {availableResource}{" "}
-                        {formatCategoryLabel(recipe.category)}
+                        Available: {recipe.availableResource}{" "}
+                        {recipe.categoryLabel}
                       </div>
                     </button>
                   );
@@ -3082,7 +2950,7 @@ export function Garden() {
                     }}
                   >
                     {seedBag.map((seed) => {
-                      const seedPresentation = getSeedPresentation(seed.seedId);
+                      const seedPresentation = seed.presentation;
                       const cropDef = seedPresentation.cropDef;
                       const isSelected =
                         plantModal.selectedSeedId === seed.seedId;
@@ -3246,7 +3114,7 @@ export function Garden() {
                     disabled={plantModal.selectedSeedId === null}
                     onClick={() => {
                       if (plantModal.selectedSeedId) {
-                        const cropId = resolveCropIdFromSeed(
+                        const cropId = resolveGardenCropIdFromSeed(
                           plantModal.selectedSeedId,
                         );
                         if (!cropId) {
@@ -3381,8 +3249,8 @@ export function Garden() {
                         }}
                       >
                         <span>
-                          {getCategoryIcon(category)}{" "}
-                          {formatCategoryLabel(category)}
+                          {getGardenCategoryIcon(category)}{" "}
+                          {formatGardenCategoryLabel(category)}
                         </span>
                         <span>
                           {amount} / {limit}
@@ -4343,7 +4211,7 @@ export function Garden() {
                   state.garden.selectedPlanterSeedId ??
                   null;
                 const planterSeedForTilePresentation = planterSeedForTile
-                  ? getSeedPresentation(planterSeedForTile)
+                  ? getGardenSeedPresentation(planterSeedForTile)
                   : null;
 
                 return (
@@ -5040,7 +4908,7 @@ export function Garden() {
                     state.garden.selectedPlanterSeedId)
                   : null;
                 const selectedSeedForTilePresentation = selectedSeedForTile
-                  ? getSeedPresentation(selectedSeedForTile)
+                  ? getGardenSeedPresentation(selectedSeedForTile)
                   : null;
 
                 if (tileDetailModal.emptyMode === "automation") {
