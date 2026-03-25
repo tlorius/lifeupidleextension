@@ -74,7 +74,13 @@ describe("inventory selectors", () => {
     expect(result.selectableVisibleUids).toEqual(["unique-weapon", "ring"]);
     expect(result.allVisibleSelected).toBe(true);
     expect(result.selectedSellTotalGold).toBe(780);
+    expect(result.selectedSellCount).toBe(2);
+    expect(result.selectedSellSummary).toBe("2 selected • +780🪙");
     expect(result.selectedUniqueItemNames).toEqual(["Voidborn Fang"]);
+    expect(result.sellConfirmationMessage).toContain(
+      "Sell 2 selected item(s) for 780 gold?",
+    );
+    expect(result.sellConfirmationMessage).toContain("Voidborn Fang");
     expect(
       result.displayInventory.find((entry) => entry.uid === "equipped-weapon")
         ?.isSelectable,
@@ -83,5 +89,27 @@ describe("inventory selectors", () => {
       result.displayInventory.find((entry) => entry.uid === "unique-weapon")
         ?.isFullySelected,
     ).toBe(true);
+  });
+
+  it("returns filter-specific empty state and ignores missing selected sell ids", () => {
+    const state = createDefaultState();
+
+    const result = selectInventoryView(
+      state,
+      "pet",
+      ["missing-uid"],
+      "missing-uid",
+    );
+
+    expect(result.displayInventory).toHaveLength(0);
+    expect(result.isEmpty).toBe(true);
+    expect(result.emptyMessage).toBe("No pet items");
+    expect(result.selectedItem).toBeNull();
+    expect(result.selectedSellCount).toBe(1);
+    expect(result.selectedSellTotalGold).toBe(0);
+    expect(result.selectedUniqueItemNames).toEqual([]);
+    expect(result.sellConfirmationMessage).toBe(
+      "Sell 1 selected item(s) for 0 gold?",
+    );
   });
 });

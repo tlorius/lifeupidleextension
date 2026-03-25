@@ -87,8 +87,11 @@ export function Inventory() {
     selectedItem,
     selectableVisibleUids,
     allVisibleSelected,
-    selectedSellTotalGold,
-    selectedUniqueItemNames,
+    isEmpty,
+    emptyMessage,
+    selectedSellCount,
+    selectedSellSummary,
+    sellConfirmationMessage,
   } = selectInventoryView(state, filter, selectedSellUids, selectedItemUid);
 
   const toggleEntrySelection = (entry: InventoryDisplayEntry): void => {
@@ -124,13 +127,7 @@ export function Inventory() {
   const handleSellSelectedItems = () => {
     if (selectedSellUids.length === 0) return;
 
-    const baseMessage = `Sell ${selectedSellUids.length} selected item(s) for ${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold?`;
-    const uniqueWarning =
-      selectedUniqueItemNames.length > 0
-        ? `\n\nCareful are you sure you want to delete unique items ${selectedUniqueItemNames.join(", ")}`
-        : "";
-
-    const confirmed = window.confirm(`${baseMessage}${uniqueWarning}`);
+    const confirmed = window.confirm(sellConfirmationMessage);
     if (!confirmed) return;
 
     dispatchSellSelectedItems(selectedSellUids);
@@ -214,8 +211,8 @@ export function Inventory() {
       </div>
 
       {/* Inventory Items */}
-      {displayInventory.length === 0 ? (
-        <p style={{ color: "#9eb0c2" }}>No items</p>
+      {isEmpty ? (
+        <p style={{ color: "#9eb0c2" }}>{emptyMessage}</p>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
           {isMassSelectMode && (
@@ -259,11 +256,7 @@ export function Inventory() {
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, color: "#9eb0c2" }}>
-                  {selectedSellUids.length} selected • +
-                  {formatCompactNumber(selectedSellTotalGold, {
-                    minCompactValue: 1000,
-                  })}
-                  🪙
+                  {selectedSellSummary}
                 </span>
                 <button
                   className="btn-danger"
@@ -273,12 +266,11 @@ export function Inventory() {
                     borderRadius: 6,
                     minHeight: 40,
                     minWidth: 130,
-                    opacity: selectedSellUids.length > 0 ? 1 : 0.6,
-                    cursor:
-                      selectedSellUids.length > 0 ? "pointer" : "not-allowed",
+                    opacity: selectedSellCount > 0 ? 1 : 0.6,
+                    cursor: selectedSellCount > 0 ? "pointer" : "not-allowed",
                   }}
                   onClick={handleSellSelectedItems}
-                  disabled={selectedSellUids.length === 0}
+                  disabled={selectedSellCount === 0}
                 >
                   Sell Selected
                 </button>

@@ -1,7 +1,7 @@
 # Refactor Phase 6 Plan: Selector Consolidation and Hardening
 
 Date started: 2026-03-25
-Status: In progress
+Status: Complete
 Goal: Consolidate selector patterns across domains, improve selector test depth, and add performance guardrails so UI read-model changes remain fast, predictable, and safe.
 
 ## Why this phase exists
@@ -106,7 +106,9 @@ Audit basis: selector source size, branch density, recursive/graph derivation, a
 
 - Completed: Slice 1 selector seam audit and risk map.
 - Completed: Slice 2 high-risk hardening (Upgrades + Fight).
-- Next: Slice 3 medium-risk hardening (Garden + Resources).
+- Completed: Slice 3 medium-risk hardening (Garden + Resources).
+- Completed: Slice 4 low-risk cleanup (Inventory + misc).
+- Completed: Slice 5 performance and final pass.
 
 ## Slice 2 Outcome: Upgrades + Fight hardening
 
@@ -123,6 +125,59 @@ Validation run:
 - Full Vitest suite passed: 16 files, 190 tests.
 - Production build passed: `tsc -b && vite build`.
 - Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Slice 3 Outcome: Garden + Resources hardening
+
+Implemented changes:
+
+- Added Garden selector tests for seed-maker fallback state, missing crop-detail fallback, empty automation-tile fallback, and direct consistency checks against garden yield and gold domain helpers.
+- Added Resources selector tests for expired temporary potion state, default permanent-stat delta handling, and direct consistency with engine gold-income calculations.
+- Updated floating-point multiplier assertions in resource selector tests to use tolerant comparisons.
+
+Validation run:
+
+- Focused selector tests passed: `src/game/selectors/garden.test.ts`, `src/game/selectors/resources.test.ts`.
+- Full Vitest suite passed: 16 files, 195 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Slice 4 Outcome: Inventory + misc cleanup
+
+Implemented changes:
+
+- Normalized Inventory selector outputs with explicit empty-state metadata and mass-sell summary fields.
+- Moved sell-confirmation text and selection summary derivation out of the Inventory component and behind the selector read model.
+- Added Inventory selector tests for filter-specific empty states and missing selected-item/sell-id fallbacks.
+
+Validation run:
+
+- Focused selector tests passed: `src/game/selectors/inventory.test.ts`.
+- Full Vitest suite passed: 16 files, 196 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Slice 5 Outcome: Performance and final pass
+
+Implemented changes:
+
+- Added indexed inventory UID and equipped-item lookups in `src/game/selectors/inventory.ts` so selected-item, sell-summary, and entry-selection state avoid repeated linear scans.
+- Added cached garden seed resolution and presentation lookups in `src/game/selectors/garden.ts` so repeated selector calls reuse stable crop-id and presentation derivations.
+- Preserved the existing selector API and behavior while tightening the cost of repeated read-model construction.
+
+Validation run:
+
+- Focused selector tests passed: `src/game/selectors/garden.test.ts`, `src/game/selectors/inventory.test.ts`.
+- Full Vitest suite passed: 16 files, 196 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Final architecture checklist
+
+- Critical selectors now have direct branch assertions for gating, empty, and fallback states across upgrades, fight, garden, inventory, and resources.
+- Oversized read-model builders were split or supported by focused helpers where branch density was highest.
+- Recursive and repeated lookup paths now have explicit caching or indexed lookup guardrails.
+- Screen components rely on selector-derived UI metadata for critical paths instead of rebuilding it inline.
+- Full validation is green and gameplay behavior remains unchanged.
 
 ## Implementation rules
 
@@ -143,12 +198,12 @@ Validation run:
 
 Phase 6 is complete when:
 
-- [ ] Critical selector modules have branch-complete tests for gating/empty/fallback paths.
-- [ ] Oversized selector functions are decomposed into focused helpers with clear ownership.
-- [ ] High-cost selector derivations have explicit performance guardrails.
-- [ ] Screen components no longer duplicate selector-derived logic in critical paths.
-- [ ] Tests and build pass without regressions.
-- [ ] No gameplay/balance behavior changes were introduced.
+- [x] Critical selector modules have branch-complete tests for gating/empty/fallback paths.
+- [x] Oversized selector functions are decomposed into focused helpers with clear ownership.
+- [x] High-cost selector derivations have explicit performance guardrails.
+- [x] Screen components no longer duplicate selector-derived logic in critical paths.
+- [x] Tests and build pass without regressions.
+- [x] No gameplay/balance behavior changes were introduced.
 
 ## Stop rule
 

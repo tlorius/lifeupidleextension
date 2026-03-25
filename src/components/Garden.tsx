@@ -19,13 +19,14 @@ import { GardenRockBreakModal } from "./GardenRockBreakModal";
 import { GardenPlantModal } from "./GardenPlantModal";
 import { useGame } from "../game/GameContext";
 import {
+  computeWaterAreaResult,
+  computeSeedBagPlantResult,
+} from "../game/actionHandlers/garden";
+import {
   getCropDef,
   cropDefinitions,
   getGrowthProgress,
   getFieldUnlockCost,
-  unlockField,
-  plantCrop,
-  harvestCrop,
   calculateYield,
   calculateYieldWithMastery,
   calculateGoldWithMastery,
@@ -33,12 +34,8 @@ import {
   getCropXpForNextLevel,
   getCropYieldMultiplier,
   getCropGoldMultiplier,
-  prestigeCropType,
-  toggleSprinkler,
-  waterField,
   breakRock,
   moveCropArea,
-  reconcileGardenRocksForPreview,
   sprinklerCoversField,
   placeHarvesterOnField,
   removeHarvesterFromField,
@@ -46,7 +43,6 @@ import {
   removePlanterFromField,
   rockConfig,
   getSeedMakerCost,
-  craftSeedFromSeedMaker,
   canCraftSeedFromSeedMaker,
 } from "../game/garden";
 import { getItemDefSafe } from "../game/items";
@@ -57,7 +53,7 @@ import {
   resolveGardenCropIdFromSeed,
   selectGardenSeedView,
 } from "../game/selectors/garden";
-import type { CropInstance, FieldPosition } from "../game/types";
+import type { CropInstance } from "../game/types";
 
 interface PlantModalState {
   isOpen: boolean;
@@ -111,7 +107,7 @@ interface PendingPlanterActionState {
 }
 
 export function Garden() {
-  const { state, setState } = useGame();
+  const { state, dispatch } = useGame();
   const speedUpMinutes = 30;
   const speedUpGemCost = 100;
   const seedBagPlantEnergyCost = 1;
@@ -247,7 +243,7 @@ export function Garden() {
 
   // Reconcile rocks on load to sanitize starter tiles and fill missing preview rocks.
   useEffect(() => {
-    setState((prev) => reconcileGardenRocksForPreview(prev));
+    dispatch({ type: "garden/reconcileRocks" });
   }, []);
 
   useEffect(() => {
@@ -284,11 +280,7 @@ export function Garden() {
       return;
     }
 
-    setState((prev) => {
-      const next = structuredClone(prev);
-      const crafted = craftSeedFromSeedMaker(next, seedId);
-      return crafted ? next : prev;
-    });
+    dispatch({ type: "garden/craftSeed", seedId });
   };
 
   const startSeedMaker = () => {
@@ -324,38 +316,11 @@ export function Garden() {
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      garden: {
-        ...prev.garden,
-        automationTimers: {
-          ...(prev.garden.automationTimers ?? {}),
-          seedMakerRemainderMs: 0,
-        },
-        seedMaker: {
-          ...(prev.garden.seedMaker ?? {}),
-          isRunning: true,
-          selectedSeedId: seedId,
-        },
-      },
-    }));
+    dispatch({ type: "garden/startSeedMaker", seedId });
   };
 
   const stopSeedMaker = () => {
-    setState((prev) => ({
-      ...prev,
-      garden: {
-        ...prev.garden,
-        automationTimers: {
-          ...(prev.garden.automationTimers ?? {}),
-          seedMakerRemainderMs: 0,
-        },
-        seedMaker: {
-          ...(prev.garden.seedMaker ?? {}),
-          isRunning: false,
-        },
-      },
-    }));
+    dispatch({ type: "garden/stopSeedMaker" });
   };
 
   const handleSeedMakerRecipeSelect = (
@@ -369,16 +334,7 @@ export function Garden() {
       return;
     }
 
-    setState((prev) => ({
-      ...prev,
-      garden: {
-        ...prev.garden,
-        seedMaker: {
-          ...(prev.garden.seedMaker ?? {}),
-          selectedSeedId: seedId,
-        },
-      },
-    }));
+    dispatch({ type: "garden/selectSeedMakerRecipe", seedId });
   };
 
   const handleCraftOneSeed = () => {
@@ -467,39 +423,25 @@ export function Garden() {
   ) => {
     if (seedSelectionTarget === "planter") {
       const pendingAction = pendingPlanterAction;
-      setState((prev) => {
-        const next = {
-          ...prev,
-          garden: {
-            ...prev.garden,
-            selectedPlanterSeedId: seedId,
-          },
-        };
-
-        if (!pendingAction) return next;
-
-        const key = `${pendingAction.row},${pendingAction.col}`;
+      dispatch({ type: "garden/selectPlanterSeed", seedId });
+      if (pendingAction) {
         if (pendingAction.mode === "assign") {
-          return {
-            ...next,
-            garden: {
-              ...next.garden,
-              planterSeedSelections: {
-                ...(next.garden.planterSeedSelections ?? {}),
-                [key]: seedId,
-              },
-            },
-          };
+          dispatch({
+            type: "garden/assignPlanterTileSeed",
+            row: pendingAction.row,
+            col: pendingAction.col,
+            seedId,
+          });
+        } else {
+          dispatch({
+            type: "garden/placePlanter",
+            row: pendingAction.row,
+            col: pendingAction.col,
+            planterId: pendingAction.planterId,
+            seedId,
+          });
         }
-
-        return placePlanterOnField(
-          next,
-          pendingAction.row,
-          pendingAction.col,
-          pendingAction.planterId,
-          seedId,
-        );
-      });
+      }
       if (activateSeedBagAfterSelection && !pendingAction) {
         setIsToolEffectActive(true);
       }
@@ -535,284 +477,6 @@ export function Garden() {
       setTileDetailModal((prev) => ({ ...prev, isOpen: false }));
     }
     setShowSeedBag(true);
-  };
-
-  const getToolCoverageTiles = (
-    centerRow: number,
-    centerCol: number,
-    toolId: string,
-  ): FieldPosition[] => {
-    const normalized = normalizeToolId(toolId);
-    const isRare = normalized.includes("rare");
-    const isEpic = normalized.includes("epic");
-    const isLegendary = normalized.includes("legendary");
-    const isUnique = normalized.includes("unique");
-
-    // Requested tool ranges:
-    // common: center only (1 tile)
-    // rare: center + N/S/E/W (cross radius 1)
-    // epic: full 3x3 square
-    // legendary: full 5x5 square
-    // unique: full 7x7 square
-    let squareRadius = 0;
-    if (isUnique) {
-      squareRadius = 3;
-    } else if (isLegendary) {
-      squareRadius = 2;
-    } else if (isEpic) {
-      squareRadius = 1;
-    }
-
-    const tilesWithDistance: Array<{
-      row: number;
-      col: number;
-      dr: number;
-      dc: number;
-    }> = [];
-
-    for (let dr = -squareRadius; dr <= squareRadius; dr++) {
-      for (let dc = -squareRadius; dc <= squareRadius; dc++) {
-        const absDr = Math.abs(dr);
-        const absDc = Math.abs(dc);
-
-        if (isRare) {
-          const isCross = absDr + absDc <= 1;
-          if (!isCross) continue;
-        }
-
-        if (squareRadius === 0 && !isRare) {
-          if (absDr !== 0 || absDc !== 0) continue;
-        }
-
-        if (squareRadius > 0 || isRare || (absDr === 0 && absDc === 0)) {
-          tilesWithDistance.push({
-            row: centerRow + dr,
-            col: centerCol + dc,
-            dr,
-            dc,
-          });
-        }
-      }
-    }
-
-    // Process center first, then expand outward ring-by-ring.
-    tilesWithDistance.sort((a, b) => {
-      const ringA = Math.max(Math.abs(a.dr), Math.abs(a.dc));
-      const ringB = Math.max(Math.abs(b.dr), Math.abs(b.dc));
-      if (ringA !== ringB) return ringA - ringB;
-
-      const manhattanA = Math.abs(a.dr) + Math.abs(a.dc);
-      const manhattanB = Math.abs(b.dr) + Math.abs(b.dc);
-      if (manhattanA !== manhattanB) return manhattanA - manhattanB;
-
-      if (a.dr !== b.dr) return a.dr - b.dr;
-      return a.dc - b.dc;
-    });
-
-    return tilesWithDistance.map((tile) => ({
-      row: tile.row,
-      col: tile.col,
-    }));
-  };
-
-  const applyWateringCanArea = (
-    currentState: typeof state,
-    centerRow: number,
-    centerCol: number,
-    toolId: string,
-  ) => {
-    const tiles = getToolCoverageTiles(centerRow, centerCol, toolId);
-    let nextState = currentState;
-    let wateredTiles = 0;
-    let lackedEnergy = false;
-
-    for (const tile of tiles) {
-      let cropAtTile: CropInstance | null = null;
-      for (const cropList of Object.values(nextState.garden.crops)) {
-        const found = cropList.find(
-          (crop) =>
-            crop.position?.row === tile.row && crop.position?.col === tile.col,
-        );
-        if (found) {
-          cropAtTile = found;
-          break;
-        }
-      }
-
-      if (!cropAtTile || cropAtTile.hasSprinkler) continue;
-
-      const beforeEnergy = nextState.resources.energy ?? 0;
-      const updatedState = waterField(nextState, tile.row, tile.col);
-      const afterEnergy = updatedState.resources.energy ?? 0;
-
-      if (afterEnergy < beforeEnergy) {
-        wateredTiles += 1;
-        nextState = updatedState;
-      } else {
-        lackedEnergy = true;
-      }
-    }
-
-    return { nextState, wateredTiles, lackedEnergy };
-  };
-
-  const applyScytheHarvestArea = (
-    currentState: typeof state,
-    centerRow: number,
-    centerCol: number,
-    toolId: string,
-  ) => {
-    const tiles = getToolCoverageTiles(centerRow, centerCol, toolId);
-    const tileKeySet = new Set(tiles.map((t) => `${t.row},${t.col}`));
-    const targetsByCropId: Record<string, number[]> = {};
-
-    for (const [cId, cropList] of Object.entries(currentState.garden.crops)) {
-      const cropDef = getCropDef(cId);
-      if (!cropDef) continue;
-
-      cropList.forEach((crop, index) => {
-        const key = `${crop.position.row},${crop.position.col}`;
-        if (!tileKeySet.has(key)) return;
-        if (getGrowthProgress(crop, cropDef) < 100) return;
-
-        if (!targetsByCropId[cId]) targetsByCropId[cId] = [];
-        targetsByCropId[cId].push(index);
-      });
-    }
-
-    let nextState = currentState;
-    for (const [cId, indexes] of Object.entries(targetsByCropId)) {
-      const sortedDesc = [...indexes].sort((a, b) => b - a);
-      for (const idx of sortedDesc) {
-        nextState = harvestCrop(nextState, cId, idx);
-      }
-    }
-
-    return nextState;
-  };
-
-  const consumeOneSeedFromInventory = (
-    inventory: typeof state.inventory,
-    seedId: string,
-  ) => {
-    const idx = inventory.findIndex(
-      (item) => item.itemId === seedId && item.quantity > 0,
-    );
-    if (idx < 0) return { inventory, consumed: false };
-
-    const nextInventory = [...inventory];
-    const nextItem = { ...nextInventory[idx] };
-    nextItem.quantity -= 1;
-
-    if (nextItem.quantity <= 0) {
-      nextInventory.splice(idx, 1);
-    } else {
-      nextInventory[idx] = nextItem;
-    }
-
-    return { inventory: nextInventory, consumed: true };
-  };
-
-  const hasRockAtPositionInState = (
-    currentState: typeof state,
-    row: number,
-    col: number,
-  ): boolean => {
-    const rocks = currentState.garden.rocks;
-    return (
-      rocks.small.some((r) => r.row === row && r.col === col) ||
-      rocks.medium.some((r) => r.row === row && r.col === col) ||
-      rocks.large.some((r) => r.row === row && r.col === col)
-    );
-  };
-
-  const hasCropAtPositionInState = (
-    currentState: typeof state,
-    row: number,
-    col: number,
-  ): boolean => {
-    for (const cropList of Object.values(currentState.garden.crops)) {
-      if (
-        cropList.some(
-          (crop) => crop.position?.row === row && crop.position?.col === col,
-        )
-      ) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  const isFieldUnlockedInState = (
-    currentState: typeof state,
-    row: number,
-    col: number,
-  ): boolean => {
-    const unlocked = currentState.garden.unlockedFields;
-    if (unlocked && unlocked.length > 0) {
-      return unlocked.some((f) => f.row === row && f.col === col);
-    }
-    return (
-      row < currentState.garden.gridSize.rows &&
-      col < currentState.garden.gridSize.cols
-    );
-  };
-
-  const applySeedBagPlantArea = (
-    currentState: typeof state,
-    centerRow: number,
-    centerCol: number,
-    toolId: string,
-    seedId: string,
-  ) => {
-    const cropId = resolveGardenCropIdFromSeed(seedId);
-    if (!cropId) {
-      return {
-        nextState: currentState,
-        plantedTiles: 0,
-        lackedEnergy: false,
-        lackedSeeds: false,
-      };
-    }
-
-    const tiles = getToolCoverageTiles(centerRow, centerCol, toolId);
-    let nextState = currentState;
-    let plantedTiles = 0;
-    let lackedEnergy = false;
-    let lackedSeeds = false;
-
-    for (const tile of tiles) {
-      if (!isFieldUnlockedInState(nextState, tile.row, tile.col)) continue;
-      if (hasRockAtPositionInState(nextState, tile.row, tile.col)) continue;
-      if (hasCropAtPositionInState(nextState, tile.row, tile.col)) continue;
-
-      const energy = nextState.resources.energy ?? 0;
-      if (energy < seedBagPlantEnergyCost) {
-        lackedEnergy = true;
-        break;
-      }
-
-      const consumed = consumeOneSeedFromInventory(nextState.inventory, seedId);
-      if (!consumed.consumed) {
-        lackedSeeds = true;
-        break;
-      }
-
-      let plantedState = plantCrop(nextState, cropId, tile.row, tile.col);
-      plantedState = {
-        ...plantedState,
-        inventory: consumed.inventory,
-        resources: {
-          ...plantedState.resources,
-          energy: energy - seedBagPlantEnergyCost,
-        },
-      };
-
-      nextState = plantedState;
-      plantedTiles += 1;
-    }
-
-    return { nextState, plantedTiles, lackedEnergy, lackedSeeds };
   };
 
   useEffect(() => {
@@ -931,16 +595,10 @@ export function Garden() {
 
   const handleOpenSeedMakerModal = () => {
     if (!selectedSeedMakerSeedId && defaultSeedMakerSeedId) {
-      setState((prev) => ({
-        ...prev,
-        garden: {
-          ...prev.garden,
-          seedMaker: {
-            ...(prev.garden.seedMaker ?? {}),
-            selectedSeedId: defaultSeedMakerSeedId,
-          },
-        },
-      }));
+      dispatch({
+        type: "garden/selectSeedMakerRecipe",
+        seedId: defaultSeedMakerSeedId,
+      });
     }
     setShowSeedMakerModal(true);
   };
@@ -978,13 +636,7 @@ export function Garden() {
   const handleUnequipTool = () => {
     setActivateSeedBagAfterSelection(false);
     setIsToolEffectActive(false);
-    setState((prev) => ({
-      ...prev,
-      equipment: {
-        ...prev.equipment,
-        tool: null,
-      },
-    }));
+    dispatch({ type: "garden/unequipTool" });
   };
 
   const handleCloseSeedBagModal = () => {
@@ -1082,20 +734,13 @@ export function Garden() {
       return;
     }
 
-    let newState = plantCrop(state, cropId, plantModal.row, plantModal.col);
-    newState = {
-      ...newState,
-      inventory: newState.inventory.map((item) =>
-        item.itemId === plantModal.selectedSeedId
-          ? {
-              ...item,
-              quantity: item.quantity - 1,
-            }
-          : item,
-      ),
-    };
-
-    setState(newState);
+    dispatch({
+      type: "garden/plantCrop",
+      cropId,
+      row: plantModal.row,
+      col: plantModal.col,
+      consumeSeedId: plantModal.selectedSeedId,
+    });
     setPlantModal({
       isOpen: false,
       row: 0,
@@ -1381,8 +1026,7 @@ export function Garden() {
 
             // Handle sprinkler placement
             if (toolActive && isSprinklerTool(equippedTool)) {
-              const newState = toggleSprinkler(state, row, col);
-              setState(newState);
+              dispatch({ type: "garden/toggleSprinkler", row, col });
               return;
             }
 
@@ -1394,8 +1038,18 @@ export function Garden() {
                 alert(
                   "This tile already has another automation tool. Remove it first.",
                 );
+                return;
               }
-              setState(newState);
+              if (harvesterOnTile) {
+                dispatch({ type: "garden/removeHarvester", row, col });
+              } else {
+                dispatch({
+                  type: "garden/placeHarvester",
+                  row,
+                  col,
+                  harvesterId: equippedTool ?? "",
+                });
+              }
               return;
             }
 
@@ -1422,21 +1076,37 @@ export function Garden() {
                 alert(
                   "This tile already has another automation tool. Remove it first.",
                 );
+                return;
               }
-              setState(newState);
+              if (planterOnTile) {
+                dispatch({ type: "garden/removePlanter", row, col });
+              } else {
+                dispatch({
+                  type: "garden/placePlanter",
+                  row,
+                  col,
+                  planterId: equippedTool ?? "",
+                  seedId: state.garden.selectedPlanterSeedId ?? null,
+                });
+              }
               return;
             }
 
             // Handle watering can (AoE by rarity profile)
             if (toolActive && isWateringCanTool(equippedTool)) {
-              const result = applyWateringCanArea(
+              const result = computeWaterAreaResult(
                 state,
                 row,
                 col,
                 equippedTool ?? "",
               );
               if (result.wateredTiles > 0) {
-                setState(result.nextState);
+                dispatch({
+                  type: "garden/waterArea",
+                  centerRow: row,
+                  centerCol: col,
+                  toolId: equippedTool ?? "",
+                });
               } else if (result.lackedEnergy) {
                 alert("Not enough mana to water crops in range.");
               }
@@ -1445,13 +1115,12 @@ export function Garden() {
 
             // Handle scythe (AoE harvest by rarity profile)
             if (toolActive && isScytheTool(equippedTool)) {
-              const newState = applyScytheHarvestArea(
-                state,
-                row,
-                col,
-                equippedTool ?? "",
-              );
-              setState(newState);
+              dispatch({
+                type: "garden/scytheHarvestArea",
+                centerRow: row,
+                centerCol: col,
+                toolId: equippedTool ?? "",
+              });
               return;
             }
 
@@ -1460,15 +1129,23 @@ export function Garden() {
                 alert("Select a seed in the tool selector first.");
                 return;
               }
-              const result = applySeedBagPlantArea(
+              const result = computeSeedBagPlantResult(
                 state,
                 row,
                 col,
                 equippedTool ?? "",
                 activeSeedBagSeedId,
+                seedBagPlantEnergyCost,
               );
               if (result.plantedTiles > 0) {
-                setState(result.nextState);
+                dispatch({
+                  type: "garden/seedBagPlantArea",
+                  centerRow: row,
+                  centerCol: col,
+                  toolId: equippedTool ?? "",
+                  seedId: activeSeedBagSeedId,
+                  seedBagPlantEnergyCost,
+                });
               } else if (result.lackedEnergy) {
                 alert("Not enough mana to plant in range.");
               } else if (result.lackedSeeds) {
@@ -1566,8 +1243,7 @@ export function Garden() {
           cannotUnlockReason={cannotUnlockReason}
           onClick={() => {
             if (!isAdjacentUnlockable) return;
-            const newState = unlockField(state, row, col);
-            setState(newState);
+            dispatch({ type: "garden/unlockField", row, col });
           }}
         />
       );
@@ -1607,7 +1283,16 @@ export function Garden() {
               shovelMove.areaSize === 1 ? true : moveSprinklersWithShovel,
             );
             if (result.success && result.newState) {
-              setState(result.newState);
+              dispatch({
+                type: "garden/moveCropArea",
+                sourceRow: shovelMove.sourceRow,
+                sourceCol: shovelMove.sourceCol,
+                targetRow: row,
+                targetCol: col,
+                areaSize: shovelMove.areaSize,
+                moveSprinklers:
+                  shovelMove.areaSize === 1 ? true : moveSprinklersWithShovel,
+              });
               setShovelMove(null);
             } else if (result.reason) {
               alert(result.reason);
@@ -1616,14 +1301,19 @@ export function Garden() {
           }
 
           if (isToolEffectActive && isWateringCanTool(equippedToolId)) {
-            const result = applyWateringCanArea(
+            const result = computeWaterAreaResult(
               state,
               row,
               col,
               equippedToolId ?? "",
             );
             if (result.wateredTiles > 0) {
-              setState(result.nextState);
+              dispatch({
+                type: "garden/waterArea",
+                centerRow: row,
+                centerCol: col,
+                toolId: equippedToolId ?? "",
+              });
             } else if (result.lackedEnergy) {
               alert("Not enough mana to water crops in range.");
             }
@@ -1631,13 +1321,12 @@ export function Garden() {
           }
 
           if (isToolEffectActive && isScytheTool(equippedToolId)) {
-            const newState = applyScytheHarvestArea(
-              state,
-              row,
-              col,
-              equippedToolId ?? "",
-            );
-            setState(newState);
+            dispatch({
+              type: "garden/scytheHarvestArea",
+              centerRow: row,
+              centerCol: col,
+              toolId: equippedToolId ?? "",
+            });
             return;
           }
 
@@ -1646,15 +1335,23 @@ export function Garden() {
               alert("Select a seed in the tool selector first.");
               return;
             }
-            const result = applySeedBagPlantArea(
+            const result = computeSeedBagPlantResult(
               state,
               row,
               col,
               equippedToolId ?? "",
               activeSeedBagSeedId,
+              seedBagPlantEnergyCost,
             );
             if (result.plantedTiles > 0) {
-              setState(result.nextState);
+              dispatch({
+                type: "garden/seedBagPlantArea",
+                centerRow: row,
+                centerCol: col,
+                toolId: equippedToolId ?? "",
+                seedId: activeSeedBagSeedId,
+                seedBagPlantEnergyCost,
+              });
             } else if (result.lackedEnergy) {
               alert("Not enough mana to plant in range.");
             } else if (result.lackedSeeds) {
@@ -1671,8 +1368,18 @@ export function Garden() {
               alert(
                 "This tile already has another automation tool. Remove it first.",
               );
+              return;
             }
-            setState(newState);
+            if (fieldHarvesterId) {
+              dispatch({ type: "garden/removeHarvester", row, col });
+            } else {
+              dispatch({
+                type: "garden/placeHarvester",
+                row,
+                col,
+                harvesterId: equippedToolId ?? "",
+              });
+            }
             return;
           }
 
@@ -1699,8 +1406,19 @@ export function Garden() {
               alert(
                 "This tile already has another automation tool. Remove it first.",
               );
+              return;
             }
-            setState(newState);
+            if (fieldPlanterId) {
+              dispatch({ type: "garden/removePlanter", row, col });
+            } else {
+              dispatch({
+                type: "garden/placePlanter",
+                row,
+                col,
+                planterId: equippedToolId ?? "",
+                seedId: state.garden.selectedPlanterSeedId ?? null,
+              });
+            }
             return;
           }
 
@@ -1770,13 +1488,7 @@ export function Garden() {
         onClose={() => setShowToolWheel(false)}
         onToolTypeFilterChange={setToolTypeFilter}
         onEquipTool={(equipValue) => {
-          setState((prev) => ({
-            ...prev,
-            equipment: {
-              ...prev.equipment,
-              tool: equipValue,
-            },
-          }));
+          dispatch({ type: "garden/equipTool", toolUid: equipValue });
         }}
         onSelectSeedBagSeed={(seedId) => handleSeedBagSeedSelect(seedId)}
         onSelectPlanterSeed={(seedId) => {
@@ -1875,12 +1587,11 @@ export function Garden() {
         onClose={closeHarvestModal}
         onConfirm={() => {
           if (harvestPreview) {
-            const newState = harvestCrop(
-              state,
-              harvestPreview.cropId,
-              harvestPreview.cropIndex,
-            );
-            setState(newState);
+            dispatch({
+              type: "garden/harvestCrop",
+              cropId: harvestPreview.cropId,
+              cropIndex: harvestPreview.cropIndex,
+            });
             closeHarvestModal();
           }
         }}
@@ -1899,7 +1610,7 @@ export function Garden() {
         formatCompactNumber={formatCompactNumber}
         onClose={() => setShowCropMasteryModal(false)}
         onPrestige={(cropId) =>
-          setState((prev) => prestigeCropType(prev, cropId))
+          dispatch({ type: "garden/prestigeCrop", cropId })
         }
       />
 
@@ -1925,7 +1636,12 @@ export function Garden() {
             );
 
             if (result.success && result.newState) {
-              setState(result.newState);
+              dispatch({
+                type: "garden/breakRock",
+                row: rockBreakModal.row,
+                col: rockBreakModal.col,
+                pickaxeId: equippedPickaxe,
+              });
               closeRockBreakModal();
             }
           }
@@ -1967,7 +1683,9 @@ export function Garden() {
         }}
         onOpenPlanterSeedSelection={openPlanterSeedSelection}
         onSetSprinklerPreview={setSprinklerPreview}
-        onStateChange={setState}
+        onStateChange={(nextState) =>
+          dispatch({ type: "garden/replaceState", nextState })
+        }
       />
     </div>
   );

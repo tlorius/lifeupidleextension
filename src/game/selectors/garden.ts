@@ -17,6 +17,12 @@ import type {
 } from "../types";
 
 const SEED_MAKER_UPGRADE_ID = "seedmaker_lab";
+const cropDefinitionList = Object.values(cropDefinitions);
+const directCropIdBySeedId = new Map(
+  cropDefinitionList.map((crop) => [crop.seedItemId, crop.id] as const),
+);
+const resolvedCropIdBySeedIdCache = new Map<string, string | null>();
+const seedPresentationCache = new Map<string, GardenSeedPresentation>();
 
 export interface GardenSeedPresentation {
   seedId: string;
@@ -132,10 +138,16 @@ export function getGardenCategoryIcon(category: string): string {
 }
 
 export function resolveGardenCropIdFromSeed(seedId: string): string | null {
-  const fromDefinition = Object.values(cropDefinitions).find(
-    (crop) => crop.seedItemId === seedId,
-  );
-  if (fromDefinition) return fromDefinition.id;
+  const cachedCropId = resolvedCropIdBySeedIdCache.get(seedId);
+  if (cachedCropId !== undefined) {
+    return cachedCropId;
+  }
+
+  const directCropId = directCropIdBySeedId.get(seedId);
+  if (directCropId) {
+    resolvedCropIdBySeedIdCache.set(seedId, directCropId);
+    return directCropId;
+  }
 
   const seedMatch = seedId.match(
     /^(.+)_seed(?:_(common|rare|epic|legendary|unique))?$/,
@@ -144,38 +156,57 @@ export function resolveGardenCropIdFromSeed(seedId: string): string | null {
     const [, base, rarity] = seedMatch;
     if (rarity) {
       const directCrop = `${base}_${rarity}`;
-      if (getCropDef(directCrop)) return directCrop;
+      if (getCropDef(directCrop)) {
+        resolvedCropIdBySeedIdCache.set(seedId, directCrop);
+        return directCrop;
+      }
     }
 
     const commonCrop = `${base}_common`;
-    if (getCropDef(commonCrop)) return commonCrop;
+    if (getCropDef(commonCrop)) {
+      resolvedCropIdBySeedIdCache.set(seedId, commonCrop);
+      return commonCrop;
+    }
 
-    const anyVariant = Object.values(cropDefinitions).find(
+    const anyVariant = cropDefinitionList.find(
       (crop) =>
         crop.id.startsWith(`${base}_`) ||
         crop.seedItemId.startsWith(`${base}_seed`),
     );
-    if (anyVariant) return anyVariant.id;
+    if (anyVariant) {
+      resolvedCropIdBySeedIdCache.set(seedId, anyVariant.id);
+      return anyVariant.id;
+    }
   }
 
   const fallbackCropId = seedId.replace("_seed", "");
-  return getCropDef(fallbackCropId) ? fallbackCropId : null;
+  const resolvedCropId = getCropDef(fallbackCropId) ? fallbackCropId : null;
+  resolvedCropIdBySeedIdCache.set(seedId, resolvedCropId);
+  return resolvedCropId;
 }
 
 export function getGardenSeedPresentation(
   seedId: string,
 ): GardenSeedPresentation {
+  const cachedPresentation = seedPresentationCache.get(seedId);
+  if (cachedPresentation) {
+    return cachedPresentation;
+  }
+
   const cropId = resolveGardenCropIdFromSeed(seedId);
   const cropDef = cropId ? getCropDef(cropId) : null;
   const itemDef = getItemDefSafe(seedId);
 
-  return {
+  const presentation = {
     seedId,
     cropId,
     cropDef,
     icon: cropDef ? getGardenCategoryIcon(cropDef.category) : "🌱",
     label: cropDef?.name ?? itemDef?.name ?? seedId,
   };
+
+  seedPresentationCache.set(seedId, presentation);
+  return presentation;
 }
 
 export function selectGardenSeedView(
@@ -222,7 +253,7 @@ export function selectGardenSeedView(
     presentation: getGardenSeedPresentation(seedId),
   }));
 
-  const recipeMap = Object.values(cropDefinitions).reduce<
+  const recipeMap = cropDefinitionList.reduce<
     Record<
       string,
       {

@@ -2,12 +2,7 @@ import { useGame } from "./GameContext";
 import type { ClassId } from "./classes";
 
 export function useGameActions() {
-  const {
-    dispatch,
-    performCombatClickAttack,
-    useCombatConsumable,
-    castCombatSpell,
-  } = useGame();
+  const { dispatch } = useGame();
 
   return {
     addGold: (amount: number) => dispatch({ type: "resource/addGold", amount }),
@@ -47,9 +42,10 @@ export function useGameActions() {
       dispatch({ type: "upgrade/buy", upgradeId }),
     resetState: () => dispatch({ type: "state/resetToDefault" }),
 
-    // Combat wrappers intentionally keep existing runtime internals untouched.
-    combatClickAttack: () => performCombatClickAttack(),
-    combatUseConsumable: (itemUid: string) => useCombatConsumable(itemUid),
-    combatCastSpell: (spellId: string) => castCombatSpell(spellId),
+    combatClickAttack: () => dispatch({ type: "combat/clickAttack" }),
+    combatUseConsumable: (itemUid: string) =>
+      dispatch({ type: "combat/useConsumable", itemUid }),
+    combatCastSpell: (spellId: string) =>
+      dispatch({ type: "combat/castSpell", spellId }),
   };
 }

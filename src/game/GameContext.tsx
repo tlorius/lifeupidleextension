@@ -6,15 +6,11 @@ import { applyIdle } from "./engine";
 import { applyIdlerDailyCheckIn } from "./classes";
 import { applyGardenIdle } from "./garden";
 import {
-  castCombatSpell,
-  performClickAttack,
   resolveOfflineCombatExpected,
   runCombatTick,
-  useCombatConsumable as applyCombatConsumable,
   type CombatEvent,
 } from "./combat";
 import {
-  applyTokenRewards,
   extractRewardToken,
   type GrantedTokenRewardItem,
   loadProcessedTokens,
@@ -24,7 +20,7 @@ import {
   saveProcessedTokens,
   toGrantedTokenRewards,
 } from "./tokenRewards";
-import { reduceGameAction, type GameAction } from "./actions";
+import { applyGameAction, type GameAction } from "./actions";
 
 export interface IdleEarningItem {
   resourceId: string;
@@ -148,9 +144,6 @@ const GameContext = createContext<{
   idleFightReview: IdleFightReview | null;
   dismissIdleEarningsModal: () => void;
   combatEvents: CombatEvent[];
-  performCombatClickAttack: () => void;
-  useCombatConsumable: (itemUid: string) => void;
-  castCombatSpell: (spellId: string) => void;
 } | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -181,14 +174,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   );
 
   const dispatch = (action: GameAction) => {
+    let nextCombatEvents: CombatEvent[] = [];
+
     setState((prev) => {
-      const next = reduceGameAction(prev, action);
-      if (next === prev) {
+      const result = applyGameAction(prev, action);
+      nextCombatEvents = result.combatEvents;
+      if (result.state === prev) {
         return prev;
       }
-      save(next);
-      return next;
+      save(result.state);
+      return result.state;
     });
+
+    if (action.type.startsWith("combat/")) {
+      setCombatEvents(nextCombatEvents);
+    }
   };
 
   useEffect(() => {
@@ -233,71 +233,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const performCombatClickAttack = () => {
-    let clickCombatEvents: CombatEvent[] = [];
-
-    setState((prev) => {
-      const result = performClickAttack(prev.combat, prev);
-      clickCombatEvents = result.events;
-
-      const next: GameState = {
-        ...result.state,
-        combat: result.runtime,
-      };
-
-      save(next);
-      return next;
-    });
-
-    setCombatEvents(clickCombatEvents);
-  };
-
-  const useCombatConsumable = (itemUid: string) => {
-    let consumableEvents: CombatEvent[] = [];
-
-    setState((prev) => {
-      const result = applyCombatConsumable(prev.combat, prev, itemUid);
-      consumableEvents = result.events;
-
-      if (result.state === prev && result.runtime === prev.combat) {
-        return prev;
-      }
-
-      const next: GameState = {
-        ...result.state,
-        combat: result.runtime,
-      };
-
-      save(next);
-      return next;
-    });
-
-    setCombatEvents(consumableEvents);
-  };
-
-  const castCombatSpellAction = (spellId: string) => {
-    let spellEvents: CombatEvent[] = [];
-
-    setState((prev) => {
-      const result = castCombatSpell(prev.combat, prev, spellId);
-      spellEvents = result.events;
-
-      if (result.state === prev && result.runtime === prev.combat) {
-        return prev;
-      }
-
-      const next: GameState = {
-        ...result.state,
-        combat: result.runtime,
-      };
-
-      save(next);
-      return next;
-    });
-
-    setCombatEvents(spellEvents);
-  };
-
   useEffect(() => {
     let cancelled = false;
 
@@ -322,11 +257,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         if (cancelled || rewards.length === 0) return;
         const normalizedRewards = normalizeTokenRewards(rewards);
         if (normalizedRewards.length === 0) return;
-        setState((prev) => {
-          const next = applyTokenRewards(prev, normalizedRewards);
-          save(next);
-          return next;
-        });
+        dispatch({ type: "rewards/applyTokenRewards", normalizedRewards });
         setTokenRewardModalItems(toGrantedTokenRewards(normalizedRewards));
       })
       .catch((error) => {
@@ -362,9 +293,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setIdleFightReview(null);
         },
         combatEvents,
-        performCombatClickAttack,
-        useCombatConsumable,
-        castCombatSpell: castCombatSpellAction,
       }}
     >
       {children}

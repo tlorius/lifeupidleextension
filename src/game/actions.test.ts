@@ -270,6 +270,17 @@ describe("actions reducer", () => {
     expect(next.resources.gold).toBeLessThan(state.resources.gold);
   });
 
+  it("applies normalized token rewards through reducer action", () => {
+    const state = createDefaultState();
+
+    const next = reduceGameAction(state, {
+      type: "rewards/applyTokenRewards",
+      normalizedRewards: [{ itemId: "sword_1", quantity: 1 }],
+    });
+
+    expect(next.inventory.length).toBeGreaterThan(state.inventory.length);
+  });
+
   it("resets to default state", () => {
     const state = reduceGameAction(createDefaultState(), {
       type: "resource/addGold",

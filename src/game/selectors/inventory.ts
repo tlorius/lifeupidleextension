@@ -1,5 +1,6 @@
-import { calculateItemStat, isItemEquipped } from "../engine";
+import { calculateItemStat } from "../engine";
 import { getItemDefSafe } from "../items";
+import { formatCompactNumber } from "../numberFormat";
 import type {
   GameState,
   ItemDefinition,
@@ -31,8 +32,13 @@ export interface InventoryViewModel {
   selectedItem: ItemInstance | null;
   selectableVisibleUids: string[];
   allVisibleSelected: boolean;
+  isEmpty: boolean;
+  emptyMessage: string;
+  selectedSellCount: number;
   selectedSellTotalGold: number;
+  selectedSellSummary: string;
   selectedUniqueItemNames: string[];
+  sellConfirmationMessage: string;
 }
 
 export function selectInventoryView(
@@ -42,6 +48,14 @@ export function selectInventoryView(
   selectedItemUid: string | null,
 ): InventoryViewModel {
   const selectedSellUidSet = new Set(selectedSellUids);
+  const inventoryByUid = new Map(
+    state.inventory.map((item) => [item.uid, item] as const),
+  );
+  const equippedUidSet = new Set(
+    Object.values(state.equipment).filter(
+      (uid): uid is string => typeof uid === "string",
+    ),
+  );
   const filteredInventory = state.inventory.filter((item) => {
     if (filter === "all") return true;
     const def = getItemDefSafe(item.itemId);
@@ -80,21 +94,23 @@ export function selectInventoryView(
     }
 
     nonSeedEntries.push(
-      buildInventoryDisplayEntry(state, item, {
+      buildInventoryDisplayEntry(item, {
         quantity: item.quantity,
         isGroupedSeed: false,
         selectableUids: [item.uid],
         selectedSellUidSet,
+        equippedUidSet,
       }),
     );
   }
 
   const groupedSeedEntries = Array.from(seedGroups.values()).map((group) =>
-    buildInventoryDisplayEntry(state, group.representative, {
+    buildInventoryDisplayEntry(group.representative, {
       quantity: group.quantity,
       isGroupedSeed: true,
       selectableUids: group.selectableUids,
       selectedSellUidSet,
+      equippedUidSet,
     }),
   );
 
@@ -111,52 +127,110 @@ export function selectInventoryView(
   const allVisibleSelected =
     selectableVisibleUids.length > 0 &&
     selectableVisibleUids.every((uid) => selectedSellUidSet.has(uid));
+  const selectedSellCount = selectedSellUids.length;
 
-  const selectedSellTotalGold = selectedSellUids.reduce((sum, uid) => {
-    const item = state.inventory.find((entry) => entry.uid === uid);
-    if (!item) return sum;
-    const def = getItemDefSafe(item.itemId);
-    return sum + (def?.sellPrice ?? 0);
-  }, 0);
+  const {
+    selectedSellTotalGold,
+    selectedUniqueItemNames,
+    sellConfirmationMessage,
+  } = buildSellSelectionSummary(inventoryByUid, selectedSellUids);
+
+  return {
+    displayInventory,
+    selectedItem: selectedItemUid
+      ? (inventoryByUid.get(selectedItemUid) ?? null)
+      : null,
+    selectableVisibleUids,
+    allVisibleSelected,
+    isEmpty: displayInventory.length === 0,
+    emptyMessage: getInventoryEmptyMessage(filter),
+    selectedSellCount,
+    selectedSellTotalGold,
+    selectedSellSummary: `${selectedSellCount} selected • +${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })}🪙`,
+    selectedUniqueItemNames,
+    sellConfirmationMessage,
+  };
+}
+
+function buildSellSelectionSummary(
+  inventoryByUid: Map<string, ItemInstance>,
+  selectedSellUids: string[],
+): {
+  selectedSellTotalGold: number;
+  selectedUniqueItemNames: string[];
+  sellConfirmationMessage: string;
+} {
+  const selectedItems = selectedSellUids
+    .map((uid) => inventoryByUid.get(uid))
+    .filter((item): item is ItemInstance => item !== undefined);
+
+  const selectedDefinitions = selectedItems
+    .map((item) => getItemDefSafe(item.itemId))
+    .filter((def): def is ItemDefinition => def !== null);
+
+  const selectedSellTotalGold = selectedDefinitions.reduce(
+    (sum, def) => sum + (def.sellPrice ?? 0),
+    0,
+  );
 
   const selectedUniqueItemNames = Array.from(
     new Set(
-      selectedSellUids
-        .map((uid) => state.inventory.find((entry) => entry.uid === uid))
-        .filter((item): item is ItemInstance => item !== undefined)
-        .map((item) => getItemDefSafe(item.itemId))
-        .filter((def): def is ItemDefinition => def !== null)
+      selectedDefinitions
         .filter((def) => def.rarity === "unique")
         .map((def) => def.name),
     ),
   );
 
-  return {
-    displayInventory,
-    selectedItem:
-      state.inventory.find((item) => item.uid === selectedItemUid) ?? null,
-    selectableVisibleUids,
-    allVisibleSelected,
+  const sellConfirmationMessage = buildSellConfirmationMessage(
+    selectedSellUids.length,
     selectedSellTotalGold,
     selectedUniqueItemNames,
+  );
+
+  return {
+    selectedSellTotalGold,
+    selectedUniqueItemNames,
+    sellConfirmationMessage,
   };
 }
 
+function buildSellConfirmationMessage(
+  selectedSellCount: number,
+  selectedSellTotalGold: number,
+  selectedUniqueItemNames: string[],
+): string {
+  const baseMessage = `Sell ${selectedSellCount} selected item(s) for ${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold?`;
+  if (selectedUniqueItemNames.length === 0) {
+    return baseMessage;
+  }
+
+  return `${baseMessage}\n\nCareful are you sure you want to delete unique items ${selectedUniqueItemNames.join(", ")}`;
+}
+
+function getInventoryEmptyMessage(filter: InventoryFilter): string {
+  if (filter === "all") {
+    return "No items";
+  }
+
+  return `No ${filter} items`;
+}
+
 function buildInventoryDisplayEntry(
-  state: GameState,
   item: ItemInstance,
   options: {
     quantity: number;
     isGroupedSeed: boolean;
     selectableUids: string[];
     selectedSellUidSet: Set<string>;
+    equippedUidSet: Set<string>;
   },
 ): InventoryDisplayEntry {
   const definition = getItemDefSafe(item.itemId);
   const itemStats = getDisplayItemStats(item, definition);
   const sellableUids = options.selectableUids.filter(
-    (uid) => !isItemEquipped(state, uid),
+    (uid) => !options.equippedUidSet.has(uid),
   );
+  const equipped = options.equippedUidSet.has(item.uid);
 
   return {
     uid: item.uid,
@@ -170,7 +244,7 @@ function buildInventoryDisplayEntry(
     isFullySelected:
       sellableUids.length > 0 &&
       sellableUids.every((uid) => options.selectedSellUidSet.has(uid)),
-    equipped: isItemEquipped(state, item.uid),
+    equipped,
     totalStats: Object.values(itemStats).reduce(
       (sum, value) => sum + (value ?? 0),
       0,

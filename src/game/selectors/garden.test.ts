@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateGoldWithMastery,
+  calculateYieldWithMastery,
   cropDefinitions,
   getSeedMakerDurationMs,
   placePlanterOnField,
@@ -108,6 +110,21 @@ describe("garden selectors", () => {
     expect(carrotRecipe?.canCraft).toBe(false);
   });
 
+  it("exposes seed maker and active seed fallbacks when nothing is selected", () => {
+    const state = createDefaultState();
+
+    const view = selectGardenSeedView(state, {
+      activeSeedBagSeedId: "unknown_seed",
+    });
+
+    expect(view.isSeedMakerUnlocked).toBe(false);
+    expect(view.selectedSeedMakerSeedId).toBeNull();
+    expect(view.selectedSeedMakerPresentation).toBeNull();
+    expect(view.selectedPlanterSeedPresentation).toBeNull();
+    expect(view.activeSeedBagSeedPresentation?.label).toBe("unknown_seed");
+    expect(view.defaultSeedMakerSeedId).toBe(view.seedMakerRecipes[0]?.seedId);
+  });
+
   it("formats category and seed presentation fallbacks", () => {
     const herbSeedId = cropDefinitions.mint_common.seedItemId;
     const toolName = getItemDefSafe("wateringcan_common")?.name;
@@ -158,9 +175,31 @@ describe("garden selectors", () => {
     expect(view?.planterSeedForTilePresentation?.label).toBe(
       cropDefinitions.grape_common.name,
     );
-    expect(view?.yieldAtHarvest).toBeGreaterThan(0);
-    expect(view?.goldYield).toBeGreaterThan(0);
+    expect(view?.yieldAtHarvest).toBe(
+      calculateYieldWithMastery(
+        nextState,
+        cropId,
+        view!.cropDef,
+        view!.cropInstance.waterLevel,
+      ),
+    );
+    expect(view?.goldYield).toBe(
+      calculateGoldWithMastery(nextState, cropId, view!.cropDef),
+    );
     expect(view?.progress).toBeGreaterThan(0);
+  });
+
+  it("returns null crop detail for missing crop instances", () => {
+    const state = createDefaultState();
+
+    const view = selectGardenCropTileDetailView(state, {
+      cropId: "sunflower_common",
+      cropIndex: 0,
+      row: 0,
+      col: 0,
+    });
+
+    expect(view).toBeNull();
   });
 
   it("builds empty tile automation view with installed tool and per-tile planter seed", () => {
@@ -198,5 +237,29 @@ describe("garden selectors", () => {
     expect(view.selectedSeedForTilePresentation?.label).toBe(
       cropDefinitions.grape_common.name,
     );
+  });
+
+  it("returns empty tile fallback when no automation tool is installed", () => {
+    const state = createDefaultState();
+    state.inventory.push(
+      { uid: "planter-a", itemId: "planter_common", quantity: 1, level: 1 },
+      { uid: "harvester-a", itemId: "harvester_common", quantity: 1, level: 1 },
+    );
+
+    const view = selectGardenEmptyTileAutomationView(state, {
+      row: 2,
+      col: 2,
+    });
+
+    expect(view.fieldSprinklerId).toBeNull();
+    expect(view.fieldHarvesterId).toBeNull();
+    expect(view.fieldPlanterId).toBeNull();
+    expect(view.installedToolLabel).toBe(
+      "No automation tool installed on this field",
+    );
+    expect(view.selectedSeedForTile).toBeNull();
+    expect(view.selectedSeedForTilePresentation).toBeNull();
+    expect(view.ownedPlanterIds).toEqual(["planter_common"]);
+    expect(view.ownedHarvesterIds).toEqual(["harvester_common"]);
   });
 });
