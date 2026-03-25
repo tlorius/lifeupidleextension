@@ -8,6 +8,9 @@ import {
   GardenPreviewFieldTile,
   GardenRockTile,
 } from "./GardenTiles";
+import { GardenCropStorageModal } from "./GardenCropStorageModal";
+import { GardenShovelModePanel } from "./GardenShovelModePanel";
+import { GardenToolbar } from "./GardenToolbar";
 import { useGame } from "../game/GameContext";
 import {
   getCropDef,
@@ -899,6 +902,74 @@ export function Garden() {
     return Math.max(1, Math.round(cropDef.baseGold * multiplier));
   };
 
+  const cropStorageEntries = Object.entries(garden.cropStorage.current).map(
+    ([category, amount]) => ({
+      category,
+      icon: getGardenCategoryIcon(category),
+      label: formatGardenCategoryLabel(category),
+      amount,
+      limit: garden.cropStorage.limits[category],
+    }),
+  );
+
+  const handleOpenSeedMakerModal = () => {
+    if (!selectedSeedMakerSeedId && defaultSeedMakerSeedId) {
+      setState((prev) => ({
+        ...prev,
+        garden: {
+          ...prev.garden,
+          seedMaker: {
+            ...(prev.garden.seedMaker ?? {}),
+            selectedSeedId: defaultSeedMakerSeedId,
+          },
+        },
+      }));
+    }
+    setShowSeedMakerModal(true);
+  };
+
+  const handleToggleEquippedToolMode = () => {
+    if (!equippedToolId) {
+      setShowToolWheel(true);
+      return;
+    }
+
+    const willActivate = !isToolEffectActive;
+    if (willActivate && isSeedBagTool(equippedToolId) && !activeSeedBagSeedId) {
+      setSeedSelectionTarget("seedbag");
+      setActivateSeedBagAfterSelection(true);
+      setShowSeedBag(true);
+      return;
+    }
+
+    if (
+      willActivate &&
+      isPlanterTool(equippedToolId) &&
+      !state.garden.selectedPlanterSeedId
+    ) {
+      setPendingPlanterAction(null);
+      setSeedSelectionTarget("planter");
+      setActivateSeedBagAfterSelection(true);
+      setShowSeedBag(true);
+      return;
+    }
+
+    setActivateSeedBagAfterSelection(false);
+    setIsToolEffectActive((prev) => !prev);
+  };
+
+  const handleUnequipTool = () => {
+    setActivateSeedBagAfterSelection(false);
+    setIsToolEffectActive(false);
+    setState((prev) => ({
+      ...prev,
+      equipment: {
+        ...prev.equipment,
+        tool: null,
+      },
+    }));
+  };
+
   const allCropTypes = Object.values(cropDefinitions).sort((a, b) =>
     a.name.localeCompare(b.name),
   );
@@ -1437,320 +1508,44 @@ export function Garden() {
 
   return (
     <div style={{ padding: isMobile ? 8 : 16 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: isMobile ? 8 : 0,
-          marginBottom: 16,
+      <GardenToolbar
+        isMobile={isMobile}
+        isSeedMakerUnlocked={isSeedMakerUnlocked}
+        isSeedMakerRunning={isSeedMakerRunning}
+        selectedSeedMakerPresentation={selectedSeedMakerPresentation}
+        seedMakerRemainingDurationLabel={
+          isSeedMakerRunning ? formatDuration(seedMakerRemainingMs) : null
+        }
+        toolbarButtonSize={toolbarButtonSize}
+        toolbarIconSize={toolbarIconSize}
+        toolbarBadgeSize={toolbarBadgeSize}
+        toolbarCornerActionSize={toolbarCornerActionSize}
+        equippedToolId={equippedToolId}
+        equippedToolIcon={getToolIcon(equippedToolId)}
+        isToolEffectActive={isToolEffectActive}
+        activeSeedBagSeedPresentation={
+          isSeedBagTool(equippedToolId) ? activeSeedBagSeedPresentation : null
+        }
+        selectedPlanterSeedPresentation={
+          isPlanterTool(equippedToolId) ? selectedPlanterSeedPresentation : null
+        }
+        onToggleToolWheel={() => setShowToolWheel((prev) => !prev)}
+        onOpenStorage={() => setShowStorageModal(true)}
+        onOpenCropMastery={() => setShowCropMasteryModal(true)}
+        onOpenSeedMaker={handleOpenSeedMakerModal}
+        onToggleEquippedToolMode={handleToggleEquippedToolMode}
+        onUnequipTool={handleUnequipTool}
+        onOpenSeedBagSeedPicker={() => {
+          setActivateSeedBagAfterSelection(false);
+          setSeedSelectionTarget("seedbag");
+          setShowSeedBag(true);
         }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <h2 style={{ margin: 0 }}>🌾 Garden</h2>
-          {isSeedMakerUnlocked && (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: isMobile ? "4px 8px" : "5px 10px",
-                borderRadius: 999,
-                border: isSeedMakerRunning
-                  ? "1px solid #4fbf79"
-                  : "1px solid #4b6075",
-                backgroundColor: isSeedMakerRunning ? "#163a2a" : "#1a2632",
-                color: "#dbe7f3",
-                fontSize: isMobile ? 11 : 12,
-                lineHeight: 1,
-              }}
-              title={
-                selectedSeedMakerPresentation
-                  ? `Seedmaker ${isSeedMakerRunning ? "running" : "stopped"} - ${selectedSeedMakerPresentation.label}`
-                  : `Seedmaker ${isSeedMakerRunning ? "running" : "stopped"}`
-              }
-            >
-              <span>{isSeedMakerRunning ? "🟢" : "⚪"}</span>
-              <span>Seedmaker</span>
-              {selectedSeedMakerPresentation && (
-                <span>
-                  {selectedSeedMakerPresentation.icon}{" "}
-                  {selectedSeedMakerPresentation.label}
-                </span>
-              )}
-              {isSeedMakerRunning && (
-                <span>{formatDuration(seedMakerRemainingMs)}</span>
-              )}
-            </div>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {/* Tool Wheel Button */}
-          <button
-            className="btn-round-icon"
-            style={{
-              width: toolbarButtonSize,
-              height: toolbarButtonSize,
-              backgroundColor: "#FFD700",
-              border: "2px solid #DAA520",
-              fontSize: toolbarIconSize,
-            }}
-            onClick={() => setShowToolWheel(!showToolWheel)}
-            title="Tool wheel"
-          >
-            🔧
-          </button>
-
-          {/* Crop Silo Button */}
-          <button
-            className="btn-round-icon"
-            style={{
-              width: toolbarButtonSize,
-              height: toolbarButtonSize,
-              backgroundColor: "#F5F5DC",
-              border: "2px solid #DAA520",
-              fontSize: toolbarIconSize,
-            }}
-            onClick={() => setShowStorageModal(true)}
-            title="Crop silos"
-            aria-label="Open crop storage"
-          >
-            🛢️
-          </button>
-
-          {/* Crop Mastery Button */}
-          <button
-            className="btn-round-icon"
-            style={{
-              width: toolbarButtonSize,
-              height: toolbarButtonSize,
-              backgroundColor: "#e7f5ff",
-              border: "2px solid #4dabf7",
-              fontSize: toolbarIconSize,
-            }}
-            onClick={() => setShowCropMasteryModal(true)}
-            title="Crop mastery"
-            aria-label="Open crop mastery"
-          >
-            📈
-          </button>
-
-          {isSeedMakerUnlocked && (
-            <button
-              className="btn-round-icon"
-              style={{
-                width: toolbarButtonSize,
-                height: toolbarButtonSize,
-                backgroundColor: "#fff4db",
-                border: "2px solid #d4a24f",
-                fontSize: toolbarIconSize,
-              }}
-              onClick={() => {
-                if (!selectedSeedMakerSeedId && defaultSeedMakerSeedId) {
-                  setState((prev) => ({
-                    ...prev,
-                    garden: {
-                      ...prev.garden,
-                      seedMaker: {
-                        ...(prev.garden.seedMaker ?? {}),
-                        selectedSeedId: defaultSeedMakerSeedId,
-                      },
-                    },
-                  }));
-                }
-                setShowSeedMakerModal(true);
-              }}
-              title="Seedmaker"
-              aria-label="Open seedmaker"
-            >
-              🧪
-            </button>
-          )}
-
-          <div
-            style={{
-              position: "relative",
-              marginLeft: 12,
-              width: toolbarButtonSize,
-              height: toolbarButtonSize,
-            }}
-          >
-            <button
-              className="btn-round-icon"
-              style={{
-                width: toolbarButtonSize,
-                height: toolbarButtonSize,
-                backgroundColor: equippedToolId ? "#253649" : "#1a2430",
-                border: isToolEffectActive
-                  ? "2px solid #57b3f3"
-                  : "2px solid #3f546a",
-                boxShadow: isToolEffectActive
-                  ? "0 0 0 3px rgba(87,179,243,0.22)"
-                  : "none",
-                opacity: 1,
-                fontSize: toolbarIconSize,
-              }}
-              onClick={() => {
-                if (!equippedToolId) {
-                  setShowToolWheel(true);
-                  return;
-                }
-
-                const willActivate = !isToolEffectActive;
-                if (
-                  willActivate &&
-                  isSeedBagTool(equippedToolId) &&
-                  !activeSeedBagSeedId
-                ) {
-                  setSeedSelectionTarget("seedbag");
-                  setActivateSeedBagAfterSelection(true);
-                  setShowSeedBag(true);
-                  return;
-                }
-
-                if (
-                  willActivate &&
-                  isPlanterTool(equippedToolId) &&
-                  !state.garden.selectedPlanterSeedId
-                ) {
-                  setPendingPlanterAction(null);
-                  setSeedSelectionTarget("planter");
-                  setActivateSeedBagAfterSelection(true);
-                  setShowSeedBag(true);
-                  return;
-                }
-
-                setActivateSeedBagAfterSelection(false);
-                setIsToolEffectActive((prev) => !prev);
-              }}
-              title={
-                equippedToolId
-                  ? isToolEffectActive
-                    ? "Tool mode active"
-                    : "Tool mode inactive"
-                  : "Open tool bag"
-              }
-              aria-label={
-                equippedToolId ? "Toggle equipped tool mode" : "Open tool bag"
-              }
-            >
-              {getToolIcon(equippedToolId)}
-            </button>
-            {equippedToolId && (
-              <button
-                type="button"
-                style={{
-                  position: "absolute",
-                  top: isMobile ? -6 : -4,
-                  left: isMobile ? -6 : -4,
-                  width: toolbarCornerActionSize,
-                  height: toolbarCornerActionSize,
-                  borderRadius: "50%",
-                  backgroundColor: "#8f1d1d",
-                  border: "1px solid #d66a6a",
-                  color: "#fff4f4",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: isMobile ? 12 : 11,
-                  lineHeight: 1,
-                  padding: 0,
-                  cursor: "pointer",
-                }}
-                title="Unequip tool"
-                aria-label="Unequip tool"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setActivateSeedBagAfterSelection(false);
-                  setIsToolEffectActive(false);
-                  setState((prev) => ({
-                    ...prev,
-                    equipment: {
-                      ...prev.equipment,
-                      tool: null,
-                    },
-                  }));
-                }}
-              >
-                ×
-              </button>
-            )}
-            {isSeedBagTool(equippedToolId) && activeSeedBagSeedPresentation && (
-              <button
-                type="button"
-                style={{
-                  position: "absolute",
-                  top: isMobile ? -6 : -4,
-                  right: isMobile ? -6 : -4,
-                  width: toolbarBadgeSize,
-                  height: toolbarBadgeSize,
-                  borderRadius: "50%",
-                  backgroundColor: "#142131",
-                  border: "1px solid #4f6b84",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: isMobile ? 15 : 13,
-                  lineHeight: 1,
-                  padding: 0,
-                  cursor: "pointer",
-                }}
-                title={activeSeedBagSeedPresentation.label}
-                aria-label={`Selected seed: ${activeSeedBagSeedPresentation.label}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setActivateSeedBagAfterSelection(false);
-                  setSeedSelectionTarget("seedbag");
-                  setShowSeedBag(true);
-                }}
-              >
-                {activeSeedBagSeedPresentation.icon}
-              </button>
-            )}
-            {isPlanterTool(equippedToolId) &&
-              selectedPlanterSeedPresentation && (
-                <button
-                  type="button"
-                  style={{
-                    position: "absolute",
-                    top: isMobile ? -6 : -4,
-                    right: isMobile ? -6 : -4,
-                    width: toolbarBadgeSize,
-                    height: toolbarBadgeSize,
-                    borderRadius: "50%",
-                    backgroundColor: "#142131",
-                    border: "1px solid #4f6b84",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: isMobile ? 15 : 13,
-                    lineHeight: 1,
-                    padding: 0,
-                    cursor: "pointer",
-                  }}
-                  title={selectedPlanterSeedPresentation.label}
-                  aria-label={`Selected planter seed: ${selectedPlanterSeedPresentation.label}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setActivateSeedBagAfterSelection(false);
-                    setSeedSelectionTarget("planter");
-                    setShowSeedBag(true);
-                  }}
-                >
-                  {selectedPlanterSeedPresentation.icon}
-                </button>
-              )}
-          </div>
-        </div>
-      </div>
+        onOpenPlanterSeedPicker={() => {
+          setActivateSeedBagAfterSelection(false);
+          setSeedSelectionTarget("planter");
+          setShowSeedBag(true);
+        }}
+      />
 
       {/* Tool Wheel Menu */}
       {showToolWheel && (
@@ -2156,52 +1951,15 @@ export function Garden() {
         </div>
       )}
 
-      {isShovelTool(equippedToolId) && isToolEffectActive && (
-        <div
-          style={{
-            marginBottom: 16,
-            padding: isMobile ? 10 : 12,
-            backgroundColor: "#fff3cd",
-            borderRadius: 6,
-            border: "1px solid #f0c36d",
-            fontSize: isMobile ? 13 : 12,
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-            🪏 Shovel Mode
-          </div>
-          <div style={{ color: "#6b4f1d", marginBottom: 8 }}>
-            {shovelMove
-              ? `Source selected at (${shovelMove.sourceRow}, ${shovelMove.sourceCol}). Click an empty unlocked tile to move the area.`
-              : `Click a planted tile to select a ${getShovelAreaSize()}x${getShovelAreaSize()} area to move.`}
-          </div>
-          {getShovelAreaSize() > 1 && (
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={moveSprinklersWithShovel}
-                onChange={(e) => setMoveSprinklersWithShovel(e.target.checked)}
-              />
-              Move sprinklers with fields
-            </label>
-          )}
-          {shovelMove && (
-            <button
-              style={{
-                marginTop: 8,
-                padding: "6px 10px",
-                backgroundColor: "#f0f0f0",
-                border: "1px solid #ccc",
-                borderRadius: 4,
-                cursor: "pointer",
-              }}
-              onClick={() => setShovelMove(null)}
-            >
-              Clear Selection
-            </button>
-          )}
-        </div>
-      )}
+      <GardenShovelModePanel
+        isVisible={isShovelTool(equippedToolId) && isToolEffectActive}
+        isMobile={isMobile}
+        shovelMove={shovelMove}
+        shovelAreaSize={getShovelAreaSize()}
+        moveSprinklersWithShovel={moveSprinklersWithShovel}
+        onToggleMoveSprinklersWithShovel={setMoveSprinklersWithShovel}
+        onClearSelection={() => setShovelMove(null)}
+      />
 
       {/* Seed Bag Menu */}
       {showSeedBag && (
@@ -2694,124 +2452,12 @@ export function Garden() {
       )}
 
       {/* Crop Storage Modal */}
-      {showStorageModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowStorageModal(false)}
-        >
-          <div
-            style={{
-              backgroundColor: "#162433",
-              color: "#e5edf5",
-              borderRadius: 8,
-              padding: isMobile ? 12 : 16,
-              maxHeight: isMobile ? "88vh" : "80vh",
-              maxWidth: "560px",
-              width: isMobile ? "94vw" : "560px",
-              overflow: "auto",
-              border: "1px solid #35506a",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <h3 style={{ margin: 0 }}>🛢️ Crop Silos</h3>
-              <button
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#253649",
-                  border: "1px solid #3f546a",
-                  color: "#eaf2fb",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
-                onClick={() => setShowStorageModal(false)}
-              >
-                Close
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                gap: 10,
-                fontSize: isMobile ? 13 : 12,
-              }}
-            >
-              {Object.entries(garden.cropStorage.current).map(
-                ([category, amount]) => {
-                  const limit = garden.cropStorage.limits[category];
-                  const percent = (amount / limit) * 100;
-                  return (
-                    <div
-                      key={category}
-                      style={{
-                        padding: 10,
-                        border: "1px solid #2f4459",
-                        borderRadius: 6,
-                        backgroundColor: "#1b2d3f",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span>
-                          {getGardenCategoryIcon(category)}{" "}
-                          {formatGardenCategoryLabel(category)}
-                        </span>
-                        <span>
-                          {amount} / {limit}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          height: 8,
-                          backgroundColor: "#2f4459",
-                          borderRadius: 4,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            backgroundColor: "#51cf66",
-                            width: `${percent}%`,
-                            transition: "width 0.3s",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <GardenCropStorageModal
+        isOpen={showStorageModal}
+        isMobile={isMobile}
+        entries={cropStorageEntries}
+        onClose={() => setShowStorageModal(false)}
+      />
 
       {/* Harvest Modal */}
       {harvestModal.isOpen &&

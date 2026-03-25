@@ -109,7 +109,9 @@ This phase should treat Garden as a dedicated vertical slice, not as a continuat
 - Completed: Extracted the tile-detail modal UI into a dedicated Garden component with smaller crop, rock, and empty-field sections.
 - Completed: Extracted the Garden grid rendering into a dedicated presentation component boundary.
 - Completed: Extracted tile-cell presentation into dedicated Garden tile components and rewired `renderField` to use them.
-- Next: Target toolbar and panel decomposition to keep shrinking Garden root orchestration complexity.
+- Completed: Extracted shovel-mode and crop-storage panels into dedicated Garden component files.
+- Completed: Extracted the top Garden toolbar into a dedicated component with callback-driven orchestration.
+- Next: Target tool-wheel modal decomposition to keep shrinking Garden root orchestration complexity.
 
 ## Implementation rules
 
