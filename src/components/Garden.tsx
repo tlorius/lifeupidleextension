@@ -12,6 +12,7 @@ import { GardenCropStorageModal } from "./GardenCropStorageModal";
 import { GardenShovelModePanel } from "./GardenShovelModePanel";
 import { GardenToolbar } from "./GardenToolbar";
 import { GardenToolWheelModal } from "./GardenToolWheelModal";
+import { GardenSeedBagModal } from "./GardenSeedBagModal";
 import { useGame } from "../game/GameContext";
 import {
   getCropDef,
@@ -1004,6 +1005,12 @@ export function Garden() {
     }));
   };
 
+  const handleCloseSeedBagModal = () => {
+    setShowSeedBag(false);
+    setActivateSeedBagAfterSelection(false);
+    setPendingPlanterAction(null);
+  };
+
   const filteredTools = state.inventory
     .filter((item) => getItemDefSafe(item.itemId)?.type === "tool")
     .map((item) => ({
@@ -1035,6 +1042,17 @@ export function Garden() {
       if (a.level !== b.level) return b.level - a.level;
       return a.name.localeCompare(b.name);
     });
+
+  const pendingPlanterKey = pendingPlanterAction
+    ? `${pendingPlanterAction.row},${pendingPlanterAction.col}`
+    : null;
+  const selectedPlanterSeedForSeedBagModal =
+    seedSelectionTarget === "planter" &&
+    pendingPlanterAction?.mode === "assign" &&
+    pendingPlanterKey
+      ? (state.garden.planterSeedSelections?.[pendingPlanterKey] ??
+        state.garden.selectedPlanterSeedId)
+      : state.garden.selectedPlanterSeedId;
 
   const allCropTypes = Object.values(cropDefinitions).sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -1657,150 +1675,25 @@ export function Garden() {
         onClearSelection={() => setShovelMove(null)}
       />
 
-      {/* Seed Bag Menu */}
-      {showSeedBag && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1200,
-          }}
-          onClick={() => {
-            setShowSeedBag(false);
-            setActivateSeedBagAfterSelection(false);
-            setPendingPlanterAction(null);
-          }}
-        >
-          <div
-            style={{
-              padding: isMobile ? 10 : 12,
-              backgroundColor: "#16212d",
-              borderRadius: 8,
-              border: "1px solid #2a3a4c",
-              width: isMobile ? "94vw" : "560px",
-              maxWidth: "560px",
-              maxHeight: isMobile ? "88vh" : "80vh",
-              overflow: "auto",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: 8,
-                color: "#e5edf5",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span>
-                Seed Bag{" "}
-                {seedSelectionTarget === "planter" ? "(Planter Seed)" : ""}
-              </span>
-              <button
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: "#253649",
-                  border: "1px solid #3f546a",
-                  color: "#eaf2fb",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() => {
-                  setShowSeedBag(false);
-                  setActivateSeedBagAfterSelection(false);
-                  setPendingPlanterAction(null);
-                }}
-              >
-                Close
-              </button>
-            </div>
-            {seedBag.length === 0 ? (
-              <p style={{ fontSize: 12, color: "#9eb0c2" }}>No seeds yet</p>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                  gap: 8,
-                }}
-              >
-                {(() => {
-                  const pendingKey = pendingPlanterAction
-                    ? `${pendingPlanterAction.row},${pendingPlanterAction.col}`
-                    : null;
-                  const selectedPlanterSeedForModal =
-                    seedSelectionTarget === "planter" &&
-                    pendingPlanterAction?.mode === "assign" &&
-                    pendingKey
-                      ? (state.garden.planterSeedSelections?.[pendingKey] ??
-                        state.garden.selectedPlanterSeedId)
-                      : state.garden.selectedPlanterSeedId;
-
-                  return seedBag.map((seed) => {
-                    const seedPresentation = seed.presentation;
-                    const isSelected =
-                      seedSelectionTarget === "planter"
-                        ? selectedPlanterSeedForModal === seed.seedId
-                        : activeSeedBagSeedId === seed.seedId;
-
-                    return (
-                      <button
-                        key={seed.seedId}
-                        type="button"
-                        className={isSelected ? "btn-selected" : ""}
-                        style={{
-                          padding: 8,
-                          backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
-                          border: isSelected
-                            ? "2px solid #2f9e44"
-                            : "1px solid #34516a",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                          fontSize: 11,
-                          textAlign: "left",
-                          color: "#e5edf5",
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
-                        }}
-                        onClick={() =>
-                          handleSeedBagSeedSelect(seed.seedId, {
-                            closeSeedBagModal: true,
-                          })
-                        }
-                        title={seedPresentation.label}
-                      >
-                        <span style={{ fontSize: 18, lineHeight: 1.1 }}>
-                          {seedPresentation.icon}
-                        </span>
-                        <span>
-                          <div style={{ fontWeight: "bold" }}>
-                            {seedPresentation.label}
-                          </div>
-                          <div style={{ fontSize: 10, color: "#9eb0c2" }}>
-                            x {seed.count}
-                          </div>
-                        </span>
-                      </button>
-                    );
-                  });
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <GardenSeedBagModal
+        isOpen={showSeedBag}
+        isMobile={isMobile}
+        seedSelectionTarget={seedSelectionTarget}
+        seedBag={seedBag.map((seed) => ({
+          seedId: seed.seedId,
+          icon: seed.presentation.icon,
+          label: seed.presentation.label,
+          count: seed.count,
+        }))}
+        activeSeedBagSeedId={activeSeedBagSeedId}
+        selectedPlanterSeedIdForModal={selectedPlanterSeedForSeedBagModal}
+        onClose={handleCloseSeedBagModal}
+        onSelectSeed={(seedId) =>
+          handleSeedBagSeedSelect(seedId, {
+            closeSeedBagModal: true,
+          })
+        }
+      />
 
       <GardenSeedMakerModal
         isOpen={showSeedMakerModal}
