@@ -60,6 +60,27 @@ export interface FightDpsMetrics {
   dpsGraphPoints: string;
 }
 
+export interface FightDpsSourceStatViewModel {
+  label: string;
+  value: number;
+}
+
+export interface FightDpsWindowOptionViewModel {
+  windowMs: number;
+  label: string;
+  isSelected: boolean;
+}
+
+export interface FightDpsPanelViewModel {
+  windowSeconds: number;
+  toggleLabel: string;
+  deltaTone: "positive" | "negative";
+  hasDamageHistory: boolean;
+  emptyMessage: string | null;
+  sourceStats: FightDpsSourceStatViewModel[];
+  windowOptions: FightDpsWindowOptionViewModel[];
+}
+
 export interface FightSpellActionViewModel {
   id: string;
   name: string;
@@ -126,6 +147,23 @@ export interface FightConsumableModalViewModel {
   selectedSlot: 0 | 1;
   options: FightConsumableOptionViewModel[];
   isEmpty: boolean;
+}
+
+export interface FightEncounterSummaryViewModel {
+  levelLabel: string;
+  rewardsLabel: string;
+}
+
+export interface FightCombatLogEntryViewModel {
+  id: string;
+  text: string;
+  color: string;
+}
+
+export interface FightCombatLogViewModel {
+  isEmpty: boolean;
+  emptyMessage: string | null;
+  entries: FightCombatLogEntryViewModel[];
 }
 
 export function selectFightView(state: GameState): FightViewModel {
@@ -330,6 +368,34 @@ export function selectFightSpellPanel(
   };
 }
 
+export function selectFightDpsPanel(
+  metrics: FightDpsMetrics,
+  dpsWindowMs: number,
+  hasDamageHistory: boolean,
+  isExpanded: boolean,
+): FightDpsPanelViewModel {
+  return {
+    windowSeconds: dpsWindowMs / 1000,
+    toggleLabel: isExpanded ? "Hide Graph" : "Show Graph",
+    deltaTone: metrics.dpsDelta >= 0 ? "positive" : "negative",
+    hasDamageHistory,
+    emptyMessage: hasDamageHistory
+      ? null
+      : "No damage recorded yet. Start attacking to populate the meter.",
+    sourceStats: [
+      { label: "Auto DPS", value: metrics.currentAutoDps },
+      { label: "Click DPS", value: metrics.currentClickDps },
+      { label: "Spell DPS", value: metrics.currentSpellDps },
+      { label: "Pet DPS", value: metrics.currentPetDps },
+    ],
+    windowOptions: [10_000, 30_000, 60_000].map((windowMs) => ({
+      windowMs,
+      label: `${windowMs / 1000}s`,
+      isSelected: dpsWindowMs === windowMs,
+    })),
+  };
+}
+
 export function selectFightConsumablesPanel(
   state: GameState,
   equippedConsumables: FightConsumableSlots,
@@ -397,6 +463,29 @@ export function selectFightConsumableModal(
       ),
     })),
     isEmpty: potionSummaries.length === 0,
+  };
+}
+
+export function selectFightEncounterSummary(
+  state: GameState,
+): FightEncounterSummaryViewModel {
+  const combat = state.combat;
+  return {
+    levelLabel: `Level ${combat.currentLevel} • Highest ${combat.highestLevelReached} • Next boss Lv ${nextBossLevel(combat.currentLevel)}`,
+    rewardsLabel: `Enemy rewards: +${combat.enemy.goldReward} Gold, +${combat.enemy.gemsReward} Gems, +${combat.enemy.xpReward} XP`,
+  };
+}
+
+export function selectFightCombatLog(
+  entries: FightCombatLogEntryViewModel[],
+): FightCombatLogViewModel {
+  return {
+    isEmpty: entries.length === 0,
+    emptyMessage:
+      entries.length === 0
+        ? "Defeat enemies to generate loot and progression events."
+        : null,
+    entries,
   };
 }
 
@@ -515,4 +604,8 @@ function getPotionIcon(itemId: string): string {
   if (itemId === "berserkers_tonic") return "🔥";
   if (itemId === "chaos_potion") return "🌌";
   return "🧴";
+}
+
+function nextBossLevel(currentLevel: number): number {
+  return Math.ceil(currentLevel / 5) * 5;
 }

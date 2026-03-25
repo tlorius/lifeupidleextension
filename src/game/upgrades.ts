@@ -1,8 +1,14 @@
 import type { Upgrade } from "./types";
 import type { GameState } from "./types";
+import {
+  areUpgradePrerequisitesMet as areUpgradePrerequisitesMetDomain,
+  getUnlockedUpgrades as getUnlockedUpgradesDomain,
+  isUpgradeUnlocked as isUpgradeUnlockedDomain,
+} from "./upgradePrerequisites";
 
 /**
- * Upgrade definitions organized by tree with prerequisites and linked upgrades
+ * Single source of truth for upgrade balance data.
+ * Keep costs, scaling, bonuses, and unlock links here.
  */
 export const upgradeDefinitions: Record<string, Upgrade> = {
   // ===== COMBAT TREE =====
@@ -824,15 +830,7 @@ export function areUpgradePrerequisitesMet(
   state: GameState,
   upgradeId: string,
 ): boolean {
-  const upgradeDef = getUpgradeDef(upgradeId);
-  if (!upgradeDef || !upgradeDef.prerequisites) return true;
-
-  return upgradeDef.prerequisites.every((prerequisiteId) => {
-    const prerequisiteUpgrade = state.upgrades.find(
-      (u) => u.id === prerequisiteId,
-    );
-    return prerequisiteUpgrade && prerequisiteUpgrade.level > 0;
-  });
+  return areUpgradePrerequisitesMetDomain(state, upgradeId, getUpgradeDef);
 }
 
 /**
@@ -842,34 +840,7 @@ export function isUpgradeUnlocked(
   state: GameState,
   upgradeId: string,
 ): boolean {
-  const upgradeDef = getUpgradeDef(upgradeId);
-  if (!upgradeDef) return false;
-
-  // If no prerequisites, it's unlocked by default
-  if (!upgradeDef.prerequisites || upgradeDef.prerequisites.length === 0) {
-    return true;
-  }
-
-  // Check if all prerequisites are met and satisfy linked unlock thresholds.
-  return (upgradeDef.prerequisites ?? []).every((prerequisiteId) => {
-    const prerequisiteUpgrade = state.upgrades.find(
-      (u) => u.id === prerequisiteId,
-    );
-    const prerequisiteLevel = prerequisiteUpgrade?.level ?? 0;
-    if (prerequisiteLevel <= 0) return false;
-
-    const prerequisiteDef = getUpgradeDef(prerequisiteId);
-    const linkedRequirement = prerequisiteDef?.linkedUpgrades?.find(
-      (linked) => linked.upgradeId === upgradeId,
-    );
-
-    if (!linkedRequirement) {
-      return true;
-    }
-
-    const requiredLevel = linkedRequirement.unlocksAtLevel ?? 1;
-    return prerequisiteLevel >= requiredLevel;
-  });
+  return isUpgradeUnlockedDomain(state, upgradeId, getUpgradeDef);
 }
 
 /**
@@ -879,22 +850,7 @@ export function getUnlockedUpgrades(
   state: GameState,
   upgradeId: string,
 ): string[] {
-  const unlockedIds: string[] = [];
-  const parentUpgrade = state.upgrades.find((u) => u.id === upgradeId);
-
-  if (!parentUpgrade) return unlockedIds;
-
-  const parentDef = getUpgradeDef(upgradeId);
-  if (!parentDef || !parentDef.linkedUpgrades) return unlockedIds;
-
-  for (const linked of parentDef.linkedUpgrades) {
-    const requiredLevel = linked.unlocksAtLevel ?? 1;
-    if (parentUpgrade.level >= requiredLevel) {
-      unlockedIds.push(linked.upgradeId);
-    }
-  }
-
-  return unlockedIds;
+  return getUnlockedUpgradesDomain(state, upgradeId, getUpgradeDef);
 }
 
 /**

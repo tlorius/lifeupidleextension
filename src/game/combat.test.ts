@@ -177,6 +177,38 @@ describe("combat engine", () => {
     ).toBe(true);
   });
 
+  it("reduces spell cooldowns and restores mana for idler timebank", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    state.playerProgress.level = 30;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.character.activeClassId = "idler";
+    state.resources.energy = 40;
+    state.character.classProgress.idler.unlockedNodeRanks = {
+      ...(state.character.classProgress.idler.unlockedNodeRanks ?? {}),
+      idler_9: 2,
+      idler_10: 1,
+    };
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.spellCooldowns = {
+      arcane_bolt: 9000,
+      ember_lance: 3000,
+    };
+
+    const result = castCombatSpell(runtime, state, "idler_timebank", () => 0.5);
+
+    expect(result.state.resources.energy).toBeGreaterThan(40 - 20);
+    expect(result.runtime.spellCooldowns?.arcane_bolt).toBeLessThan(9000);
+    expect(result.runtime.spellCooldowns?.ember_lance ?? 0).toBe(0);
+    expect(result.events.some((event) => event.type === "spellCast")).toBe(
+      true,
+    );
+  });
+
   it("prevents combat consumables from being used again while on cooldown", () => {
     const state = createDefaultState();
     state.inventory = [

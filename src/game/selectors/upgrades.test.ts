@@ -47,6 +47,8 @@ describe("upgrade selectors", () => {
 
     expect(goldRush.level).toBe(3);
     expect(goldRush.canPurchase).toBe(true);
+    expect(goldRush.purchaseDisabled).toBe(false);
+    expect(goldRush.lockReason).toBeNull();
     expect(goldRush.linkedText).toContain("Gold Efficiency");
     expect(resourceTree.tierEntries.length).toBeGreaterThan(1);
     expect(resourceTree.treeConnectors.length).toBeGreaterThan(0);
@@ -54,5 +56,19 @@ describe("upgrade selectors", () => {
       "gold_efficiency",
     );
     expect(resourceTree.layout.treeBoardWidth).toBeGreaterThan(0);
+  });
+
+  it("exposes lock reason when prerequisites are not met", () => {
+    const state = createDefaultState();
+    const locked = selectUpgradePresentation(
+      state,
+      getUpgradeDef("gold_efficiency")!,
+    );
+
+    expect(locked.isUnlocked).toBe(false);
+    expect(locked.purchaseDisabled).toBe(true);
+    expect(locked.lockReason).toBe("prerequisites");
+    expect(locked.actionLabel).toBe("Locked");
+    expect(locked.actionTitle).toBe("Prerequisites not met");
   });
 });

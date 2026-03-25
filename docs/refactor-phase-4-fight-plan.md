@@ -106,7 +106,28 @@ This phase should treat Fight as a dedicated vertical slice, not as an extension
 - Completed: Slice 2 selector extraction for consumable slot state, cooldown labels, modal slot tabs, and potion option projection.
 - Completed: Extracted consumable panel and modal UI into src/components/FightConsumables.tsx and rewired src/components/Fight.tsx to selector-backed consumable view models.
 - Completed: Added selector tests for consumable slot and modal state; validated with focused tests, full tests, and production build.
-- Next: Start slice 3 by extracting the DPS meter panel into a dedicated component and moving its remaining display assembly behind Fight selectors where practical.
+- Completed: Slice 3 selector extraction for DPS panel delta tone, source-stat projection, empty-state messaging, and window option projection.
+- Completed: Extracted DPS meter UI into src/components/FightDpsPanel.tsx and rewired src/components/Fight.tsx to selector-backed DPS panel view models.
+- Completed: Extended selector coverage for the DPS panel model; validated with focused tests, full tests, and production build.
+- Completed: Slice 4 selector extraction for encounter summary labels and combat log empty-state projection.
+- Completed: Extracted encounter summary and combat log UI into src/components/FightPanels.tsx and rewired src/components/Fight.tsx to selector-backed panel models.
+- Completed: Extended selector coverage for encounter summary and combat log models; validated with focused tests, full tests, and production build.
+- Completed: Ran Fight closeout review and confirmed remaining src/components/Fight.tsx complexity is justified screen orchestration glue rather than a good target for one more presentational extraction.
+- Completed: Identified src/game/combat.ts as the dominant remaining Phase 4 hotspot after Fight UI decomposition.
+- Completed: Split cooldown ticking and consumable cooldown lookup into src/game/combatCooldowns.ts.
+- Completed: Split reward/drop resolution into src/game/combatRewards.ts while preserving combat.ts as the public API surface.
+- Completed: Validated the first combat-domain split with focused combat tests, full tests, and production build.
+- Completed: Split spell catalog and spell-availability helpers into src/game/combatSpells.ts while preserving combat.ts as the public API surface.
+- Completed: Validated the spell-helper split with focused combat tests, full tests, and production build.
+- Completed: Extracted spell-resolution execution out of castCombatSpell into src/game/combatSpellEffects.ts while preserving combat.ts as the public API surface.
+- Completed: Added targeted combat coverage for the idler_timebank cooldown-reduction branch and validated the spell-effects split with focused combat tests, the full Vitest suite, and production build.
+- Completed: Extracted player and enemy attack resolution out of runCombatTick into src/game/combatAttacks.ts while preserving combat.ts as the public API surface and defeating-enemy/defeat-recovery logic.
+- Completed: Validated the attack-resolution split with focused combat tests (18/18), the full Vitest suite (183/183), and production build.
+- Completed: Extracted tick-loop orchestration (action coordination and readiness checking) out of runCombatTick into src/game/combatTickOrchestration.ts while preserving combat.ts as the public API surface.
+- Completed: Validated the tick-orchestration split with focused combat tests (18/18), the full Vitest suite (183/183), and production build.
+- Completed: Extracted offline combat expected-value simulation out of resolveOfflineCombatExpected into src/game/combatSimulation.ts while preserving combat.ts as the public API wrapper.
+- Completed: Validated the simulation-extraction split with focused combat tests (18/18), the full Vitest suite (183/183), and production build.
+- **Phase 4 COMPLETE**: All major refactor objectives achieved.
 
 ## Implementation rules
 
@@ -127,11 +148,19 @@ This phase should treat Fight as a dedicated vertical slice, not as an extension
 
 Phase 4 is complete when:
 
-- src/components/Fight.tsx is materially smaller and primarily coordinates screen-level state and events.
-- Major fight read-heavy calculations live in tested selectors rather than inline component code.
-- Combat domain logic is split into coherent units with clear ownership boundaries.
-- Critical fight behavior remains stable under unit and integration coverage.
-- Tests and build pass without regressions.
+- ✓ src/components/Fight.tsx is materially smaller and primarily coordinates screen-level state and events. (Reduced from 1505 lines to ~950 lines)
+- ✓ Major fight read-heavy calculations live in tested selectors rather than inline component code. (src/game/selectors/fight.ts with 5 focused tests)
+- ✓ Combat domain logic is split into coherent units with clear ownership boundaries.
+  - src/game/combatCooldowns.ts — cooldown and consumable cooldown logic
+  - src/game/combatRewards.ts — loot and reward resolution logic
+  - src/game/combatSpells.ts — spell definitions and spell availability logic
+  - src/game/combatSpellEffects.ts — spell execution and effect branches
+  - src/game/combatAttacks.ts — player/enemy attack resolution
+  - src/game/combatTickOrchestration.ts — tick-loop coordination and action scheduling
+  - src/game/combatSimulation.ts — offline combat expected-value simulation
+  - src/game/combat.ts — public API surface and orchestration
+- ✓ Critical fight behavior remains stable under unit and integration coverage. (183/183 Vitest tests pass)
+- ✓ Tests and build pass without regressions.
 
 ## Stop rule
 

@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultState } from "../state";
 import {
+  selectFightCombatLog,
   selectFightConsumableModal,
   selectFightConsumablesPanel,
+  selectFightDpsPanel,
   selectFightDpsMetrics,
+  selectFightEncounterSummary,
   selectFightSpellPanel,
   selectFightView,
 } from "./fight";
@@ -85,6 +88,22 @@ describe("fight selectors", () => {
     expect(dps.dpsDelta).toBe(7);
     expect(dps.dpsDeltaPercent).toBe(175);
     expect(dps.dpsGraphPoints.split(" ")).toHaveLength(12);
+
+    const panel = selectFightDpsPanel(dps, 30_000, true, true);
+    expect(panel.windowSeconds).toBe(30);
+    expect(panel.toggleLabel).toBe("Hide Graph");
+    expect(panel.deltaTone).toBe("positive");
+    expect(panel.sourceStats.map((entry) => entry.label)).toEqual([
+      "Auto DPS",
+      "Click DPS",
+      "Spell DPS",
+      "Pet DPS",
+    ]);
+    expect(
+      panel.windowOptions.find((entry) => entry.windowMs === 30_000)
+        ?.isSelected,
+    ).toBe(true);
+    expect(panel.emptyMessage).toBeNull();
   });
 
   it("builds spell panel actions with cooldown and mana gating", () => {
@@ -162,5 +181,33 @@ describe("fight selectors", () => {
       modal.options.find((option) => option.itemId === "mana_potion")
         ?.alreadyEquippedInOtherSlot,
     ).toBe(false);
+  });
+
+  it("builds encounter summary and combat log view models", () => {
+    const state = createDefaultState();
+    state.combat.currentLevel = 7;
+    state.combat.highestLevelReached = 11;
+    state.combat.enemy.goldReward = 14;
+    state.combat.enemy.gemsReward = 2;
+    state.combat.enemy.xpReward = 9;
+
+    const summary = selectFightEncounterSummary(state);
+    const log = selectFightCombatLog([
+      { id: "a", text: "Loot dropped", color: "#fff" },
+    ]);
+    const emptyLog = selectFightCombatLog([]);
+
+    expect(summary.levelLabel).toContain("Level 7");
+    expect(summary.levelLabel).toContain("Highest 11");
+    expect(summary.levelLabel).toContain("Next boss Lv 10");
+    expect(summary.rewardsLabel).toBe(
+      "Enemy rewards: +14 Gold, +2 Gems, +9 XP",
+    );
+    expect(log.isEmpty).toBe(false);
+    expect(log.entries).toHaveLength(1);
+    expect(emptyLog.isEmpty).toBe(true);
+    expect(emptyLog.emptyMessage).toBe(
+      "Defeat enemies to generate loot and progression events.",
+    );
   });
 });

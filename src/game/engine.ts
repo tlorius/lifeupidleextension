@@ -1,6 +1,7 @@
 import { getItemDefSafe } from "./items";
 import { uniqueSetDefinitions } from "./itemSets";
 import { getActiveClassNodeRank } from "./classes";
+import { getUpgradeStats as getUpgradeStatsDomain } from "./upgradeStats";
 import type { GameState, ItemInstance, Stats } from "./types";
 
 export const MAX_MANA = 100;
@@ -584,30 +585,7 @@ export function getEquipmentStats(state: GameState): Partial<Stats> {
  * Includes both flat bonuses (statsFlat) and percentage bonuses (percentBonusType)
  */
 export function getUpgradeStats(state: GameState): Partial<Stats> {
-  const stats: Partial<Stats> = {};
-
-  for (const upgrade of state.upgrades) {
-    // Handle flat bonuses (e.g., +2 attack per level)
-    for (const bonus of upgrade.bonuses ?? []) {
-      if (bonus.statsFlat) {
-        for (const [key, value] of Object.entries(bonus.statsFlat)) {
-          if (value !== undefined && typeof value === "number") {
-            stats[key as keyof Stats] =
-              (stats[key as keyof Stats] ?? 0) + value * upgrade.level;
-          }
-        }
-      }
-
-      // Handle percentage bonuses (e.g., +10% goldIncome per level)
-      if (bonus.percentBonusType && bonus.percentBonusAmount !== undefined) {
-        const bonusType = bonus.percentBonusType;
-        const bonusPercentage = bonus.percentBonusAmount * upgrade.level * 100;
-        stats[bonusType] = (stats[bonusType] ?? 0) + bonusPercentage;
-      }
-    }
-  }
-
-  return stats;
+  return getUpgradeStatsDomain(state);
 }
 
 /**

@@ -29,6 +29,8 @@ export interface UpgradePresentation {
   preqsMet: boolean;
   unlockedByThis: string[];
   canPurchase: boolean;
+  purchaseDisabled: boolean;
+  lockReason: "prerequisites" | "linked-level" | "insufficient-gold" | null;
   prereqText: string;
   linkedText: string;
   actionLabel: "Locked" | "Unlock" | "Upgrade";
@@ -163,6 +165,15 @@ export function selectUpgradePresentation(
   const preqsMet = areUpgradePrerequisitesMet(state, upgradeDef.id);
   const unlockedByThis = getUnlockedUpgrades(state, upgradeDef.id);
   const canPurchase = isUnlocked && preqsMet && canAfford;
+  const purchaseDisabled = !canPurchase;
+
+  const lockReason: UpgradePresentation["lockReason"] = !isUnlocked
+    ? "prerequisites"
+    : !preqsMet
+      ? "linked-level"
+      : !canAfford
+        ? "insufficient-gold"
+        : null;
 
   const prereqText =
     prerequisites.length > 0
@@ -203,6 +214,8 @@ export function selectUpgradePresentation(
     preqsMet,
     unlockedByThis,
     canPurchase,
+    purchaseDisabled,
+    lockReason,
     prereqText,
     linkedText,
     actionLabel: !isUnlocked ? "Locked" : level === 0 ? "Unlock" : "Upgrade",

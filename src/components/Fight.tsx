@@ -3,9 +3,12 @@ import { getCombatSpellDefinition } from "../game/combat";
 import { getItemDefSafe } from "../game/items";
 import { useGame } from "../game/GameContext";
 import {
+  selectFightCombatLog,
   selectFightConsumableModal,
   selectFightConsumablesPanel,
+  selectFightDpsPanel,
   selectFightDpsMetrics,
+  selectFightEncounterSummary,
   selectFightSpellPanel,
   selectFightView,
   type DamagePoint,
@@ -17,6 +20,8 @@ import {
   FightConsumableModal,
   FightConsumablesPanel,
 } from "./FightConsumables";
+import { FightDpsPanel } from "./FightDpsPanel";
+import { FightCombatLogPanel, FightEncounterSummaryPanel } from "./FightPanels";
 import { FightSpellsPanel } from "./FightSpellsPanel";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
@@ -32,20 +37,10 @@ interface FloatingDamage {
   left: number;
 }
 
-interface CombatLogEntry {
-  id: string;
-  text: string;
-  color: string;
-}
-
 interface CombatToast {
   id: string;
   text: string;
   color: string;
-}
-
-function nextBossLevel(currentLevel: number): number {
-  return Math.ceil(currentLevel / 5) * 5;
 }
 
 export function Fight() {
@@ -53,7 +48,9 @@ export function Fight() {
   const { combatCastSpell, combatClickAttack, combatUseConsumable } =
     useGameActions();
   const [floatingDamage, setFloatingDamage] = useState<FloatingDamage[]>([]);
-  const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
+  const [combatLog, setCombatLog] = useState<
+    Array<{ id: string; text: string; color: string }>
+  >([]);
   const [toasts, setToasts] = useState<CombatToast[]>([]);
   const [damageHistory, setDamageHistory] = useState<DamagePoint[]>([]);
   const [dpsWindowMs, setDpsWindowMs] = useState<number>(30_000);
@@ -188,6 +185,51 @@ export function Fight() {
         selectedConsumableSlot,
       ),
     [state, equippedConsumables, selectedConsumableSlot],
+  );
+
+  const dpsPanel = useMemo(
+    () =>
+      selectFightDpsPanel(
+        {
+          currentDps,
+          previousDps,
+          currentAutoDps,
+          currentClickDps,
+          currentSpellDps,
+          currentPetDps,
+          dpsDelta,
+          dpsDeltaPercent,
+          dpsGraphPoints,
+        },
+        dpsWindowMs,
+        damageHistory.length > 0,
+        isDpsExpanded,
+      ),
+    [
+      currentAutoDps,
+      currentClickDps,
+      currentDps,
+      currentPetDps,
+      currentSpellDps,
+      currentDps,
+      previousDps,
+      dpsDelta,
+      dpsDeltaPercent,
+      dpsGraphPoints,
+      dpsWindowMs,
+      damageHistory.length,
+      isDpsExpanded,
+    ],
+  );
+
+  const encounterSummary = useMemo(
+    () => selectFightEncounterSummary(state),
+    [state],
+  );
+
+  const combatLogPanel = useMemo(
+    () => selectFightCombatLog(combatLog),
+    [combatLog],
   );
 
   const handleOpenConsumableModal = (slotIndex?: 0 | 1) => {
@@ -861,228 +903,27 @@ export function Fight() {
         </div>
       )}
 
-      <div
-        style={{
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(160deg, #18242f 0%, #223648 100%)",
-          padding: 12,
-          fontSize: 12,
-          lineHeight: 1.55,
-          opacity: 0.95,
+      <FightEncounterSummaryPanel summary={encounterSummary} />
+
+      <FightDpsPanel
+        panel={dpsPanel}
+        metrics={{
+          currentDps,
+          previousDps,
+          currentAutoDps,
+          currentClickDps,
+          currentSpellDps,
+          currentPetDps,
+          dpsDelta,
+          dpsDeltaPercent,
+          dpsGraphPoints,
         }}
-      >
-        <div style={{ marginBottom: 4 }}>
-          Level {combat.currentLevel} • Highest {combat.highestLevelReached} •
-          Next boss Lv {nextBossLevel(combat.currentLevel)}
-        </div>
-        <div>
-          Enemy rewards: +{combat.enemy.goldReward} Gold, +
-          {combat.enemy.gemsReward} Gems, +{combat.enemy.xpReward} XP
-        </div>
-      </div>
+        isExpanded={isDpsExpanded}
+        onToggleExpanded={() => setIsDpsExpanded((value) => !value)}
+        onSelectWindow={setDpsWindowMs}
+      />
 
-      <div
-        style={{
-          marginTop: 12,
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(160deg, #121c26 0%, #1e3141 100%)",
-          padding: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>DPS Meter</div>
-            <div style={{ fontSize: 12, opacity: 0.76 }}>
-              {formatCompactNumber(currentDps)} DPS over the last{" "}
-              {dpsWindowMs / 1000}s
-            </div>
-          </div>
-          <button onClick={() => setIsDpsExpanded((value) => !value)}>
-            {isDpsExpanded ? "Hide Graph" : "Show Graph"}
-          </button>
-        </div>
-
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 8,
-            flexWrap: "wrap",
-            fontSize: 12,
-          }}
-        >
-          <div>
-            Current: <strong>{formatCompactNumber(currentDps)}</strong>
-          </div>
-          <div>
-            Previous: <strong>{formatCompactNumber(previousDps)}</strong>
-          </div>
-          <div style={{ color: dpsDelta >= 0 ? "#74f5b3" : "#ff9d9d" }}>
-            {dpsDelta >= 0 ? "+" : ""}
-            {formatCompactNumber(dpsDelta)} DPS ({dpsDelta >= 0 ? "+" : ""}
-            {dpsDeltaPercent.toFixed(1)}%)
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 8,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 8,
-            fontSize: 12,
-          }}
-        >
-          <div>
-            Auto DPS: <strong>{formatCompactNumber(currentAutoDps)}</strong>
-          </div>
-          <div>
-            Click DPS: <strong>{formatCompactNumber(currentClickDps)}</strong>
-          </div>
-          <div>
-            Spell DPS: <strong>{formatCompactNumber(currentSpellDps)}</strong>
-          </div>
-          <div>
-            Pet DPS: <strong>{formatCompactNumber(currentPetDps)}</strong>
-          </div>
-        </div>
-
-        {isDpsExpanded && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              {[10_000, 30_000, 60_000].map((windowMs) => (
-                <button
-                  key={windowMs}
-                  className={dpsWindowMs === windowMs ? "btn-selected" : ""}
-                  onClick={() => setDpsWindowMs(windowMs)}
-                >
-                  {windowMs / 1000}s
-                </button>
-              ))}
-            </div>
-
-            {damageHistory.length === 0 ? (
-              <div style={{ fontSize: 12, opacity: 0.72 }}>
-                No damage recorded yet. Start attacking to populate the meter.
-              </div>
-            ) : (
-              <div
-                style={{
-                  borderRadius: 10,
-                  border: "1px solid rgba(109, 144, 173, 0.3)",
-                  background: "rgba(8, 14, 20, 0.45)",
-                  padding: 10,
-                }}
-              >
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  style={{ width: "100%", height: 140, display: "block" }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="fightDpsFill"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="rgba(86, 224, 153, 0.7)" />
-                      <stop
-                        offset="100%"
-                        stopColor="rgba(86, 224, 153, 0.05)"
-                      />
-                    </linearGradient>
-                  </defs>
-                  <polyline
-                    fill="none"
-                    stroke="rgba(120, 208, 255, 0.25)"
-                    strokeWidth="0.8"
-                    points="0,100 100,100"
-                  />
-                  <polygon
-                    fill="url(#fightDpsFill)"
-                    points={`0,100 ${dpsGraphPoints} 100,100`}
-                  />
-                  <polyline
-                    fill="none"
-                    stroke="#72f2a4"
-                    strokeWidth="1.8"
-                    points={dpsGraphPoints}
-                  />
-                </svg>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 11,
-                    opacity: 0.7,
-                    marginTop: 6,
-                  }}
-                >
-                  <span>{dpsWindowMs / 1000}s ago</span>
-                  <span>now</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          marginTop: 12,
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(160deg, #131f29 0%, #1d2f3f 100%)",
-          padding: 12,
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
-          Combat Log
-        </div>
-        {combatLog.length === 0 ? (
-          <div style={{ fontSize: 12, opacity: 0.72 }}>
-            Defeat enemies to generate loot and progression events.
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: 6,
-              maxHeight: 220,
-              overflowY: "auto",
-            }}
-          >
-            {combatLog.map((entry) => (
-              <div
-                key={entry.id}
-                style={{
-                  fontSize: 12,
-                  color: entry.color,
-                  border: "1px solid rgba(139, 171, 198, 0.2)",
-                  backgroundColor: "rgba(0,0,0,0.16)",
-                  borderRadius: 8,
-                  padding: "6px 8px",
-                }}
-              >
-                {entry.text}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <FightCombatLogPanel log={combatLogPanel} />
 
       <style>
         {`@keyframes fightFloatUp {
