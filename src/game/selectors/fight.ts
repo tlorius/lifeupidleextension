@@ -24,6 +24,8 @@ export interface ConsumableSummary {
   rarity: string;
 }
 
+export type FightConsumableSlots = [string | null, string | null];
+
 type CombatSpell = ReturnType<typeof getAvailableCombatSpellsForState>[number];
 
 export interface FightViewModel {
@@ -56,6 +58,74 @@ export interface FightDpsMetrics {
   dpsDelta: number;
   dpsDeltaPercent: number;
   dpsGraphPoints: string;
+}
+
+export interface FightSpellActionViewModel {
+  id: string;
+  name: string;
+  description: string;
+  requiredLevel: number;
+  manaCost: number;
+  cooldownMs: number;
+  canCast: boolean;
+  cooldownLabel: string;
+}
+
+export interface FightSpellPathEntryViewModel {
+  id: string;
+  name: string;
+  requiredLevel: number;
+  isUnlocked: boolean;
+}
+
+export interface FightSpellPanelViewModel {
+  isVisible: boolean;
+  classLabel: string | null;
+  showManageButton: boolean;
+  unlockedSpellSlots: number;
+  maxSpellSlots: number;
+  emptyMessage: string | null;
+  spellActions: FightSpellActionViewModel[];
+  spellPath: FightSpellPathEntryViewModel[];
+}
+
+export interface FightConsumableSlotViewModel {
+  slotIndex: 0 | 1;
+  itemId: string | null;
+  itemUid: string | null;
+  icon: string;
+  rarityTint: string;
+  quantityLabel: string;
+  cooldownLabel: string | null;
+  isOnCooldown: boolean;
+  title: string;
+  isEmpty: boolean;
+}
+
+export interface FightConsumablesPanelViewModel {
+  slots: FightConsumableSlotViewModel[];
+}
+
+export interface FightConsumableModalSlotViewModel {
+  slotIndex: 0 | 1;
+  label: string;
+  isSelected: boolean;
+}
+
+export interface FightConsumableOptionViewModel {
+  itemId: string;
+  name: string;
+  quantityLabel: string;
+  icon: string;
+  rarityTint: string;
+  alreadyEquippedInOtherSlot: boolean;
+}
+
+export interface FightConsumableModalViewModel {
+  slotTabs: FightConsumableModalSlotViewModel[];
+  selectedSlot: 0 | 1;
+  options: FightConsumableOptionViewModel[];
+  isEmpty: boolean;
 }
 
 export function selectFightView(state: GameState): FightViewModel {
@@ -207,6 +277,129 @@ export function selectFightDpsMetrics(
   };
 }
 
+export function selectFightSpellPanel(
+  state: GameState,
+  slottedSpells: CombatSpell[],
+): FightSpellPanelViewModel {
+  const spellsUnlocked = Boolean(state.playerProgress.unlockedSystems?.spells);
+  const activeClassId = state.character.activeClassId;
+  const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
+  const playerMana = Math.max(0, Math.min(100, state.resources.energy ?? 100));
+  const spellCooldowns = state.combat.spellCooldowns ?? {};
+
+  let emptyMessage: string | null = null;
+  if (unlockedSpellSlots <= 0) {
+    emptyMessage =
+      "Spell slots unlock at level 10. Continue leveling to equip spells.";
+  } else if (slottedSpells.length === 0) {
+    emptyMessage =
+      "No spells are slotted. Open Character and assign spells to slots.";
+  }
+
+  return {
+    isVisible: spellsUnlocked,
+    classLabel: activeClassId ? `(Class: ${activeClassId})` : null,
+    showManageButton: Boolean(activeClassId) && unlockedSpellSlots > 0,
+    unlockedSpellSlots,
+    maxSpellSlots: 8,
+    emptyMessage,
+    spellActions: slottedSpells.map((spell) => {
+      const cooldownMs = spellCooldowns[spell.id] ?? 0;
+      const canCast = cooldownMs <= 0 && playerMana >= spell.manaCost;
+
+      return {
+        id: spell.id,
+        name: spell.name,
+        description: spell.description,
+        requiredLevel: spell.requiredLevel,
+        manaCost: spell.manaCost,
+        cooldownMs,
+        canCast,
+        cooldownLabel:
+          cooldownMs > 0
+            ? `Cooldown ${formatRemainingMs(cooldownMs)}`
+            : "Ready",
+      };
+    }),
+    spellPath: getGeneralCombatSpellPath().map((spell) => ({
+      id: spell.id,
+      name: spell.name,
+      requiredLevel: spell.requiredLevel,
+      isUnlocked: state.playerProgress.level >= spell.requiredLevel,
+    })),
+  };
+}
+
+export function selectFightConsumablesPanel(
+  state: GameState,
+  equippedConsumables: FightConsumableSlots,
+): FightConsumablesPanelViewModel {
+  const potionSummaries = selectPotionSummaries(state);
+  const potionById = new Map(
+    potionSummaries.map((summary) => [summary.itemId, summary]),
+  );
+  const consumableCooldowns = state.combat.consumableCooldowns ?? {};
+
+  return {
+    slots: [0, 1].map((slotIndex) => {
+      const normalizedSlotIndex = slotIndex as 0 | 1;
+      const selectedItemId = equippedConsumables[normalizedSlotIndex];
+      const itemSummary = selectedItemId
+        ? (potionById.get(selectedItemId) ?? null)
+        : null;
+      const cooldownMs = selectedItemId
+        ? (consumableCooldowns[selectedItemId] ?? 0)
+        : 0;
+      const isOnCooldown = cooldownMs > 0;
+
+      return {
+        slotIndex: normalizedSlotIndex,
+        itemId: selectedItemId,
+        itemUid: itemSummary?.itemUid ?? null,
+        icon: itemSummary ? getPotionIcon(itemSummary.itemId) : "+",
+        rarityTint: itemSummary
+          ? getRarityTint(itemSummary.rarity)
+          : "rgba(120,140,160,0.35)",
+        quantityLabel: itemSummary ? `x${itemSummary.quantity}` : "Empty",
+        cooldownLabel: isOnCooldown ? formatRemainingMs(cooldownMs) : null,
+        isOnCooldown,
+        title: itemSummary
+          ? `${itemSummary.name}${isOnCooldown ? ` (${formatRemainingMs(cooldownMs)})` : ""}`
+          : `Select potion for slot ${normalizedSlotIndex + 1}`,
+        isEmpty: !itemSummary,
+      };
+    }),
+  };
+}
+
+export function selectFightConsumableModal(
+  state: GameState,
+  equippedConsumables: FightConsumableSlots,
+  selectedSlot: 0 | 1,
+): FightConsumableModalViewModel {
+  const potionSummaries = selectPotionSummaries(state);
+
+  return {
+    slotTabs: [0, 1].map((slotIndex) => ({
+      slotIndex: slotIndex as 0 | 1,
+      label: `Slot ${slotIndex + 1}`,
+      isSelected: selectedSlot === slotIndex,
+    })),
+    selectedSlot,
+    options: potionSummaries.map((potion) => ({
+      itemId: potion.itemId,
+      name: potion.name,
+      quantityLabel: `x${potion.quantity}`,
+      icon: getPotionIcon(potion.itemId),
+      rarityTint: getRarityTint(potion.rarity),
+      alreadyEquippedInOtherSlot: equippedConsumables.some(
+        (itemId, index) => itemId === potion.itemId && index !== selectedSlot,
+      ),
+    })),
+    isEmpty: potionSummaries.length === 0,
+  };
+}
+
 function selectSlottedSpells(
   state: GameState,
   activeClassId: GameState["character"]["activeClassId"],
@@ -293,4 +486,33 @@ function getSourceDps(
       : sum;
   }, 0);
   return totalDamage / Math.max(1, (end - start) / 1000);
+}
+
+function formatRemainingMs(remainingMs: number): string {
+  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const leftoverSeconds = seconds % 60;
+  if (minutes <= 0) return `${leftoverSeconds}s`;
+  return `${minutes}m ${leftoverSeconds}s`;
+}
+
+function getRarityTint(rarity: string): string {
+  if (rarity === "unique") return "#ff9ad9";
+  if (rarity === "legendary") return "#ffd36f";
+  if (rarity === "epic") return "#8bc7ff";
+  if (rarity === "rare") return "#7cf0c4";
+  return "#d8e2ee";
+}
+
+function getPotionIcon(itemId: string): string {
+  if (itemId === "health_potion") return "🧪";
+  if (itemId === "mana_potion") return "🔷";
+  if (itemId === "elixir") return "✨";
+  if (itemId === "immortal_brew") return "☀️";
+  if (itemId === "swift_tonic") return "⚡";
+  if (itemId === "fortitude_brew") return "🛡️";
+  if (itemId === "scholars_draught") return "📘";
+  if (itemId === "berserkers_tonic") return "🔥";
+  if (itemId === "chaos_potion") return "🌌";
+  return "🧴";
 }

@@ -3,13 +3,21 @@ import { getCombatSpellDefinition } from "../game/combat";
 import { getItemDefSafe } from "../game/items";
 import { useGame } from "../game/GameContext";
 import {
+  selectFightConsumableModal,
+  selectFightConsumablesPanel,
   selectFightDpsMetrics,
+  selectFightSpellPanel,
   selectFightView,
   type DamagePoint,
 } from "../game/selectors/fight";
 import { useGameActions } from "../game/useGameActions";
 import { formatCompactNumber } from "../game/numberFormat";
 import { SpellSelectModal } from "./SpellSelectModal";
+import {
+  FightConsumableModal,
+  FightConsumablesPanel,
+} from "./FightConsumables";
+import { FightSpellsPanel } from "./FightSpellsPanel";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
 import enemyBossPixel from "../assets/enemy-boss-pixel.svg";
@@ -38,35 +46,6 @@ interface CombatToast {
 
 function nextBossLevel(currentLevel: number): number {
   return Math.ceil(currentLevel / 5) * 5;
-}
-
-function getRarityTint(rarity: string): string {
-  if (rarity === "unique") return "#ff9ad9";
-  if (rarity === "legendary") return "#ffd36f";
-  if (rarity === "epic") return "#8bc7ff";
-  if (rarity === "rare") return "#7cf0c4";
-  return "#d8e2ee";
-}
-
-function formatRemainingMs(remainingMs: number): string {
-  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const leftoverSeconds = seconds % 60;
-  if (minutes <= 0) return `${leftoverSeconds}s`;
-  return `${minutes}m ${leftoverSeconds}s`;
-}
-
-function getPotionIcon(itemId: string): string {
-  if (itemId === "health_potion") return "🧪";
-  if (itemId === "mana_potion") return "🔷";
-  if (itemId === "elixir") return "✨";
-  if (itemId === "immortal_brew") return "☀️";
-  if (itemId === "swift_tonic") return "⚡";
-  if (itemId === "fortitude_brew") return "🛡️";
-  if (itemId === "scholars_draught") return "📘";
-  if (itemId === "berserkers_tonic") return "🔥";
-  if (itemId === "chaos_potion") return "🌌";
-  return "🧴";
 }
 
 export function Fight() {
@@ -103,11 +82,8 @@ export function Fight() {
     xpForNextLevel,
     xpProgressPercent,
     combatTitle,
-    unlockedSpellSlots,
     activeClassId,
     slottedSpells,
-    potionSummaries,
-    generalSpellPath,
     manaRegenPerSecond,
     checkpointLevel,
   } = useMemo(() => selectFightView(state), [state]);
@@ -115,8 +91,6 @@ export function Fight() {
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
-  const spellCooldowns = combat.spellCooldowns ?? {};
-  const consumableCooldowns = combat.consumableCooldowns ?? {};
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -195,6 +169,62 @@ export function Fight() {
     () => selectFightDpsMetrics(damageHistory, clockNow, dpsWindowMs),
     [clockNow, damageHistory, dpsWindowMs],
   );
+
+  const spellPanel = useMemo(
+    () => selectFightSpellPanel(state, slottedSpells),
+    [state, slottedSpells],
+  );
+
+  const consumablesPanel = useMemo(
+    () => selectFightConsumablesPanel(state, equippedConsumables),
+    [state, equippedConsumables],
+  );
+
+  const consumableModal = useMemo(
+    () =>
+      selectFightConsumableModal(
+        state,
+        equippedConsumables,
+        selectedConsumableSlot,
+      ),
+    [state, equippedConsumables, selectedConsumableSlot],
+  );
+
+  const handleOpenConsumableModal = (slotIndex?: 0 | 1) => {
+    if (slotIndex !== undefined) {
+      setSelectedConsumableSlot(slotIndex);
+    }
+    setIsConsumableModalOpen(true);
+  };
+
+  const handleClearSelectedConsumableSlot = () => {
+    setEquippedConsumables((prev) => {
+      const next: [string | null, string | null] = [...prev] as [
+        string | null,
+        string | null,
+      ];
+      next[selectedConsumableSlot] = null;
+      return next;
+    });
+  };
+
+  const handleEquipConsumable = (itemId: string) => {
+    setEquippedConsumables((prev) => {
+      const next: [string | null, string | null] = [...prev] as [
+        string | null,
+        string | null,
+      ];
+      const otherIndex = next.findIndex(
+        (equippedId, index) =>
+          equippedId === itemId && index !== selectedConsumableSlot,
+      );
+      if (otherIndex !== -1) {
+        next[otherIndex as 0 | 1] = null;
+      }
+      next[selectedConsumableSlot] = itemId;
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -768,463 +798,34 @@ export function Fight() {
         </button>
       </div>
 
-      {/* Consumables - Right Above Spells */}
-      <div
-        style={{
-          marginBottom: 14,
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(150deg, #162433 0%, #1f3248 100%)",
-          padding: 10,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 8,
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: 13 }}>🧴 Potions</div>
-          <button
-            onClick={() => setIsConsumableModalOpen(true)}
-            style={{
-              padding: "4px 8px",
-              fontSize: 11,
-              borderRadius: 7,
-              border: "1px solid rgba(109, 144, 173, 0.35)",
-              background: "rgba(20, 35, 50, 0.65)",
-              color: "#9fc6ff",
-              cursor: "pointer",
-            }}
-          >
-            Select
-          </button>
-        </div>
+      <FightConsumablesPanel
+        panel={consumablesPanel}
+        onOpenModal={() => handleOpenConsumableModal()}
+        onOpenSlot={handleOpenConsumableModal}
+        onUseConsumable={combatUseConsumable}
+      />
 
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-        >
-          {[0, 1].map((slotIndex) => {
-            const selectedItemId = equippedConsumables[slotIndex];
-            const itemSummary = selectedItemId
-              ? (potionSummaries.find((p) => p.itemId === selectedItemId) ??
-                null)
-              : null;
-            const itemDef = itemSummary
-              ? getItemDefSafe(itemSummary.itemId)
-              : null;
-            const cooldownMs = selectedItemId
-              ? (consumableCooldowns[selectedItemId] ?? 0)
-              : 0;
-            const isOnCooldown = cooldownMs > 0;
+      <FightSpellsPanel
+        isVisible={spellPanel.isVisible}
+        classLabel={spellPanel.classLabel}
+        showManageButton={spellPanel.showManageButton}
+        unlockedSpellSlots={spellPanel.unlockedSpellSlots}
+        maxSpellSlots={spellPanel.maxSpellSlots}
+        emptyMessage={spellPanel.emptyMessage}
+        spellActions={spellPanel.spellActions}
+        spellPath={spellPanel.spellPath}
+        onOpenManageSpells={() => setIsSpellSelectOpen(true)}
+        onCastSpell={combatCastSpell}
+      />
 
-            return (
-              <div
-                key={`potion-slot-${slotIndex}`}
-                style={{
-                  borderRadius: 8,
-                  border: "1px solid rgba(109, 144, 173, 0.3)",
-                  background: "rgba(13, 23, 34, 0.55)",
-                  padding: 8,
-                  display: "grid",
-                  justifyItems: "center",
-                  gap: 4,
-                }}
-              >
-                <button
-                  onClick={() => {
-                    if (!selectedItemId) {
-                      setSelectedConsumableSlot(slotIndex as 0 | 1);
-                      setIsConsumableModalOpen(true);
-                      return;
-                    }
-                    if (!isOnCooldown) {
-                      const potionInstance = state.inventory.find(
-                        (inv) =>
-                          inv.itemId === selectedItemId &&
-                          (inv.quantity ?? 0) > 0,
-                      );
-                      if (potionInstance) {
-                        combatUseConsumable(potionInstance.uid);
-                      }
-                    }
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    setSelectedConsumableSlot(slotIndex as 0 | 1);
-                    setIsConsumableModalOpen(true);
-                  }}
-                  disabled={isOnCooldown}
-                  title={
-                    itemDef
-                      ? `${itemDef.name}${isOnCooldown ? ` (${formatRemainingMs(cooldownMs)})` : ""}`
-                      : `Select potion for slot ${slotIndex + 1}`
-                  }
-                  style={{
-                    width: 36,
-                    height: 36,
-                    padding: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 20,
-                    lineHeight: 1,
-                    borderRadius: 8,
-                    border: `1px solid ${itemDef ? getRarityTint(itemDef.rarity) : "rgba(120,140,160,0.35)"}`,
-                    background: isOnCooldown
-                      ? "rgba(90, 90, 90, 0.45)"
-                      : "rgba(22, 35, 50, 0.92)",
-                    color: isOnCooldown ? "#8e8e8e" : "#f2f8ff",
-                    cursor: isOnCooldown ? "not-allowed" : "pointer",
-                    opacity: !selectedItemId ? 0.6 : 1,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {itemDef ? getPotionIcon(itemDef.id) : "+"}
-                  </span>
-                </button>
-
-                <div style={{ fontSize: 10, opacity: 0.72 }}>
-                  {itemSummary ? `x${itemSummary.quantity}` : "Empty"}
-                </div>
-                {isOnCooldown && (
-                  <div style={{ fontSize: 10, color: "#f2a59f" }}>
-                    {formatRemainingMs(cooldownMs)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Spells - Below Fight UI */}
-      {state.playerProgress.unlockedSystems?.spells && (
-        <div
-          style={{
-            marginBottom: 14,
-            borderRadius: 12,
-            border: "1px solid #30465b",
-            background: "linear-gradient(150deg, #1c2233 0%, #2a3048 100%)",
-            padding: 12,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 14 }}>
-              ⚡ Spells {activeClassId ? `(Class: ${activeClassId})` : ""}
-            </div>
-            {activeClassId && unlockedSpellSlots > 0 && (
-              <button
-                onClick={() => setIsSpellSelectOpen(true)}
-                style={{
-                  padding: "4px 8px",
-                  fontSize: 11,
-                  borderRadius: 7,
-                  border: "1px solid rgba(109, 144, 173, 0.35)",
-                  background: "rgba(20, 35, 50, 0.65)",
-                  color: "#9fc6ff",
-                  cursor: "pointer",
-                }}
-              >
-                Manage Spells
-              </button>
-            )}
-          </div>
-          <div style={{ fontSize: 11, color: "#99b9d6", marginBottom: 8 }}>
-            Slots unlocked: {unlockedSpellSlots} / 8
-          </div>
-
-          {unlockedSpellSlots <= 0 && (
-            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
-              Spell slots unlock at level 10. Continue leveling to equip spells.
-            </div>
-          )}
-
-          {unlockedSpellSlots > 0 && slottedSpells.length === 0 && (
-            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
-              No spells are slotted. Open Character and assign spells to slots.
-            </div>
-          )}
-
-          <div style={{ display: "grid", gap: 8 }}>
-            {slottedSpells.map((spell) => {
-              const cooldownMs = spellCooldowns[spell.id] ?? 0;
-              const canCast =
-                cooldownMs <= 0 && (playerMana ?? 0) >= spell.manaCost;
-              return (
-                <button
-                  key={spell.id}
-                  onClick={() => combatCastSpell(spell.id)}
-                  disabled={!canCast}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    alignItems: "center",
-                    gap: 8,
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(109, 144, 173, 0.35)",
-                    background: "rgba(24, 32, 48, 0.6)",
-                    color: canCast ? "#f3f8ff" : "#666",
-                    cursor: canCast ? "pointer" : "not-allowed",
-                    opacity: canCast ? 1 : 0.6,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        marginBottom: 3,
-                      }}
-                    >
-                      {spell.name}
-                    </div>
-                    <div
-                      style={{ fontSize: 10, opacity: 0.75, lineHeight: 1.4 }}
-                    >
-                      {spell.description}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>
-                      Unlock Lv {spell.requiredLevel} • Mana {spell.manaCost} •{" "}
-                      {cooldownMs > 0
-                        ? `Cooldown ${formatRemainingMs(cooldownMs)}`
-                        : "Ready"}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 700 }}>Cast</div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div
-            style={{
-              marginTop: 12,
-              borderTop: "1px solid rgba(109, 144, 173, 0.25)",
-              paddingTop: 10,
-            }}
-          >
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
-              Default Spell Path (XP Progression)
-            </div>
-            <div style={{ display: "grid", gap: 5 }}>
-              {generalSpellPath.map((spell) => {
-                const isUnlocked =
-                  state.playerProgress.level >= spell.requiredLevel;
-                return (
-                  <div
-                    key={`path-${spell.id}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "80px 1fr auto",
-                      gap: 8,
-                      alignItems: "center",
-                      fontSize: 11,
-                      color: isUnlocked ? "#d9f0ff" : "#8ea4b7",
-                    }}
-                  >
-                    <div>Lv {spell.requiredLevel}</div>
-                    <div>{spell.name}</div>
-                    <div>{isUnlocked ? "Unlocked" : "Locked"}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isConsumableModalOpen && (
-        <div
-          onClick={() => setIsConsumableModalOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 40,
-            background: "rgba(6, 10, 16, 0.72)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(460px, 100%)",
-              maxHeight: "80vh",
-              overflowY: "auto",
-              borderRadius: 12,
-              border: "1px solid #3b5670",
-              background: "linear-gradient(170deg, #111b27 0%, #1b2b3c 100%)",
-              padding: 12,
-              boxShadow: "0 16px 44px rgba(0, 0, 0, 0.45)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 10,
-              }}
-            >
-              <div style={{ fontWeight: 700 }}>Select Slot Potions</div>
-              <button
-                onClick={() => setIsConsumableModalOpen(false)}
-                style={{
-                  borderRadius: 6,
-                  border: "1px solid rgba(130, 170, 204, 0.4)",
-                  background: "rgba(20, 35, 50, 0.65)",
-                  color: "#d8ecff",
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              {[0, 1].map((slot) => (
-                <button
-                  key={`modal-slot-${slot}`}
-                  onClick={() => setSelectedConsumableSlot(slot as 0 | 1)}
-                  style={{
-                    borderRadius: 8,
-                    border:
-                      selectedConsumableSlot === slot
-                        ? "1px solid #9ad0ff"
-                        : "1px solid rgba(125, 153, 179, 0.4)",
-                    background:
-                      selectedConsumableSlot === slot
-                        ? "rgba(72, 120, 168, 0.4)"
-                        : "rgba(16, 28, 40, 0.7)",
-                    color: "#e2f2ff",
-                    padding: "6px 10px",
-                    fontSize: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  Slot {slot + 1}
-                </button>
-              ))}
-              <button
-                onClick={() => {
-                  setEquippedConsumables((prev) => {
-                    const next: [string | null, string | null] = [...prev] as [
-                      string | null,
-                      string | null,
-                    ];
-                    next[selectedConsumableSlot] = null;
-                    return next;
-                  });
-                }}
-                style={{
-                  marginLeft: "auto",
-                  borderRadius: 8,
-                  border: "1px solid rgba(207, 126, 126, 0.45)",
-                  background: "rgba(58, 18, 18, 0.55)",
-                  color: "#ffc7c7",
-                  padding: "6px 10px",
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                Clear Slot
-              </button>
-            </div>
-
-            <div style={{ display: "grid", gap: 8 }}>
-              {potionSummaries.length === 0 && (
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  No potions in inventory.
-                </div>
-              )}
-              {potionSummaries.map((potion) => {
-                const alreadyEquippedInOtherSlot = equippedConsumables.some(
-                  (itemId, idx) =>
-                    itemId === potion.itemId && idx !== selectedConsumableSlot,
-                );
-
-                return (
-                  <button
-                    key={potion.itemId}
-                    onClick={() => {
-                      setEquippedConsumables((prev) => {
-                        const next: [string | null, string | null] = [
-                          ...prev,
-                        ] as [string | null, string | null];
-                        if (alreadyEquippedInOtherSlot) {
-                          const otherIndex = next.findIndex(
-                            (itemId, idx) =>
-                              itemId === potion.itemId &&
-                              idx !== selectedConsumableSlot,
-                          );
-                          if (otherIndex !== -1)
-                            next[otherIndex as 0 | 1] = null;
-                        }
-                        next[selectedConsumableSlot] = potion.itemId;
-                        return next;
-                      });
-                    }}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
-                      gap: 10,
-                      alignItems: "center",
-                      borderRadius: 8,
-                      border: "1px solid rgba(124, 156, 183, 0.35)",
-                      background: "rgba(16, 28, 40, 0.7)",
-                      padding: "8px 10px",
-                      color: "#ecf7ff",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>
-                      {getPotionIcon(potion.itemId)}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: getRarityTint(potion.rarity),
-                      }}
-                    >
-                      {potion.name}
-                    </span>
-                    <span style={{ fontSize: 11, opacity: 0.75 }}>
-                      x{potion.quantity}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      <FightConsumableModal
+        isOpen={isConsumableModalOpen}
+        modal={consumableModal}
+        onClose={() => setIsConsumableModalOpen(false)}
+        onSelectSlot={setSelectedConsumableSlot}
+        onClearSelectedSlot={handleClearSelectedConsumableSlot}
+        onEquipConsumable={handleEquipConsumable}
+      />
 
       {toasts.length > 0 && (
         <div

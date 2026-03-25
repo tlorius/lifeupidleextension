@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultState } from "../state";
-import { selectFightDpsMetrics, selectFightView } from "./fight";
+import {
+  selectFightConsumableModal,
+  selectFightConsumablesPanel,
+  selectFightDpsMetrics,
+  selectFightSpellPanel,
+  selectFightView,
+} from "./fight";
 
 describe("fight selectors", () => {
   it("builds slotted spells from selected class spells without duplicates", () => {
@@ -79,5 +85,82 @@ describe("fight selectors", () => {
     expect(dps.dpsDelta).toBe(7);
     expect(dps.dpsDeltaPercent).toBe(175);
     expect(dps.dpsGraphPoints.split(" ")).toHaveLength(12);
+  });
+
+  it("builds spell panel actions with cooldown and mana gating", () => {
+    const state = createDefaultState();
+    state.playerProgress.level = 20;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.character.activeClassId = "sorceress";
+    state.character.classProgress.sorceress.selectedSpellIds = [
+      "arcane_bolt",
+      "second_wind",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ];
+    state.resources.energy = 8;
+    state.combat.spellCooldowns = {
+      arcane_bolt: 1500,
+    };
+
+    const view = selectFightView(state);
+    const panel = selectFightSpellPanel(state, view.slottedSpells);
+
+    expect(panel.isVisible).toBe(true);
+    expect(panel.classLabel).toBe("(Class: sorceress)");
+    expect(panel.showManageButton).toBe(true);
+    expect(panel.unlockedSpellSlots).toBe(5);
+    expect(panel.spellActions).toHaveLength(2);
+    expect(panel.spellActions[0]?.id).toBe("arcane_bolt");
+    expect(panel.spellActions[0]?.canCast).toBe(false);
+    expect(panel.spellActions[0]?.cooldownLabel).toBe("Cooldown 2s");
+    expect(panel.spellActions[1]?.id).toBe("second_wind");
+    expect(panel.spellActions[1]?.canCast).toBe(false);
+    expect(panel.spellActions[1]?.cooldownLabel).toBe("Ready");
+    expect(panel.spellPath.length).toBeGreaterThan(0);
+  });
+
+  it("builds consumable slot and modal view models", () => {
+    const state = createDefaultState();
+    state.inventory = [
+      { uid: "hp-1", itemId: "health_potion", quantity: 2, level: 1 },
+      { uid: "mp-1", itemId: "mana_potion", quantity: 1, level: 1 },
+    ];
+    state.combat.consumableCooldowns = {
+      mana_potion: 2200,
+    };
+
+    const panel = selectFightConsumablesPanel(state, ["health_potion", null]);
+    const modal = selectFightConsumableModal(
+      state,
+      ["health_potion", "mana_potion"],
+      1,
+    );
+
+    expect(panel.slots).toHaveLength(2);
+    expect(panel.slots[0]?.itemUid).toBe("hp-1");
+    expect(panel.slots[0]?.quantityLabel).toBe("x2");
+    expect(panel.slots[0]?.cooldownLabel).toBeNull();
+    expect(panel.slots[1]?.isEmpty).toBe(true);
+    expect(panel.slots[1]?.title).toBe("Select potion for slot 2");
+
+    expect(modal.selectedSlot).toBe(1);
+    expect(modal.slotTabs[1]?.isSelected).toBe(true);
+    expect(modal.options).toHaveLength(2);
+    expect(
+      modal.options.find((option) => option.itemId === "health_potion")
+        ?.alreadyEquippedInOtherSlot,
+    ).toBe(true);
+    expect(
+      modal.options.find((option) => option.itemId === "mana_potion")
+        ?.alreadyEquippedInOtherSlot,
+    ).toBe(false);
   });
 });

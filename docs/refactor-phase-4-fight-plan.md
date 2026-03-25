@@ -100,7 +100,13 @@ This phase should treat Fight as a dedicated vertical slice, not as an extension
 - Completed: Defined Phase 4 scope, constraints, sequencing, and stop rule.
 - Completed: Ran Fight seam audit and confirmed primary hotspots in src/components/Fight.tsx and src/game/combat.ts.
 - Completed: Identified first extraction seam as spell and cooldown read-model separation plus spell-action panel decomposition.
-- Next: Implement slice 1 by extracting spell availability and cooldown view models into selectors, then carve out a dedicated spell action panel component from src/components/Fight.tsx.
+- Completed: Slice 1 selector extraction for spell castability, cooldown labels, empty-state messaging, and spell-path unlock status.
+- Completed: Extracted spell action UI into src/components/FightSpellsPanel.tsx and rewired src/components/Fight.tsx to selector-backed spell panel view models.
+- Completed: Added selector tests for spell panel gating and labels; validated with focused tests, full tests, and production build.
+- Completed: Slice 2 selector extraction for consumable slot state, cooldown labels, modal slot tabs, and potion option projection.
+- Completed: Extracted consumable panel and modal UI into src/components/FightConsumables.tsx and rewired src/components/Fight.tsx to selector-backed consumable view models.
+- Completed: Added selector tests for consumable slot and modal state; validated with focused tests, full tests, and production build.
+- Next: Start slice 3 by extracting the DPS meter panel into a dedicated component and moving its remaining display assembly behind Fight selectors where practical.
 
 ## Implementation rules
 
