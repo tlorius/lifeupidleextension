@@ -11,6 +11,7 @@ import {
 import { GardenCropStorageModal } from "./GardenCropStorageModal";
 import { GardenShovelModePanel } from "./GardenShovelModePanel";
 import { GardenToolbar } from "./GardenToolbar";
+import { GardenToolWheelModal } from "./GardenToolWheelModal";
 import { useGame } from "../game/GameContext";
 import {
   getCropDef,
@@ -420,6 +421,39 @@ export function Garden() {
     if (isScytheTool(toolId)) return "🔪";
     if (isSeedBagTool(toolId)) return "🎒";
     return "🔧";
+  };
+
+  const getToolDescription = (toolId: string): string => {
+    if (isPickaxeTool(toolId)) {
+      return "Click rocks to break them (costs mana)";
+    }
+    if (isShovelTool(toolId)) {
+      const areaSize = toolId.includes("mithril")
+        ? 5
+        : toolId.includes("iron")
+          ? 3
+          : 1;
+      return `Move planted fields (${areaSize}x${areaSize} area)`;
+    }
+    if (isSprinklerTool(toolId)) {
+      return "Click crops to place/remove sprinklers";
+    }
+    if (isHarvesterTool(toolId)) {
+      return "Auto-harvests finished crops in sprinkler-style range";
+    }
+    if (isPlanterTool(toolId)) {
+      return "Auto-plants selected seed in sprinkler-style range";
+    }
+    if (isWateringCanTool(toolId)) {
+      return "Click crops to water them (10 mana)";
+    }
+    if (isScytheTool(toolId)) {
+      return "For future use";
+    }
+    if (isSeedBagTool(toolId)) {
+      return "Plant seeds in an area around clicked tile";
+    }
+    return "";
   };
 
   const handleSeedBagSeedSelect = (
@@ -969,6 +1003,38 @@ export function Garden() {
       },
     }));
   };
+
+  const filteredTools = state.inventory
+    .filter((item) => getItemDefSafe(item.itemId)?.type === "tool")
+    .map((item) => ({
+      key: item.uid,
+      equipValue: item.uid,
+      toolId: item.itemId,
+      level: item.level,
+      name: getItemDefSafe(item.itemId)?.name ?? item.itemId,
+      icon: getToolIcon(item.itemId),
+      description: getToolDescription(item.itemId),
+      isEquipped: state.equipment.tool === item.uid,
+    }))
+    .filter((tool) => {
+      if (!toolTypeFilter) return true;
+      if (toolTypeFilter === "wateringcan") {
+        return isWateringCanTool(tool.toolId);
+      }
+      if (toolTypeFilter === "seedbag") {
+        return isSeedBagTool(tool.toolId);
+      }
+      return normalizeToolId(tool.toolId).includes(toolTypeFilter);
+    })
+    .sort((a, b) => {
+      const aRarity = getItemDefSafe(a.toolId)?.rarity ?? "common";
+      const bRarity = getItemDefSafe(b.toolId)?.rarity ?? "common";
+      const rarityDelta =
+        getRaritySortValue(bRarity) - getRaritySortValue(aRarity);
+      if (rarityDelta !== 0) return rarityDelta;
+      if (a.level !== b.level) return b.level - a.level;
+      return a.name.localeCompare(b.name);
+    });
 
   const allCropTypes = Object.values(cropDefinitions).sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -1547,409 +1613,39 @@ export function Garden() {
         }}
       />
 
-      {/* Tool Wheel Menu */}
-      {showToolWheel && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowToolWheel(false)}
-        >
-          <div
-            style={{
-              padding: isMobile ? 10 : 12,
-              backgroundColor: "#16212d",
-              borderRadius: 8,
-              border: "1px solid #2a3a4c",
-              width: isMobile ? "94vw" : "560px",
-              maxWidth: "560px",
-              maxHeight: isMobile ? "88vh" : "80vh",
-              overflow: "auto",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: 8,
-                color: "#e5edf5",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span>Available Tools</span>
-              <button
-                style={{
-                  padding: "4px 8px",
-                  backgroundColor: "#253649",
-                  border: "1px solid #3f546a",
-                  color: "#eaf2fb",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-                onClick={() => setShowToolWheel(false)}
-              >
-                Close
-              </button>
-            </div>
-
-            {/* Tool Type Filter Buttons */}
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                marginBottom: 8,
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                className={toolTypeFilter === null ? "btn-selected" : ""}
-                style={{
-                  padding: "4px 8px",
-                  fontSize: 11,
-                  border: "1px solid #3f546a",
-                  borderRadius: 3,
-                  backgroundColor: "#1b2a39",
-                  color: "#e5edf5",
-                }}
-                onClick={() => setToolTypeFilter(null)}
-              >
-                All
-              </button>
-              {[
-                "pickaxe",
-                "shovel",
-                "wateringcan",
-                "sprinkler",
-                "harvester",
-                "planter",
-                "scythe",
-                "seedbag",
-              ].map((type) => (
-                <button
-                  key={type}
-                  className={toolTypeFilter === type ? "btn-selected" : ""}
-                  style={{
-                    padding: "4px 8px",
-                    fontSize: 11,
-                    border: "1px solid #3f546a",
-                    borderRadius: 3,
-                    textTransform: "capitalize",
-                    backgroundColor: "#1b2a39",
-                    color: "#e5edf5",
-                  }}
-                  onClick={() => setToolTypeFilter(type)}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-
-            <div
-              style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}
-            >
-              {(() => {
-                const filteredTools = [
-                  ...state.inventory
-                    .filter(
-                      (item) => getItemDefSafe(item.itemId)?.type === "tool",
-                    )
-                    .map((item) => ({
-                      key: item.uid,
-                      equipValue: item.uid,
-                      toolId: item.itemId,
-                      level: item.level,
-                      name: getItemDefSafe(item.itemId)?.name ?? item.itemId,
-                    })),
-                ]
-                  .filter((tool) => {
-                    if (!toolTypeFilter) return true;
-                    if (toolTypeFilter === "wateringcan") {
-                      return isWateringCanTool(tool.toolId);
-                    }
-                    if (toolTypeFilter === "seedbag") {
-                      return isSeedBagTool(tool.toolId);
-                    }
-                    return normalizeToolId(tool.toolId).includes(
-                      toolTypeFilter,
-                    );
-                  })
-                  .sort((a, b) => {
-                    const aRarity =
-                      getItemDefSafe(a.toolId)?.rarity ?? "common";
-                    const bRarity =
-                      getItemDefSafe(b.toolId)?.rarity ?? "common";
-                    const rarityDelta =
-                      getRaritySortValue(bRarity) - getRaritySortValue(aRarity);
-                    if (rarityDelta !== 0) return rarityDelta;
-                    if (a.level !== b.level) return b.level - a.level;
-                    return a.name.localeCompare(b.name);
-                  });
-
-                if (filteredTools.length === 0) {
-                  const message =
-                    toolTypeFilter === "harvester"
-                      ? "Acquire a harvester to use this function."
-                      : toolTypeFilter === "planter"
-                        ? "Acquire a planter to use this function."
-                        : toolTypeFilter === "sprinkler"
-                          ? "Acquire a sprinkler to use this function."
-                          : "No tools in inventory yet.";
-
-                  return (
-                    <div
-                      style={{
-                        padding: 10,
-                        border: "1px solid #34516a",
-                        borderRadius: 4,
-                        fontSize: 11,
-                        color: "#9eb0c2",
-                        backgroundColor: "#1b2d3f",
-                      }}
-                    >
-                      {message}
-                    </div>
-                  );
-                }
-
-                return filteredTools.map((tool) => {
-                  let description = "";
-                  let icon = "🔧";
-
-                  if (isPickaxeTool(tool.toolId)) {
-                    icon = "⛏️";
-                    description = "Click rocks to break them (costs mana)";
-                  } else if (isShovelTool(tool.toolId)) {
-                    icon = "🪏";
-                    const areaSize = tool.toolId.includes("mithril")
-                      ? 5
-                      : tool.toolId.includes("iron")
-                        ? 3
-                        : 1;
-                    description = `Move planted fields (${areaSize}x${areaSize} area)`;
-                  } else if (isSprinklerTool(tool.toolId)) {
-                    icon = "🌊";
-                    description = "Click crops to place/remove sprinklers";
-                  } else if (isHarvesterTool(tool.toolId)) {
-                    icon = "🤖";
-                    description =
-                      "Auto-harvests finished crops in sprinkler-style range";
-                  } else if (isPlanterTool(tool.toolId)) {
-                    icon = "🌱";
-                    description =
-                      "Auto-plants selected seed in sprinkler-style range";
-                  } else if (isWateringCanTool(tool.toolId)) {
-                    icon = "💧";
-                    description = "Click crops to water them (10 mana)";
-                  } else if (isScytheTool(tool.toolId)) {
-                    icon = "🔪";
-                    description = "For future use";
-                  } else if (isSeedBagTool(tool.toolId)) {
-                    icon = "🎒";
-                    description = "Plant seeds in an area around clicked tile";
-                  }
-
-                  return (
-                    <button
-                      key={tool.key}
-                      style={{
-                        padding: isMobile ? 12 : 10,
-                        backgroundColor:
-                          state.equipment.tool === tool.equipValue
-                            ? "#1f7f43"
-                            : "#1b2d3f",
-                        color:
-                          state.equipment.tool === tool.equipValue
-                            ? "white"
-                            : "#e5edf5",
-                        border: "1px solid #34516a",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        fontSize: isMobile ? 12 : 11,
-                        fontWeight:
-                          state.equipment.tool === tool.equipValue
-                            ? "bold"
-                            : "normal",
-                        textAlign: "left",
-                      }}
-                      onClick={() => {
-                        // Equip tool
-                        setState((prev) => ({
-                          ...prev,
-                          equipment: {
-                            ...prev.equipment,
-                            tool: tool.equipValue,
-                          },
-                        }));
-                      }}
-                      title={description}
-                    >
-                      <div style={{ fontWeight: "bold" }}>
-                        {icon} {tool.name}
-                      </div>
-                      <div
-                        style={{ fontSize: 10, opacity: 0.92, marginTop: 2 }}
-                      >
-                        Level {tool.level}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 9,
-                          opacity: 0.78,
-                          marginTop: 4,
-                          whiteSpace: "normal",
-                        }}
-                      >
-                        {description}
-                      </div>
-                    </button>
-                  );
-                });
-              })()}
-            </div>
-
-            {isSeedBagTool(equippedToolId) && (
-              <div
-                style={{
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop: "1px solid #2a3a4c",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "bold",
-                    color: "#e5edf5",
-                    marginBottom: 8,
-                  }}
-                >
-                  Seed Bag Tool: Select Seed
-                </div>
-                {seedBag.length === 0 ? (
-                  <div style={{ fontSize: 11, color: "#9eb0c2" }}>
-                    No seeds available.
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {seedBag.map((seed) => {
-                      const seedPresentation = seed.presentation;
-
-                      return (
-                        <button
-                          key={seed.seedId}
-                          className={
-                            activeSeedBagSeedId === seed.seedId
-                              ? "btn-selected"
-                              : ""
-                          }
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: 11,
-                            border: "1px solid #3f546a",
-                            borderRadius: 3,
-                            backgroundColor: "#1b2a39",
-                            color: "#e5edf5",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                          onClick={() => handleSeedBagSeedSelect(seed.seedId)}
-                          title={seedPresentation.label}
-                        >
-                          <span>{seedPresentation.icon}</span>
-                          <span>
-                            {seedPresentation.label} x{seed.count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {isPlanterTool(equippedToolId) && (
-              <div
-                style={{
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop: "1px solid #2a3a4c",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "bold",
-                    color: "#e5edf5",
-                    marginBottom: 8,
-                  }}
-                >
-                  Planter Tool: Select Seed
-                </div>
-                {seedBag.length === 0 ? (
-                  <div style={{ fontSize: 11, color: "#9eb0c2" }}>
-                    No seeds available.
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {seedBag.map((seed) => {
-                      const seedPresentation = seed.presentation;
-
-                      return (
-                        <button
-                          key={`planter-${seed.seedId}`}
-                          className={
-                            state.garden.selectedPlanterSeedId === seed.seedId
-                              ? "btn-selected"
-                              : ""
-                          }
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: 11,
-                            border: "1px solid #3f546a",
-                            borderRadius: 3,
-                            backgroundColor: "#1b2a39",
-                            color: "#e5edf5",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                          onClick={() => {
-                            setPendingPlanterAction(null);
-                            setSeedSelectionTarget("planter");
-                            handleSeedBagSeedSelect(seed.seedId);
-                          }}
-                          title={seedPresentation.label}
-                        >
-                          <span>{seedPresentation.icon}</span>
-                          <span>
-                            {seedPresentation.label} x{seed.count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <GardenToolWheelModal
+        isOpen={showToolWheel}
+        isMobile={isMobile}
+        toolTypeFilter={toolTypeFilter}
+        filteredTools={filteredTools}
+        isSeedBagToolEquipped={isSeedBagTool(equippedToolId)}
+        isPlanterToolEquipped={isPlanterTool(equippedToolId)}
+        seedBag={seedBag.map((seed) => ({
+          seedId: seed.seedId,
+          icon: seed.presentation.icon,
+          label: seed.presentation.label,
+          count: seed.count,
+        }))}
+        activeSeedBagSeedId={activeSeedBagSeedId}
+        selectedPlanterSeedId={state.garden.selectedPlanterSeedId ?? null}
+        onClose={() => setShowToolWheel(false)}
+        onToolTypeFilterChange={setToolTypeFilter}
+        onEquipTool={(equipValue) => {
+          setState((prev) => ({
+            ...prev,
+            equipment: {
+              ...prev.equipment,
+              tool: equipValue,
+            },
+          }));
+        }}
+        onSelectSeedBagSeed={(seedId) => handleSeedBagSeedSelect(seedId)}
+        onSelectPlanterSeed={(seedId) => {
+          setPendingPlanterAction(null);
+          setSeedSelectionTarget("planter");
+          handleSeedBagSeedSelect(seedId);
+        }}
+      />
 
       <GardenShovelModePanel
         isVisible={isShovelTool(equippedToolId) && isToolEffectActive}
