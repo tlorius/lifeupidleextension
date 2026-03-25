@@ -1,7 +1,7 @@
 # Refactor Phase 3 Plan: Garden Isolation
 
 Date started: 2026-03-25
-Status: In progress
+Status: Complete
 Goal: Refactor the Garden screen as its own phase by isolating derived read models, interaction orchestration, and UI structure without rewriting the underlying garden simulation rules.
 
 ## Why this phase exists
@@ -115,7 +115,10 @@ This phase should treat Garden as a dedicated vertical slice, not as a continuat
 - Completed: Extracted the seed-bag modal into a dedicated Garden component with callback-driven orchestration.
 - Completed: Extracted the crop-mastery modal into a dedicated Garden component with callback-driven orchestration.
 - Completed: Extracted harvest and rock-break modals into dedicated Garden components with callback-driven orchestration.
-- Next: Target planting modal decomposition and final Garden root cleanup.
+- Completed: Extracted the planting modal into a dedicated Garden component with callback-driven orchestration.
+- Completed: Performed final Garden root cleanup pass for shared seed mappings, owned-tool counts, and modal close-handler consolidation.
+- Completed: Ran final Phase 3 closeout review and confirmed remaining Garden root complexity is justified screen orchestration glue.
+- Completed: Phase 3 exit criteria met with clean diagnostics and passing Garden-focused tests.
 
 ## Implementation rules
 

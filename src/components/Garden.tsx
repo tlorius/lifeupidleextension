@@ -16,6 +16,7 @@ import { GardenSeedBagModal } from "./GardenSeedBagModal";
 import { GardenCropMasteryModal } from "./GardenCropMasteryModal";
 import { GardenHarvestModal } from "./GardenHarvestModal";
 import { GardenRockBreakModal } from "./GardenRockBreakModal";
+import { GardenPlantModal } from "./GardenPlantModal";
 import { useGame } from "../game/GameContext";
 import {
   getCropDef,
@@ -837,35 +838,13 @@ export function Garden() {
     );
   };
 
-  const getOwnedSprinklerIds = (): string[] => {
-    const ids = state.inventory
-      .filter((item) => {
-        const def = getItemDefSafe(item.itemId);
-        return def?.type === "tool" && item.itemId.includes("sprinkler");
-      })
-      .map((item) => item.itemId);
-    return Array.from(new Set(ids));
-  };
-
-  const getOwnedHarvesterIds = (): string[] => {
-    const ids = state.inventory
-      .filter((item) => {
-        const def = getItemDefSafe(item.itemId);
-        return def?.type === "tool" && item.itemId.includes("harvester");
-      })
-      .map((item) => item.itemId);
-    return Array.from(new Set(ids));
-  };
-
-  const getOwnedPlanterIds = (): string[] => {
-    const ids = state.inventory
-      .filter((item) => {
-        const def = getItemDefSafe(item.itemId);
-        return def?.type === "tool" && item.itemId.includes("planter");
-      })
-      .map((item) => item.itemId);
-    return Array.from(new Set(ids));
-  };
+  const getOwnedToolCount = (
+    toolKeyword: "sprinkler" | "harvester" | "planter",
+  ): number =>
+    state.inventory.filter((item) => {
+      const def = getItemDefSafe(item.itemId);
+      return def?.type === "tool" && item.itemId.includes(toolKeyword);
+    }).length;
 
   const getSprinklerAtField = (row: number, col: number): string | null => {
     for (const [sprinklerId, positions] of Object.entries(garden.sprinklers)) {
@@ -1046,6 +1025,13 @@ export function Garden() {
       return a.name.localeCompare(b.name);
     });
 
+  const seedBagEntries = seedBag.map((seed) => ({
+    seedId: seed.seedId,
+    icon: seed.presentation.icon,
+    label: seed.presentation.label,
+    count: seed.count,
+  }));
+
   const pendingPlanterKey = pendingPlanterAction
     ? `${pendingPlanterAction.row},${pendingPlanterAction.col}`
     : null;
@@ -1056,6 +1042,86 @@ export function Garden() {
       ? (state.garden.planterSeedSelections?.[pendingPlanterKey] ??
         state.garden.selectedPlanterSeedId)
       : state.garden.selectedPlanterSeedId;
+
+  const plantModalSeedEntries = seedBag.map((seed) => {
+    const cropDef = seed.presentation.cropDef;
+    return {
+      seedId: seed.seedId,
+      icon: seed.presentation.icon,
+      label: seed.presentation.label,
+      count: seed.count,
+      growthTimeMinutes: cropDef?.growthTimeMinutes,
+      baseYield: cropDef?.baseYield,
+      category: cropDef?.category,
+      baseGold: cropDef?.baseGold,
+      isPerennial: cropDef?.isPerennial,
+      isTree: cropDef ? isTreeCrop(cropDef) : false,
+      isPlantable: Boolean(cropDef),
+    };
+  });
+  const ownedSprinklerCount = getOwnedToolCount("sprinkler");
+  const ownedHarvesterCount = getOwnedToolCount("harvester");
+  const ownedPlanterCount = getOwnedToolCount("planter");
+
+  const handleClosePlantModal = () => {
+    setPlantModal((prev) => ({
+      ...prev,
+      isOpen: false,
+      selectedSeedId: null,
+    }));
+  };
+
+  const handleConfirmPlantModal = () => {
+    if (!plantModal.selectedSeedId) {
+      return;
+    }
+
+    const cropId = resolveGardenCropIdFromSeed(plantModal.selectedSeedId);
+    if (!cropId) {
+      alert("This seed cannot be planted in the garden yet.");
+      return;
+    }
+
+    let newState = plantCrop(state, cropId, plantModal.row, plantModal.col);
+    newState = {
+      ...newState,
+      inventory: newState.inventory.map((item) =>
+        item.itemId === plantModal.selectedSeedId
+          ? {
+              ...item,
+              quantity: item.quantity - 1,
+            }
+          : item,
+      ),
+    };
+
+    setState(newState);
+    setPlantModal({
+      isOpen: false,
+      row: 0,
+      col: 0,
+      selectedSeedId: null,
+    });
+  };
+
+  const closeHarvestModal = () => {
+    setHarvestModal({
+      isOpen: false,
+      cropId: null,
+      cropIndex: null,
+      row: 0,
+      col: 0,
+    });
+  };
+
+  const closeRockBreakModal = () => {
+    setRockBreakModal({
+      isOpen: false,
+      row: 0,
+      col: 0,
+      rockTier: null,
+    });
+  };
 
   const harvestPreview = (() => {
     if (
@@ -1698,12 +1764,7 @@ export function Garden() {
         filteredTools={filteredTools}
         isSeedBagToolEquipped={isSeedBagTool(equippedToolId)}
         isPlanterToolEquipped={isPlanterTool(equippedToolId)}
-        seedBag={seedBag.map((seed) => ({
-          seedId: seed.seedId,
-          icon: seed.presentation.icon,
-          label: seed.presentation.label,
-          count: seed.count,
-        }))}
+        seedBag={seedBagEntries}
         activeSeedBagSeedId={activeSeedBagSeedId}
         selectedPlanterSeedId={state.garden.selectedPlanterSeedId ?? null}
         onClose={() => setShowToolWheel(false)}
@@ -1739,12 +1800,7 @@ export function Garden() {
         isOpen={showSeedBag}
         isMobile={isMobile}
         seedSelectionTarget={seedSelectionTarget}
-        seedBag={seedBag.map((seed) => ({
-          seedId: seed.seedId,
-          icon: seed.presentation.icon,
-          label: seed.presentation.label,
-          count: seed.count,
-        }))}
+        seedBag={seedBagEntries}
         activeSeedBagSeedId={activeSeedBagSeedId}
         selectedPlanterSeedIdForModal={selectedPlanterSeedForSeedBagModal}
         onClose={handleCloseSeedBagModal}
@@ -1784,321 +1840,25 @@ export function Garden() {
         renderField={renderField}
       />
 
-      {/* Planting Modal */}
-      {plantModal.isOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() =>
-            setPlantModal({
-              ...plantModal,
-              isOpen: false,
-              selectedSeedId: null,
-            })
-          }
-        >
-          <div
-            style={{
-              backgroundColor: "#162433",
-              color: "#e5edf5",
-              borderRadius: 8,
-              padding: isMobile ? 12 : 16,
-              maxHeight: isMobile ? "88vh" : "80vh",
-              maxWidth: "500px",
-              width: isMobile ? "94vw" : "500px",
-              border: "1px solid #35506a",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: "0 0 16px 0" }}>
-              Plant Seed at ({plantModal.row}, {plantModal.col})
-            </h3>
-
-            {seedBag.length === 0 ? (
-              <p style={{ color: "#9eb0c2", marginBottom: 16 }}>
-                You don't have any seeds yet.
-              </p>
-            ) : (
-              <>
-                <div
-                  style={{
-                    marginBottom: 16,
-                    overflowY: "auto",
-                    maxHeight: "50vh",
-                  }}
-                >
-                  <div
-                    style={{
-                      marginBottom: 12,
-                      fontSize: 11,
-                      color: "#b8cadb",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    Automation inventory: sprinkler{" "}
-                    {getOwnedSprinklerIds().length}, harvester{" "}
-                    {getOwnedHarvesterIds().length}, planter{" "}
-                    {getOwnedPlanterIds().length}
-                  </div>
-                  {getOwnedSprinklerIds().length === 0 &&
-                    getOwnedHarvesterIds().length === 0 &&
-                    getOwnedPlanterIds().length === 0 && (
-                      <div
-                        style={{
-                          marginBottom: 12,
-                          fontSize: 11,
-                          color: "#9eb0c2",
-                        }}
-                      >
-                        Acquire a sprinkler, planter, or harvester to use
-                        automation on empty fields.
-                      </div>
-                    )}
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      marginBottom: 8,
-                      position: "sticky",
-                      top: 0,
-                      backgroundColor: "#162433",
-                      paddingBottom: 8,
-                      color: "#e5edf5",
-                    }}
-                  >
-                    Available Seeds:
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
-                    {seedBag.map((seed) => {
-                      const seedPresentation = seed.presentation;
-                      const cropDef = seedPresentation.cropDef;
-                      const isSelected =
-                        plantModal.selectedSeedId === seed.seedId;
-
-                      return (
-                        <div
-                          key={seed.seedId}
-                          style={{
-                            padding: 8,
-                            backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
-                            border: isSelected
-                              ? "2px solid #2f9e44"
-                              : "1px solid #34516a",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                            textAlign: "left",
-                          }}
-                          onClick={() =>
-                            setPlantModal({
-                              ...plantModal,
-                              selectedSeedId: seed.seedId,
-                            })
-                          }
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              fontWeight: "bold",
-                              color: "#e5edf5",
-                            }}
-                          >
-                            <span>{seedPresentation.icon}</span>
-                            <span>{seedPresentation.label}</span>
-                          </div>
-                          {cropDef && (
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 6,
-                                flexWrap: "wrap",
-                                marginTop: 6,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  padding: "2px 6px",
-                                  borderRadius: 999,
-                                  backgroundColor: isSelected
-                                    ? "rgba(255,255,255,0.25)"
-                                    : "#e9f7ef",
-                                  color: isSelected ? "white" : "#2b8a3e",
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                {isTreeCrop(cropDef) ? "Tree" : "Field"}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  padding: "2px 6px",
-                                  borderRadius: 999,
-                                  backgroundColor: isSelected
-                                    ? "rgba(255,255,255,0.25)"
-                                    : "#fff3bf",
-                                  color: isSelected ? "white" : "#8a5d00",
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                {cropDef.isPerennial
-                                  ? "Repeatable"
-                                  : "One-time"}
-                              </span>
-                            </div>
-                          )}
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: isSelected
-                                ? "rgba(229,237,245,0.95)"
-                                : "#9eb0c2",
-                              marginTop: 4,
-                            }}
-                          >
-                            <div>
-                              {!cropDef && (
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    color: isSelected ? "#ffe3e3" : "#c92a2a",
-                                    marginTop: 4,
-                                  }}
-                                >
-                                  This seed is not plantable in the garden yet.
-                                </div>
-                              )}
-                              Growth: {cropDef?.growthTimeMinutes}m | Yield:{" "}
-                              {cropDef?.baseYield} {cropDef?.category ?? "crop"}{" "}
-                              + {cropDef?.baseGold ?? 0} gold
-                            </div>
-                            <div>Available: x{seed.count}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    justifyContent: "flex-end",
-                    marginTop: "auto",
-                    paddingTop: 16,
-                  }}
-                >
-                  <button
-                    style={{
-                      padding: "8px 16px",
-                      backgroundColor: "#253649",
-                      border: "1px solid #3f546a",
-                      color: "#eaf2fb",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                    }}
-                    onClick={() =>
-                      setPlantModal({
-                        ...plantModal,
-                        isOpen: false,
-                        selectedSeedId: null,
-                      })
-                    }
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    style={{
-                      padding: "8px 16px",
-                      backgroundColor:
-                        plantModal.selectedSeedId === null
-                          ? "#2c3e50"
-                          : "#1f7f43",
-                      color:
-                        plantModal.selectedSeedId === null
-                          ? "#7f94a8"
-                          : "white",
-                      border:
-                        plantModal.selectedSeedId === null
-                          ? "1px solid #3f546a"
-                          : "none",
-                      borderRadius: 4,
-                      cursor:
-                        plantModal.selectedSeedId === null
-                          ? "not-allowed"
-                          : "pointer",
-                      fontWeight: "bold",
-                    }}
-                    disabled={plantModal.selectedSeedId === null}
-                    onClick={() => {
-                      if (plantModal.selectedSeedId) {
-                        const cropId = resolveGardenCropIdFromSeed(
-                          plantModal.selectedSeedId,
-                        );
-                        if (!cropId) {
-                          alert(
-                            "This seed cannot be planted in the garden yet.",
-                          );
-                          return;
-                        }
-
-                        let newState = plantCrop(
-                          state,
-                          cropId,
-                          plantModal.row,
-                          plantModal.col,
-                        );
-
-                        newState = {
-                          ...newState,
-                          inventory: newState.inventory.map((item) =>
-                            item.itemId === plantModal.selectedSeedId
-                              ? {
-                                  ...item,
-                                  quantity: item.quantity - 1,
-                                }
-                              : item,
-                          ),
-                        };
-
-                        setState(newState);
-                        setPlantModal({
-                          isOpen: false,
-                          row: 0,
-                          col: 0,
-                          selectedSeedId: null,
-                        });
-                      }
-                    }}
-                  >
-                    Plant
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <GardenPlantModal
+        isOpen={plantModal.isOpen}
+        isMobile={isMobile}
+        row={plantModal.row}
+        col={plantModal.col}
+        seedEntries={plantModalSeedEntries}
+        selectedSeedId={plantModal.selectedSeedId}
+        ownedSprinklers={ownedSprinklerCount}
+        ownedHarvesters={ownedHarvesterCount}
+        ownedPlanters={ownedPlanterCount}
+        onClose={handleClosePlantModal}
+        onSelectSeed={(seedId) =>
+          setPlantModal((prev) => ({
+            ...prev,
+            selectedSeedId: seedId,
+          }))
+        }
+        onConfirmPlant={handleConfirmPlantModal}
+      />
 
       {/* Crop Storage Modal */}
       <GardenCropStorageModal
@@ -2112,15 +1872,7 @@ export function Garden() {
         isOpen={harvestModal.isOpen}
         isMobile={isMobile}
         preview={harvestPreview}
-        onClose={() =>
-          setHarvestModal({
-            isOpen: false,
-            cropId: null,
-            cropIndex: null,
-            row: 0,
-            col: 0,
-          })
-        }
+        onClose={closeHarvestModal}
         onConfirm={() => {
           if (harvestPreview) {
             const newState = harvestCrop(
@@ -2129,13 +1881,7 @@ export function Garden() {
               harvestPreview.cropIndex,
             );
             setState(newState);
-            setHarvestModal({
-              isOpen: false,
-              cropId: null,
-              cropIndex: null,
-              row: 0,
-              col: 0,
-            });
+            closeHarvestModal();
           }
         }}
       />
@@ -2168,14 +1914,7 @@ export function Garden() {
         currentEnergy={state.resources.energy ?? 0}
         meetsRequirement={meetsRockBreakRequirement}
         hasEnergy={hasRockBreakEnergy}
-        onClose={() =>
-          setRockBreakModal({
-            isOpen: false,
-            row: 0,
-            col: 0,
-            rockTier: null,
-          })
-        }
+        onClose={closeRockBreakModal}
         onConfirm={() => {
           if (equippedPickaxe && rockBreakModal.rockTier) {
             const result = breakRock(
@@ -2187,12 +1926,7 @@ export function Garden() {
 
             if (result.success && result.newState) {
               setState(result.newState);
-              setRockBreakModal({
-                isOpen: false,
-                row: 0,
-                col: 0,
-                rockTier: null,
-              });
+              closeRockBreakModal();
             }
           }
         }}
