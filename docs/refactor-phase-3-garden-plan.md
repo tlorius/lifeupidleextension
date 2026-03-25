@@ -106,7 +106,9 @@ This phase should treat Garden as a dedicated vertical slice, not as a continuat
 - Completed: Rewired src/components/Garden.tsx to consume the selector-backed seed and seed maker view model.
 - Completed: Extracted the seed maker modal into a dedicated Garden component file.
 - Completed: Extracted crop tile-detail and empty-field automation modal read models into tested Garden selectors.
-- Next: Use the new tile-detail selector boundary to split the tile-detail modal UI into smaller components.
+- Completed: Extracted the tile-detail modal UI into a dedicated Garden component with smaller crop, rock, and empty-field sections.
+- Completed: Extracted the Garden grid rendering into a dedicated presentation component boundary.
+- Next: Target tile-cell presentation decomposition using the new grid boundary.
 
 ## Implementation rules
 
