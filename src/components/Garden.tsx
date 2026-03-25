@@ -13,6 +13,9 @@ import { GardenShovelModePanel } from "./GardenShovelModePanel";
 import { GardenToolbar } from "./GardenToolbar";
 import { GardenToolWheelModal } from "./GardenToolWheelModal";
 import { GardenSeedBagModal } from "./GardenSeedBagModal";
+import { GardenCropMasteryModal } from "./GardenCropMasteryModal";
+import { GardenHarvestModal } from "./GardenHarvestModal";
+import { GardenRockBreakModal } from "./GardenRockBreakModal";
 import { useGame } from "../game/GameContext";
 import {
   getCropDef,
@@ -1054,6 +1057,63 @@ export function Garden() {
         state.garden.selectedPlanterSeedId)
       : state.garden.selectedPlanterSeedId;
 
+  const harvestPreview = (() => {
+    if (
+      !harvestModal.isOpen ||
+      !harvestModal.cropId ||
+      harvestModal.cropIndex === null
+    ) {
+      return null;
+    }
+
+    const cropDef = getCropDef(harvestModal.cropId);
+    const cropInstance =
+      state.garden.crops[harvestModal.cropId]?.[harvestModal.cropIndex];
+
+    if (!cropDef || !cropInstance) {
+      return null;
+    }
+
+    return {
+      cropId: harvestModal.cropId,
+      cropIndex: harvestModal.cropIndex,
+      row: harvestModal.row,
+      col: harvestModal.col,
+      name: cropDef.name,
+      category: cropDef.category,
+      rarity: cropDef.rarity,
+      isPerennial: cropDef.isPerennial,
+      baseYield: cropDef.baseYield,
+      baseXP: cropDef.baseXP,
+      waterLevel: cropInstance.waterLevel,
+      yieldAmount: calculateYieldWithMastery(
+        state,
+        harvestModal.cropId,
+        cropDef,
+        cropInstance.waterLevel,
+      ),
+      waterBonus: Math.round(
+        (cropInstance.waterLevel / 100) * cropDef.baseYield,
+      ),
+      goldAmount: calculateGoldWithMastery(state, harvestModal.cropId, cropDef),
+    };
+  })();
+
+  const rockBreakConfig = rockBreakModal.rockTier
+    ? rockConfig[rockBreakModal.rockTier]
+    : null;
+  const equippedPickaxe = isPickaxeTool(equippedToolId)
+    ? (state.equipment.tool ?? equippedToolId)
+    : null;
+  const pickaxeLevel = isPickaxeTool(equippedToolId)
+    ? (equippedToolItem?.level ?? garden.tools[equippedToolId ?? ""] ?? 0)
+    : 0;
+  const meetsRockBreakRequirement =
+    rockBreakConfig !== null && pickaxeLevel >= rockBreakConfig.minPickaxeLevel;
+  const hasRockBreakEnergy =
+    rockBreakConfig !== null &&
+    (state.resources.energy ?? 0) >= rockBreakConfig.energyCost;
+
   const allCropTypes = Object.values(cropDefinitions).sort((a, b) =>
     a.name.localeCompare(b.name),
   );
@@ -2048,858 +2108,95 @@ export function Garden() {
         onClose={() => setShowStorageModal(false)}
       />
 
-      {/* Harvest Modal */}
-      {harvestModal.isOpen &&
-        harvestModal.cropId &&
-        harvestModal.cropIndex !== null && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(6, 10, 14, 0.72)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1000,
-            }}
-            onClick={() =>
-              setHarvestModal({
-                isOpen: false,
-                cropId: null,
-                cropIndex: null,
-                row: 0,
-                col: 0,
-              })
-            }
-          >
-            <div
-              style={{
-                backgroundColor: "#162433",
-                color: "#e5edf5",
-                borderRadius: 8,
-                padding: isMobile ? 12 : 20,
-                maxHeight: isMobile ? "88vh" : "80vh",
-                maxWidth: "500px",
-                width: isMobile ? "94vw" : "500px",
-                overflow: "auto",
-                border: "1px solid #35506a",
-                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {(() => {
-                const cropId = harvestModal.cropId;
-                const cropIndex = harvestModal.cropIndex;
-                const cropDef = getCropDef(cropId);
-                const cropInstance = garden.crops[cropId]?.[cropIndex];
-
-                if (!cropDef || !cropInstance) return null;
-
-                const yieldAmount = calculateYieldWithMastery(
-                  state,
-                  cropId,
-                  cropDef,
-                  cropInstance.waterLevel,
-                );
-                const waterBonus = Math.round(
-                  (cropInstance.waterLevel / 100) * cropDef.baseYield,
-                );
-                const goldAmount = calculateGoldWithMastery(
-                  state,
-                  cropId,
-                  cropDef,
-                );
-
-                return (
-                  <>
-                    <h3 style={{ margin: "0 0 16px 0" }}>
-                      🌾 Ready to Harvest!
-                    </h3>
-
-                    {/* Crop Info */}
-                    <div
-                      style={{
-                        backgroundColor: "#1b2d3f",
-                        padding: 12,
-                        borderRadius: 6,
-                        marginBottom: 16,
-                        border: "1px solid #2f4459",
-                      }}
-                    >
-                      <div style={{ fontWeight: "bold", marginBottom: 8 }}>
-                        {cropDef.name}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "#9eb0c2",
-                          lineHeight: "1.6",
-                        }}
-                      >
-                        <div>Category: {cropDef.category}</div>
-                        <div>Rarity: {cropDef.rarity}</div>
-                        {cropDef.isPerennial && (
-                          <div style={{ color: "#2f9e44" }}>
-                            ♻️ This is a perennial - it will restart growing
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Harvest Summary */}
-                    <div
-                      style={{
-                        backgroundColor: "#13261f",
-                        padding: 12,
-                        borderRadius: 6,
-                        marginBottom: 16,
-                        border: "1px solid #2c4d3c",
-                      }}
-                    >
-                      <div style={{ fontWeight: "bold", marginBottom: 10 }}>
-                        Harvest Summary
-                      </div>
-                      <div style={{ fontSize: 12, lineHeight: "1.8" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span>Base Yield:</span>
-                          <span>
-                            {cropDef.baseYield} {cropDef.category}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            color:
-                              cropInstance.waterLevel > 0 ? "#2f9e44" : "#999",
-                          }}
-                        >
-                          <span>
-                            Water Bonus (+
-                            {Math.round((cropInstance.waterLevel / 100) * 100)}
-                            %):
-                          </span>
-                          <span>+{waterBonus}</span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            borderTop: "1px solid #2f4459",
-                            paddingTop: 8,
-                            marginTop: 8,
-                            fontWeight: "bold",
-                          }}
-                        >
-                          <span>Total {cropDef.category.toUpperCase()}:</span>
-                          <span style={{ color: "#51cf66" }}>
-                            +{yieldAmount}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginTop: 8,
-                          }}
-                        >
-                          <span>💰 Gold Reward:</span>
-                          <span style={{ color: "#FFD700" }}>
-                            +{goldAmount}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            marginTop: 4,
-                          }}
-                        >
-                          <span>⭐ XP (Category):</span>
-                          <span style={{ color: "#4169E1" }}>
-                            +{cropDef.baseXP}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Water Level Info */}
-                    {cropInstance.waterLevel > 0 && (
-                      <div
-                        style={{
-                          backgroundColor: "#12283a",
-                          padding: 10,
-                          borderRadius: 6,
-                          marginBottom: 16,
-                          fontSize: 12,
-                          color: "#8bc5ff",
-                          border: "1px solid #23445f",
-                        }}
-                      >
-                        <span>💧 Water bonus active!</span> Your crop's water
-                        level made it more productive. Keep watering your crops
-                        for better yields!
-                      </div>
-                    )}
-
-                    {/* Buttons */}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 8,
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <button
-                        style={{
-                          padding: "10px 20px",
-                          backgroundColor: "#253649",
-                          border: "1px solid #3f546a",
-                          color: "#eaf2fb",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                        onClick={() =>
-                          setHarvestModal({
-                            isOpen: false,
-                            cropId: null,
-                            cropIndex: null,
-                            row: 0,
-                            col: 0,
-                          })
-                        }
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        style={{
-                          padding: "10px 20px",
-                          backgroundColor: "#51cf66",
-                          color: "white",
-                          border: "none",
-                          borderRadius: 4,
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                        onClick={() => {
-                          if (cropId && cropIndex !== null) {
-                            const newState = harvestCrop(
-                              state,
-                              cropId,
-                              cropIndex,
-                            );
-                            setState(newState);
-                            setHarvestModal({
-                              isOpen: false,
-                              cropId: null,
-                              cropIndex: null,
-                              row: 0,
-                              col: 0,
-                            });
-                          }
-                        }}
-                      >
-                        Harvest Now!
-                      </button>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        )}
-
-      {/* Crop Mastery Modal */}
-      {showCropMasteryModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowCropMasteryModal(false)}
-        >
-          <div
-            style={{
-              backgroundColor: "#162433",
-              color: "#e5edf5",
-              borderRadius: 8,
-              padding: isMobile ? 12 : 16,
-              maxHeight: isMobile ? "88vh" : "82vh",
-              maxWidth: "760px",
-              width: isMobile ? "95vw" : "760px",
-              overflow: "auto",
-              border: "1px solid #35506a",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <h3 style={{ margin: 0 }}>📈 Crop Mastery</h3>
-              <button
-                style={{
-                  padding: "6px 10px",
-                  backgroundColor: "#253649",
-                  border: "1px solid #3f546a",
-                  color: "#eaf2fb",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
-                onClick={() => setShowCropMasteryModal(false)}
-              >
-                Close
-              </button>
-            </div>
-
-            <div style={{ fontSize: 12, color: "#9eb0c2", marginBottom: 12 }}>
-              Each level grants +1% crop yield for that crop type. Prestige at
-              level 100 resets that crop to level 1 and grants +20% crop yield
-              and +10% gold for that crop type permanently.
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: 10,
-              }}
-            >
-              {allCropTypes.map((cropDef) => {
-                const mastery = getCropMastery(cropDef.id);
-                const currentYield = getCropYieldAtLevel(
-                  cropDef.id,
-                  mastery.level,
-                );
-                const nextLevel = Math.min(CROP_MAX_LEVEL, mastery.level + 1);
-                const nextYield = getCropYieldAtLevel(cropDef.id, nextLevel);
-                const currentGold = getCropGoldWithPrestige(cropDef.id);
-                const nextGold = Math.max(
-                  1,
-                  Math.round(
-                    cropDef.baseGold *
-                      getCropGoldMultiplier(mastery.prestige + 1),
-                  ),
-                );
-                const xpToNext =
-                  mastery.level >= CROP_MAX_LEVEL
-                    ? 0
-                    : getCropXpForNextLevel(mastery.level);
-                const xpProgress =
-                  mastery.level >= CROP_MAX_LEVEL
-                    ? 100
-                    : Math.min(100, (mastery.xp / xpToNext) * 100);
-
-                return (
-                  <div
-                    key={cropDef.id}
-                    style={{
-                      padding: 12,
-                      border: "1px solid #2f4459",
-                      borderRadius: 6,
-                      backgroundColor: "#1b2d3f",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 8,
-                        gap: 8,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div style={{ fontWeight: "bold" }}>{cropDef.name}</div>
-                      <div style={{ fontSize: 12, color: "#9eb0c2" }}>
-                        Lv {mastery.level}/{CROP_MAX_LEVEL} | Prestige{" "}
-                        {mastery.prestige}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                        gap: 8,
-                        fontSize: 12,
-                        lineHeight: "1.5",
-                      }}
-                    >
-                      <div>
-                        <div>
-                          Current Yield: {currentYield} {cropDef.category}
-                        </div>
-                        <div>
-                          Current Gold: {formatCompactNumber(currentGold)}
-                        </div>
-                      </div>
-                      <div>
-                        {mastery.level < CROP_MAX_LEVEL ? (
-                          <>
-                            <div>
-                              Next Lv Yield: {nextYield} {cropDef.category}
-                            </div>
-                            <div>
-                              XP to next: {mastery.xp}/{xpToNext}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div>
-                              Next Prestige Yield: {nextYield}{" "}
-                              {cropDef.category}
-                            </div>
-                            <div>
-                              Next Prestige Gold:{" "}
-                              {formatCompactNumber(nextGold)}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 8,
-                        height: 8,
-                        backgroundColor: "#2f4459",
-                        borderRadius: 999,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${xpProgress}%`,
-                          height: "100%",
-                          backgroundColor:
-                            mastery.level >= CROP_MAX_LEVEL
-                              ? "#9c36ff"
-                              : "#51cf66",
-                        }}
-                      />
-                    </div>
-
-                    {mastery.level >= CROP_MAX_LEVEL && (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <div style={{ fontSize: 11, color: "#6b46c1" }}>
-                          Prestige Bonus: +20% crop yield and +10% gold for this
-                          crop type.
-                        </div>
-                        <button
-                          className="btn-primary"
-                          style={{ padding: "6px 10px", fontSize: 12 }}
-                          onClick={() =>
-                            setState((prev) =>
-                              prestigeCropType(prev, cropDef.id),
-                            )
-                          }
-                        >
-                          Prestige
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rock Break Modal */}
-      {rockBreakModal.isOpen && rockBreakModal.rockTier && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(6, 10, 14, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() =>
-            setRockBreakModal({
+      <GardenHarvestModal
+        isOpen={harvestModal.isOpen}
+        isMobile={isMobile}
+        preview={harvestPreview}
+        onClose={() =>
+          setHarvestModal({
+            isOpen: false,
+            cropId: null,
+            cropIndex: null,
+            row: 0,
+            col: 0,
+          })
+        }
+        onConfirm={() => {
+          if (harvestPreview) {
+            const newState = harvestCrop(
+              state,
+              harvestPreview.cropId,
+              harvestPreview.cropIndex,
+            );
+            setState(newState);
+            setHarvestModal({
               isOpen: false,
+              cropId: null,
+              cropIndex: null,
               row: 0,
               col: 0,
-              rockTier: null,
-            })
+            });
           }
-        >
-          <div
-            style={{
-              background:
-                "linear-gradient(180deg, rgba(24, 36, 51, 0.98) 0%, rgba(14, 22, 34, 0.98) 100%)",
-              color: "#e5edf5",
-              borderRadius: 18,
-              padding: isMobile ? 16 : 22,
-              maxHeight: isMobile ? "88vh" : "80vh",
-              maxWidth: "540px",
-              width: isMobile ? "94vw" : "540px",
-              overflow: "auto",
-              border: "1px solid rgba(116, 192, 252, 0.22)",
-              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(() => {
-              const tier = rockBreakModal.rockTier;
-              const config = rockConfig[tier!];
-              const equippedPickaxe = isPickaxeTool(equippedToolId)
-                ? (state.equipment.tool ?? equippedToolId)
-                : null;
-              const pickaxeLevel = isPickaxeTool(equippedToolId)
-                ? (equippedToolItem?.level ??
-                  garden.tools[equippedToolId ?? ""] ??
-                  0)
-                : 0;
-              const meetsRequirement = pickaxeLevel >= config.minPickaxeLevel;
-              const hasEnergy =
-                (state.resources.energy ?? 0) >= config.energyCost;
+        }}
+      />
 
-              return (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      marginBottom: 18,
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.12em",
-                          color: "#8eb8de",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Rock obstacle
-                      </div>
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: isMobile ? 22 : 26,
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        ⛏️ Break Rock
-                      </h3>
-                    </div>
-                    <div
-                      style={{
-                        padding: "8px 12px",
-                        borderRadius: 999,
-                        backgroundColor: "rgba(74, 144, 226, 0.14)",
-                        border: "1px solid rgba(74, 144, 226, 0.3)",
-                        color: "#b7d7f5",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        textTransform: "capitalize",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {tier} tier
-                    </div>
-                  </div>
+      <GardenCropMasteryModal
+        isOpen={showCropMasteryModal}
+        isMobile={isMobile}
+        allCropTypes={allCropTypes}
+        cropMaxLevel={CROP_MAX_LEVEL}
+        getCropMastery={getCropMastery}
+        getCropYieldAtLevel={getCropYieldAtLevel}
+        getCropGoldWithPrestige={getCropGoldWithPrestige}
+        getCropGoldMultiplier={getCropGoldMultiplier}
+        getCropXpForNextLevel={getCropXpForNextLevel}
+        formatCompactNumber={formatCompactNumber}
+        onClose={() => setShowCropMasteryModal(false)}
+        onPrestige={(cropId) =>
+          setState((prev) => prestigeCropType(prev, cropId))
+        }
+      />
 
-                  {/* Rock Info */}
-                  <div
-                    style={{
-                      background:
-                        "linear-gradient(135deg, rgba(47, 68, 89, 0.88) 0%, rgba(27, 45, 63, 0.88) 100%)",
-                      padding: 14,
-                      borderRadius: 14,
-                      marginBottom: 16,
-                      border: "1px solid rgba(143, 176, 194, 0.22)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        marginBottom: 10,
-                        fontSize: 16,
-                      }}
-                    >
-                      {tier?.charAt(0).toUpperCase() + tier?.slice(1)} Rock
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: "#c3d6e8",
-                        lineHeight: "1.7",
-                        display: "grid",
-                        gap: 6,
-                      }}
-                    >
-                      <div>
-                        Location: ({rockBreakModal.row}, {rockBreakModal.col})
-                      </div>
-                      <div>
-                        Difficulty:{" "}
-                        {tier === "large"
-                          ? "⭐⭐⭐"
-                          : tier === "medium"
-                            ? "⭐⭐"
-                            : "⭐"}
-                      </div>
-                    </div>
-                  </div>
+      <GardenRockBreakModal
+        isOpen={rockBreakModal.isOpen}
+        isMobile={isMobile}
+        tier={rockBreakModal.rockTier}
+        row={rockBreakModal.row}
+        col={rockBreakModal.col}
+        config={rockBreakConfig}
+        pickaxeLevel={pickaxeLevel}
+        currentEnergy={state.resources.energy ?? 0}
+        meetsRequirement={meetsRockBreakRequirement}
+        hasEnergy={hasRockBreakEnergy}
+        onClose={() =>
+          setRockBreakModal({
+            isOpen: false,
+            row: 0,
+            col: 0,
+            rockTier: null,
+          })
+        }
+        onConfirm={() => {
+          if (equippedPickaxe && rockBreakModal.rockTier) {
+            const result = breakRock(
+              state,
+              rockBreakModal.row,
+              rockBreakModal.col,
+              equippedPickaxe,
+            );
 
-                  {/* Requirements */}
-                  <div
-                    style={{
-                      backgroundColor: "rgba(18, 29, 41, 0.92)",
-                      padding: 14,
-                      borderRadius: 14,
-                      marginBottom: 16,
-                      border: "1px solid rgba(143, 176, 194, 0.18)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        marginBottom: 12,
-                        fontSize: 15,
-                      }}
-                    >
-                      Requirements
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        lineHeight: "1.8",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 10,
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: 10,
-                          backgroundColor: meetsRequirement
-                            ? "rgba(46, 125, 50, 0.16)"
-                            : "rgba(198, 40, 40, 0.16)",
-                          borderRadius: 10,
-                          border: meetsRequirement
-                            ? "1px solid rgba(76, 175, 80, 0.5)"
-                            : "1px solid rgba(244, 67, 54, 0.5)",
-                        }}
-                      >
-                        <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-                          Pickaxe Level
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span>Required: Level {config.minPickaxeLevel}</span>
-                          <span
-                            style={{
-                              color: meetsRequirement ? "#8dd694" : "#ff8a80",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {meetsRequirement ? "✓" : "✗"} Level {pickaxeLevel}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          padding: 10,
-                          backgroundColor: hasEnergy
-                            ? "rgba(33, 150, 243, 0.16)"
-                            : "rgba(198, 40, 40, 0.16)",
-                          borderRadius: 10,
-                          border: hasEnergy
-                            ? "1px solid rgba(33, 150, 243, 0.5)"
-                            : "1px solid rgba(244, 67, 54, 0.5)",
-                        }}
-                      >
-                        <div style={{ fontWeight: "bold", marginBottom: 4 }}>
-                          Mana Cost
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span>
-                            Required: {formatCompactNumber(config.energyCost)}{" "}
-                            ⚡
-                          </span>
-                          <span
-                            style={{
-                              color: hasEnergy ? "#8ecbff" : "#ff8a80",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {hasEnergy ? "✓" : "✗"}{" "}
-                            {formatCompactNumber(state.resources.energy ?? 0)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Warning if requirements not met */}
-                  {(!meetsRequirement || !hasEnergy) && (
-                    <div
-                      style={{
-                        backgroundColor: "rgba(255, 183, 77, 0.14)",
-                        padding: 12,
-                        borderRadius: 12,
-                        marginBottom: 16,
-                        fontSize: 12,
-                        color: "#ffd8a8",
-                        border: "1px solid rgba(255, 183, 77, 0.45)",
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      {!meetsRequirement && (
-                        <div>
-                          ⚠️ Your pickaxe is not strong enough. You need level{" "}
-                          {config.minPickaxeLevel - pickaxeLevel} more levels.
-                        </div>
-                      )}
-                      {!hasEnergy && (
-                        <div>
-                          ⚠️ Not enough mana. You need{" "}
-                          {formatCompactNumber(
-                            config.energyCost - (state.resources.energy ?? 0),
-                          )}{" "}
-                          more.
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Buttons */}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      justifyContent: "flex-end",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      className="btn-secondary"
-                      style={{
-                        padding: "10px 20px",
-                        borderRadius: 10,
-                        fontWeight: "bold",
-                      }}
-                      onClick={() =>
-                        setRockBreakModal({
-                          isOpen: false,
-                          row: 0,
-                          col: 0,
-                          rockTier: null,
-                        })
-                      }
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className={
-                        meetsRequirement && hasEnergy ? "btn-primary" : ""
-                      }
-                      style={{
-                        padding: "10px 20px",
-                        backgroundColor:
-                          meetsRequirement && hasEnergy ? undefined : "#52606d",
-                        color:
-                          meetsRequirement && hasEnergy ? undefined : "#c7d0d9",
-                        border: "none",
-                        borderRadius: 10,
-                        cursor:
-                          meetsRequirement && hasEnergy
-                            ? "pointer"
-                            : "not-allowed",
-                        fontWeight: "bold",
-                        boxShadow:
-                          meetsRequirement && hasEnergy
-                            ? "0 10px 20px rgba(0, 0, 0, 0.28)"
-                            : "none",
-                      }}
-                      disabled={!meetsRequirement || !hasEnergy}
-                      onClick={() => {
-                        if (equippedPickaxe && rockBreakModal.rockTier) {
-                          const result = breakRock(
-                            state,
-                            rockBreakModal.row,
-                            rockBreakModal.col,
-                            equippedPickaxe,
-                          );
-
-                          if (result.success && result.newState) {
-                            setState(result.newState);
-                            setRockBreakModal({
-                              isOpen: false,
-                              row: 0,
-                              col: 0,
-                              rockTier: null,
-                            });
-                          }
-                        }
-                      }}
-                    >
-                      Break Rock!
-                    </button>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+            if (result.success && result.newState) {
+              setState(result.newState);
+              setRockBreakModal({
+                isOpen: false,
+                row: 0,
+                col: 0,
+                rockTier: null,
+              });
+            }
+          }
+        }}
+      />
 
       {/* Tile Detail Modal */}
       <GardenTileDetailModal

@@ -113,7 +113,9 @@ This phase should treat Garden as a dedicated vertical slice, not as a continuat
 - Completed: Extracted the top Garden toolbar into a dedicated component with callback-driven orchestration.
 - Completed: Extracted the tool-wheel modal into a dedicated Garden component with callback-driven orchestration.
 - Completed: Extracted the seed-bag modal into a dedicated Garden component with callback-driven orchestration.
-- Next: Target crop-mastery modal decomposition to keep shrinking Garden root orchestration complexity.
+- Completed: Extracted the crop-mastery modal into a dedicated Garden component with callback-driven orchestration.
+- Completed: Extracted harvest and rock-break modals into dedicated Garden components with callback-driven orchestration.
+- Next: Target planting modal decomposition and final Garden root cleanup.
 
 ## Implementation rules
 
