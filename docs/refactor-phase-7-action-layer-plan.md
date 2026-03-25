@@ -1,7 +1,7 @@
 # Refactor Phase 7 Plan: Action Layer Completion and Mutation Boundaries
 
 Date started: 2026-03-25
-Status: In progress
+Status: Complete
 Goal: Consolidate remaining write paths behind a single action boundary so state mutations become easier to test, reason about, and extend without spreading domain write logic across UI and provider code.
 
 ## Why this phase exists
@@ -50,7 +50,7 @@ That means the repo is not starting from zero. The best next step is to expand a
 - Completed: Slice 2 inventory and upgrade handler consolidation.
 - Completed: Slice 3 combat player-action migration.
 - Completed: Slice 4 garden and token-reward write normalization.
-- Next: Slice 5 final pass and provider thinning.
+- Completed: Slice 5 final pass and provider thinning.
 
 ## Slice 1 Output: Write-path audit and boundary map
 
@@ -137,6 +137,20 @@ Implemented changes:
 - Routed `GardenTileDetailModal` state writes through the action boundary via `garden/replaceState` callback dispatching.
 - Normalized token reward state transition in `src/game/GameContext.tsx` by dispatching `rewards/applyTokenRewards` while keeping async orchestration in the provider.
 - Added direct tests for the garden action handler in `src/game/actionHandlers/garden.test.ts` and action-layer coverage for rewards application in `src/game/actions.test.ts`.
+
+Validation run:
+
+- Full Vitest suite passed: 20 files, 208 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Slice 5 Outcome: Final pass and provider thinning
+
+Implemented changes:
+
+- Removed `setState` from the public `GameContext` value and type so components consume `dispatch` rather than direct provider state mutation hooks.
+- Kept provider-owned orchestration boundaries explicit for initialization/offline progression and 1-second simulation tick.
+- Preserved garden detail modal compatibility by routing callback-driven state replacement through the action boundary.
 
 Validation run:
 
@@ -266,12 +280,12 @@ Priority order for lowest-risk structural gain:
 
 Phase 7 is complete when:
 
-- [ ] Critical player-facing writes go through a single explicit action boundary.
-- [ ] `GameContext` no longer owns avoidable inline mutation logic for migrated flows.
-- [ ] Reducer/handler modules have clearer domain ownership than the current single-file action implementation.
-- [ ] Migrated write paths have direct tests at the action/handler layer.
-- [ ] Full tests and build pass without regressions.
-- [ ] No gameplay, save, or event-behavior regressions were introduced.
+- [x] Critical player-facing writes go through a single explicit action boundary.
+- [x] `GameContext` no longer owns avoidable inline mutation logic for migrated flows.
+- [x] Reducer/handler modules have clearer domain ownership than the current single-file action implementation.
+- [x] Migrated write paths have direct tests at the action/handler layer.
+- [x] Full tests and build pass without regressions.
+- [x] No gameplay, save, or event-behavior regressions were introduced.
 
 ## Stop rule
 

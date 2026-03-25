@@ -135,7 +135,6 @@ function initializeGameState(): InitializationResult {
 
 const GameContext = createContext<{
   state: GameState;
-  setState: React.Dispatch<React.SetStateAction<GameState>>;
   dispatch: (action: GameAction) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
@@ -280,7 +279,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     <GameContext.Provider
       value={{
         state,
-        setState,
         dispatch,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),

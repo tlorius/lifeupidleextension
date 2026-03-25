@@ -1,7 +1,7 @@
 # Refactor Phase 4 Plan: Fight Isolation
 
 Date started: 2026-03-25
-Status: In progress
+Status: Complete
 Goal: Refactor the Fight screen and combat runtime boundaries by isolating derived read models, interaction orchestration, and combat domain units without changing combat balance or progression outcomes.
 
 ## Why this phase exists
