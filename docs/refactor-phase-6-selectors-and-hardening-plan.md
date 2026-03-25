@@ -105,7 +105,24 @@ Audit basis: selector source size, branch density, recursive/graph derivation, a
 ## Progress
 
 - Completed: Slice 1 selector seam audit and risk map.
-- Next: Slice 2 high-risk hardening (Upgrades + Fight) with branch-focused test expansion and helper decomposition.
+- Completed: Slice 2 high-risk hardening (Upgrades + Fight).
+- Next: Slice 3 medium-risk hardening (Garden + Resources).
+
+## Slice 2 Outcome: Upgrades + Fight hardening
+
+Implemented changes:
+
+- Extracted focused helper boundaries in `src/game/selectors/upgrades.ts` for upgrade tier resolution and lock-reason/action-title derivation.
+- Corrected upgrade lock messaging so linked-level gating is surfaced distinctly from unmet prerequisite gating.
+- Added branch-oriented upgrade selector tests for linked-level gating, insufficient-gold gating, and missing selected-upgrade modal fallback.
+- Added fight selector tests for hidden spell panel state, empty consumable modal state, and negative DPS delta presentation.
+
+Validation run:
+
+- Focused selector tests passed: `src/game/selectors/upgrades.test.ts`, `src/game/selectors/fight.test.ts`.
+- Full Vitest suite passed: 16 files, 190 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
 
 ## Implementation rules
 

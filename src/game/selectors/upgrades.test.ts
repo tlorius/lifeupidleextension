@@ -71,4 +71,41 @@ describe("upgrade selectors", () => {
     expect(locked.actionLabel).toBe("Locked");
     expect(locked.actionTitle).toBe("Prerequisites not met");
   });
+
+  it("exposes linked-level and insufficient-gold lock reasons", () => {
+    let state = createDefaultState();
+    state.resources.gold = 1_000_000;
+    state = buyUpgrade(state, "gold_rush");
+
+    const linkedLevelLocked = selectUpgradePresentation(
+      state,
+      getUpgradeDef("wealth")!,
+    );
+
+    state.resources.gold = 0;
+    const insufficientGold = selectUpgradePresentation(
+      state,
+      getUpgradeDef("gold_efficiency")!,
+    );
+
+    expect(linkedLevelLocked.isUnlocked).toBe(false);
+    expect(linkedLevelLocked.preqsMet).toBe(true);
+    expect(linkedLevelLocked.lockReason).toBe("linked-level");
+    expect(linkedLevelLocked.actionTitle).toBe(
+      "Previous upgrade level required",
+    );
+
+    expect(insufficientGold.isUnlocked).toBe(true);
+    expect(insufficientGold.preqsMet).toBe(true);
+    expect(insufficientGold.lockReason).toBe("insufficient-gold");
+    expect(insufficientGold.actionLabel).toBe("Unlock");
+    expect(insufficientGold.actionTitle).toBe("Not enough gold");
+  });
+
+  it("returns null selected modal when selected upgrade id is not present", () => {
+    const state = createDefaultState();
+    const treeView = selectUpgradeTreeView(state, "resource", 1024, "attack_i");
+
+    expect(treeView.selectedModalPresentation).toBeNull();
+  });
 });

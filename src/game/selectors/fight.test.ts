@@ -210,4 +210,43 @@ describe("fight selectors", () => {
       "Defeat enemies to generate loot and progression events.",
     );
   });
+
+  it("handles hidden spell panel and empty consumable modal states", () => {
+    const state = createDefaultState();
+    state.playerProgress.level = 5;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: false,
+    };
+
+    const spellPanel = selectFightSpellPanel(state, []);
+    const consumableModal = selectFightConsumableModal(state, [null, null], 0);
+
+    expect(spellPanel.isVisible).toBe(false);
+    expect(spellPanel.showManageButton).toBe(false);
+    expect(spellPanel.emptyMessage).toBe(
+      "Spell slots unlock at level 10. Continue leveling to equip spells.",
+    );
+    expect(consumableModal.options).toHaveLength(0);
+    expect(consumableModal.isEmpty).toBe(true);
+  });
+
+  it("builds negative delta dps panel when previous window is higher", () => {
+    const metrics = selectFightDpsMetrics(
+      [
+        { timestamp: 1_000, damage: 300, source: "auto" },
+        { timestamp: 12_000, damage: 30, source: "auto" },
+      ],
+      20_000,
+      10_000,
+    );
+    const panel = selectFightDpsPanel(metrics, 10_000, false, false);
+
+    expect(metrics.previousDps).toBeGreaterThan(metrics.currentDps);
+    expect(panel.deltaTone).toBe("negative");
+    expect(panel.toggleLabel).toBe("Show Graph");
+    expect(panel.emptyMessage).toBe(
+      "No damage recorded yet. Start attacking to populate the meter.",
+    );
+  });
 });

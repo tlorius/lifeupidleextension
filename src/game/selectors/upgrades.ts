@@ -167,13 +167,7 @@ export function selectUpgradePresentation(
   const canPurchase = isUnlocked && preqsMet && canAfford;
   const purchaseDisabled = !canPurchase;
 
-  const lockReason: UpgradePresentation["lockReason"] = !isUnlocked
-    ? "prerequisites"
-    : !preqsMet
-      ? "linked-level"
-      : !canAfford
-        ? "insufficient-gold"
-        : null;
+  const lockReason = getUpgradeLockReason(isUnlocked, preqsMet, canAfford);
 
   const prereqText =
     prerequisites.length > 0
@@ -219,13 +213,7 @@ export function selectUpgradePresentation(
     prereqText,
     linkedText,
     actionLabel: !isUnlocked ? "Locked" : level === 0 ? "Unlock" : "Upgrade",
-    actionTitle: !isUnlocked
-      ? "Prerequisites not met"
-      : !preqsMet
-        ? "Previous upgrade level required"
-        : !canAfford
-          ? "Not enough gold"
-          : "",
+    actionTitle: getUpgradeActionTitle(lockReason),
     prerequisiteNames: prerequisites
       .map((preqId) => getUpgradeDef(preqId)?.name)
       .filter((name): name is string => Boolean(name)),
@@ -250,27 +238,7 @@ export function selectUpgradeTreeView(
   const upgradesById = new Map(
     upgrades.map((upgrade) => [upgrade.id, upgrade]),
   );
-  const tierCache = new Map<string, number>();
-
-  const getUpgradeTier = (upgradeId: string): number => {
-    const cachedTier = tierCache.get(upgradeId);
-    if (cachedTier !== undefined) return cachedTier;
-
-    const upgradeDef = upgradesById.get(upgradeId);
-    if (!upgradeDef) return 0;
-
-    const localPrerequisites = (upgradeDef.prerequisites ?? []).filter((id) =>
-      upgradesById.has(id),
-    );
-
-    const tier =
-      localPrerequisites.length === 0
-        ? 0
-        : Math.max(...localPrerequisites.map(getUpgradeTier)) + 1;
-
-    tierCache.set(upgradeId, tier);
-    return tier;
-  };
+  const getUpgradeTier = createUpgradeTierResolver(upgradesById);
 
   const presentations = upgrades.map((upgradeDef) =>
     selectUpgradePresentation(state, upgradeDef),
@@ -415,6 +383,73 @@ function getUpgradeTreeLayout(
     treeBoardWidth,
     treeBoardHeight,
   };
+}
+
+function createUpgradeTierResolver(
+  upgradesById: Map<string, Upgrade>,
+): (upgradeId: string) => number {
+  const tierCache = new Map<string, number>();
+
+  const resolveTier = (upgradeId: string): number => {
+    const cachedTier = tierCache.get(upgradeId);
+    if (cachedTier !== undefined) return cachedTier;
+
+    const upgradeDef = upgradesById.get(upgradeId);
+    if (!upgradeDef) return 0;
+
+    const localPrerequisites = getLocalPrerequisiteIds(
+      upgradeDef,
+      upgradesById,
+    );
+    const tier =
+      localPrerequisites.length === 0
+        ? 0
+        : Math.max(...localPrerequisites.map(resolveTier)) + 1;
+
+    tierCache.set(upgradeId, tier);
+    return tier;
+  };
+
+  return resolveTier;
+}
+
+function getLocalPrerequisiteIds(
+  upgradeDef: Upgrade,
+  upgradesById: Map<string, Upgrade>,
+): string[] {
+  return (upgradeDef.prerequisites ?? []).filter((id) => upgradesById.has(id));
+}
+
+function getUpgradeLockReason(
+  isUnlocked: boolean,
+  preqsMet: boolean,
+  canAfford: boolean,
+): UpgradePresentation["lockReason"] {
+  if (!isUnlocked) {
+    return preqsMet ? "linked-level" : "prerequisites";
+  }
+  if (!preqsMet) {
+    return "linked-level";
+  }
+  if (!canAfford) {
+    return "insufficient-gold";
+  }
+  return null;
+}
+
+function getUpgradeActionTitle(
+  lockReason: UpgradePresentation["lockReason"],
+): string {
+  if (lockReason === "prerequisites") {
+    return "Prerequisites not met";
+  }
+  if (lockReason === "linked-level") {
+    return "Previous upgrade level required";
+  }
+  if (lockReason === "insufficient-gold") {
+    return "Not enough gold";
+  }
+  return "";
 }
 
 function capitalize(value: string): string {
