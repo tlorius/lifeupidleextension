@@ -1,7 +1,7 @@
 # Refactor Phase 8 Plan: Runtime Determinism and Boundary Hardening
 
 Date started: 2026-03-25
-Status: In progress
+Status: Complete
 Goal: Tighten deterministic runtime seams, remove generic mutation escape hatches, and establish the next multi-phase architecture roadmap after Phase 7 completion.
 
 ## Why this phase exists
@@ -140,7 +140,8 @@ Current deterministic seam gaps:
 - Completed: Slice 1 determinism seam audit and first-batch target selection.
 - Completed: Slice 2 first-batch runtime seam introduction for selected engine and garden functions.
 - Completed: Slice 3 garden boundary tightening (remove generic replace-state path).
-- Next: Slice 4 deterministic and boundary regression test expansion.
+- Completed: Slice 4 deterministic and boundary regression test expansion.
+- Completed: Slice 5 final pass and Phase 9 handoff.
 
 ## Slice 1 Output: Determinism seam map and first migration batch
 
@@ -254,6 +255,63 @@ Validation run:
 - Production build passed: `tsc -b && vite build`.
 - Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
 
+## Slice 4 Outcome: Deterministic and boundary regression test expansion
+
+Implemented changes:
+
+- Expanded explicit-action regression coverage in `src/game/actionHandlers/garden.test.ts` for:
+  - insufficient-gems no-op path for `garden/reduceCropGrowthTime`
+  - place/remove sprinkler actions on empty fields
+  - occupancy no-op behavior when placing sprinkler on a tile with another automation tool
+- Expanded reducer-routing coverage in `src/game/actions.test.ts` for:
+  - `garden/placeSprinkler` and `garden/removeSprinkler`
+  - `garden/reduceCropGrowthTime`
+- Preserved behavior while tightening confidence around the newly narrowed garden mutation boundary.
+
+Validation run:
+
+- Focused tests passed: `src/game/actionHandlers/garden.test.ts`, `src/game/actions.test.ts`.
+- Full Vitest suite passed: 20 files, 219 tests.
+- Production build passed: `tsc -b && vite build`.
+- Build warning remains unchanged: bundle chunk exceeds 500 kB warning from Vite reporter.
+
+## Slice 5 Outcome: Final pass and Phase 9 handoff
+
+Final pass decisions:
+
+- Kept Phase 8 deterministic seam migration intentionally narrow to avoid schema, balance, or broad runtime rewrites.
+- Confirmed the highest-risk garden mutation escape hatch was removed in favor of explicit domain-intent actions.
+- Consolidated remaining decomposition work into a concrete Phase 9 handoff list.
+
+Phase 9 decomposition handoff targets:
+
+1. `src/game/garden.ts`
+   - Extract bounded modules behind a stable facade:
+     - crop lifecycle (`plant`, `grow`, `harvest`, prestige)
+     - automation tools (sprinkler/harvester/planter placement + ticks)
+     - terrain systems (rocks, field unlock expansion rules)
+     - seed maker queue and crafting helpers
+   - Keep existing public call signatures stable while moving internals.
+
+2. `src/game/engine.ts`
+   - Separate progression-neutral stat/economy computations from inventory and potion mutation flows.
+   - Isolate effect-duration and randomness-sensitive logic into test-focused helpers.
+
+3. `src/game/items.ts`
+   - Split static item definition catalogs from runtime lookup/derivation helpers.
+   - Preserve current item IDs, rarity semantics, and lookup behavior.
+
+4. Integration boundaries
+   - Keep `src/game/actions.ts` as the top-level intent router.
+   - Keep action handlers as mutation boundaries and avoid moving state writes back into UI components.
+
+Runtime guardrails going forward:
+
+- Domain logic should accept injected `now`/`rng` seams where runtime outcomes depend on time or randomness.
+- Default fallbacks to `Date.now()`/`Math.random()` are acceptable only at function boundaries, not scattered through nested logic.
+- New UI flows should dispatch explicit action intents rather than passing full next-state objects.
+- Provider logic remains orchestration-only (init/tick/offline scheduling), while state mutation stays in action handlers/domain helpers.
+
 ## Validation
 
 - Focused tests per migrated deterministic seam.
@@ -265,11 +323,11 @@ Validation run:
 
 Phase 8 is complete when:
 
-- [ ] A first meaningful set of clock/random-dependent runtime paths uses explicit deterministic seams.
-- [ ] The primary generic garden replacement path is narrowed or materially reduced.
-- [ ] New deterministic and regression tests cover migrated seams.
-- [ ] Full tests and build pass without regressions.
-- [ ] A clear, evidence-backed handoff to Phase 9 decomposition is documented.
+- [x] A first meaningful set of clock/random-dependent runtime paths uses explicit deterministic seams.
+- [x] The primary generic garden replacement path is narrowed or materially reduced.
+- [x] New deterministic and regression tests cover migrated seams.
+- [x] Full tests and build pass without regressions.
+- [x] A clear, evidence-backed handoff to Phase 9 decomposition is documented.
 
 ## Stop rule
 

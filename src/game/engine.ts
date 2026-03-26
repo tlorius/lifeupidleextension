@@ -2,6 +2,11 @@ import { getItemDefSafe } from "./items";
 import { uniqueSetDefinitions } from "./itemSets";
 import { getActiveClassNodeRank } from "./classes";
 import { getUpgradeStats as getUpgradeStatsDomain } from "./upgradeStats";
+import {
+  calculateItemStat as calculateItemStatImpl,
+  getItemStats as getItemStatsImpl,
+  calculateUpgradeCost as calculateUpgradeCostImpl,
+} from "./engineItemMath";
 import type { GameState, ItemInstance, Stats } from "./types";
 
 export const MAX_MANA = 100;
@@ -95,18 +100,6 @@ export function applyIdle(state: GameState, deltaMs: number): void {
 }
 
 /**
- * Rarity multipliers for stat scaling and upgrade costs.
- * Can be extended in the future with bonus effects.
- */
-const rarityMultipliers = {
-  common: { statScale: 1, costScale: 1, perLevelScale: 0.02 },
-  rare: { statScale: 1.2, costScale: 1.3, perLevelScale: 0.02 },
-  epic: { statScale: 3.2, costScale: 2.1, perLevelScale: 0.08 },
-  legendary: { statScale: 9, costScale: 4.4, perLevelScale: 0.22 },
-  unique: { statScale: 30, costScale: 8.5, perLevelScale: 0.6 },
-};
-
-/**
  * Calculate the stats for an item at a given level.
  * Applies rarity-based scaling and optional per-level scaling.
  * @param baseStat - Base stat value from item definition
@@ -120,26 +113,7 @@ export function calculateItemStat(
   rarity: string,
   bonusMultiplier: number = 1,
 ): number {
-  const multiplier =
-    rarityMultipliers[rarity as keyof typeof rarityMultipliers];
-  if (!multiplier) return baseStat;
-
-  // Apply rarity multiplier to base stat
-  let stat = baseStat * multiplier.statScale * bonusMultiplier;
-
-  // Every 10 levels, apply a 5% scaling increase
-  const tenLevelBonus = 1 + Math.floor(level / 10) * 0.05;
-  stat *= tenLevelBonus;
-
-  // Add per-level scaling. Higher rarities ramp much harder.
-  stat +=
-    baseStat *
-    multiplier.perLevelScale *
-    (level - 1) *
-    multiplier.statScale *
-    bonusMultiplier;
-
-  return stat;
+  return calculateItemStatImpl(baseStat, level, rarity, bonusMultiplier);
 }
 
 /**
@@ -153,21 +127,7 @@ export function getItemStats(
   def: { stats?: Partial<Stats>; rarity?: string },
   bonusMultipliers?: Partial<Record<keyof Stats, number>>,
 ): Partial<Stats> {
-  if (!def.stats) return {};
-
-  const stats: Partial<Stats> = {};
-  for (const [key, value] of Object.entries(def.stats)) {
-    if (value !== undefined && typeof value === "number") {
-      const bonus = bonusMultipliers?.[key as keyof Stats] ?? 1;
-      stats[key as keyof Stats] = calculateItemStat(
-        value,
-        item.level,
-        def.rarity || "common",
-        bonus,
-      );
-    }
-  }
-  return stats;
+  return getItemStatsImpl(item, def, bonusMultipliers);
 }
 
 /**
@@ -184,14 +144,12 @@ export function calculateUpgradeCost(
   baseCost: number = 10,
   costBonusMultiplier: number = 1,
 ): number {
-  const multiplier =
-    rarityMultipliers[rarity as keyof typeof rarityMultipliers];
-  if (!multiplier) return baseCost * currentLevel * costBonusMultiplier;
-
-  // Cost increases with each level, scaled by rarity
-  const cost =
-    baseCost * currentLevel * multiplier.costScale * costBonusMultiplier;
-  return Math.ceil(cost);
+  return calculateUpgradeCostImpl(
+    currentLevel,
+    rarity,
+    baseCost,
+    costBonusMultiplier,
+  );
 }
 
 /**

@@ -9,9 +9,25 @@ import {
   TOOL_CONFIG,
   ROCK_CONFIG,
   WATER_CONFIG,
-  SEED_MAKER_CONFIG,
 } from "./gameConfig";
 import { addItem } from "./engine";
+import {
+  getSeedMakerCost as getSeedMakerCostImpl,
+  getSeedMakerDurationMs as getSeedMakerDurationMsImpl,
+  craftSeedFromSeedMaker as craftSeedFromSeedMakerImpl,
+  canCraftSeedFromSeedMaker as canCraftSeedFromSeedMakerImpl,
+} from "./gardenSeedMaker";
+import {
+  isProtectedStarterField as isProtectedStarterFieldImpl,
+  getRockTierForTile as getRockTierForTileImpl,
+  hasRockPatternAtTile as hasRockPatternAtTileImpl,
+  generateRocksForGrid as generateRocksForGridImpl,
+} from "./gardenTerrainPattern";
+import {
+  getFieldUnlockCost as getFieldUnlockCostImpl,
+  unlockField as unlockFieldImpl,
+  breakRock as breakRockImpl,
+} from "./gardenTerrainActions";
 
 /**
  * CROP DEFINITIONS - Re-exported from game config
@@ -125,173 +141,43 @@ export function getSeedMakerCost(seedId: string): {
   gemCost: number;
   resourceCost: number;
 } {
-  const configured =
-    SEED_MAKER_CONFIG.costsBySeed[
-      seedId as keyof typeof SEED_MAKER_CONFIG.costsBySeed
-    ];
-  if (configured) {
-    return {
-      gemCost: configured.gemCost,
-      resourceCost: configured.resourceCost,
-    };
-  }
-
-  return {
-    gemCost: SEED_MAKER_CONFIG.defaultCost.gemCost,
-    resourceCost: SEED_MAKER_CONFIG.defaultCost.resourceCost,
-  };
+  return getSeedMakerCostImpl(seedId);
 }
 
 export function getSeedMakerDurationMs(
   seedMakerLevel: number,
   seedId?: string | null,
 ): number {
-  const seedCropDef = seedId
-    ? Object.values(cropDefinitions).find((crop) => crop.seedItemId === seedId)
-    : null;
-  const baseDurationMs =
-    seedCropDef?.category === "special"
-      ? SEED_MAKER_CONFIG.baseSpecialDurationMs
-      : SEED_MAKER_CONFIG.baseDurationMs;
-
-  const effectiveLevel = Math.max(1, seedMakerLevel);
-  const reductionMultiplier = Math.max(
-    0,
-    1 - (effectiveLevel - 1) * SEED_MAKER_CONFIG.durationReductionPerLevel,
-  );
-  const reducedDuration = Math.round(baseDurationMs * reductionMultiplier);
-  return Math.max(SEED_MAKER_CONFIG.minDurationMs, reducedDuration);
-}
-
-function addSeedToInventory(state: GameState, seedId: string): void {
-  const existing = state.inventory.find((item) => item.itemId === seedId);
-  if (existing) {
-    existing.quantity += 1;
-    return;
-  }
-
-  state.inventory.push({
-    uid: crypto.randomUUID(),
-    itemId: seedId,
-    quantity: 1,
-    level: 1,
-  });
+  return getSeedMakerDurationMsImpl(seedMakerLevel, seedId);
 }
 
 export function craftSeedFromSeedMaker(
   state: GameState,
   seedId: string,
 ): boolean {
-  if (!canCraftSeedFromSeedMaker(state, seedId)) return false;
-
-  const cropDef = Object.values(cropDefinitions).find(
-    (crop) => crop.seedItemId === seedId,
-  );
-  if (!cropDef) return false;
-
-  const cost = getSeedMakerCost(seedId);
-  const currentGems = state.resources.gems ?? 0;
-  const currentCategoryAmount =
-    state.garden.cropStorage.current[cropDef.category] ?? 0;
-
-  state.resources.gems = currentGems - cost.gemCost;
-  state.garden.cropStorage.current[cropDef.category] =
-    currentCategoryAmount - cost.resourceCost;
-  addSeedToInventory(state, seedId);
-
-  return true;
+  return craftSeedFromSeedMakerImpl(state, seedId);
 }
 
 export function canCraftSeedFromSeedMaker(
   state: GameState,
   seedId: string,
 ): boolean {
-  const cropDef = Object.values(cropDefinitions).find(
-    (crop) => crop.seedItemId === seedId,
-  );
-  if (!cropDef) return false;
-
-  const cost = getSeedMakerCost(seedId);
-  const currentGems = state.resources.gems ?? 0;
-  const currentCategoryAmount =
-    state.garden.cropStorage.current[cropDef.category] ?? 0;
-
-  if (currentGems < cost.gemCost) return false;
-  if (currentCategoryAmount < cost.resourceCost) return false;
-  return true;
+  return canCraftSeedFromSeedMakerImpl(state, seedId);
 }
 
 function isProtectedStarterField(row: number, col: number): boolean {
-  return row >= 0 && col >= 0 && row < 3 && col < 3;
-}
-
-function getDistanceFromStarterZone(row: number, col: number): number {
-  if (isProtectedStarterField(row, col)) return 0;
-  const rowDistance = row >= 3 ? row - 2 : 0;
-  const colDistance = col >= 3 ? col - 2 : 0;
-  return Math.max(rowDistance, colDistance);
-}
-
-function getRockPatternScore(row: number, col: number): number {
-  return ((row + 1) * 13 + (col + 1) * 17 + (row - col) * 7) % 100;
+  return isProtectedStarterFieldImpl(row, col);
 }
 
 export function hasRockPatternAtTile(row: number, col: number): boolean {
-  const distance = getDistanceFromStarterZone(row, col);
-  if (distance <= 0) return false;
-
-  const localRow = row % 12;
-  const localCol = col % 12;
-  const smileyPixels = new Set([
-    "3,2",
-    "3,3",
-    "3,8",
-    "4,3",
-    "4,8",
-    "7,3",
-    "8,4",
-    "8,5",
-    "8,6",
-    "8,7",
-    "7,8",
-  ]);
-
-  return smileyPixels.has(`${localRow},${localCol}`);
-}
-
-function getRockTierByDistance(
-  distance: number,
-  patternScore: number,
-): "small" | "medium" | "large" {
-  if (distance <= 2) {
-    return "small";
-  }
-
-  if (distance <= 5) {
-    return patternScore < 72 ? "small" : "medium";
-  }
-
-  if (distance <= 8) {
-    if (patternScore < 42) return "small";
-    if (patternScore < 82) return "medium";
-    return "large";
-  }
-
-  if (patternScore < 24) return "small";
-  if (patternScore < 64) return "medium";
-  return "large";
+  return hasRockPatternAtTileImpl(row, col);
 }
 
 function getRockTierForTile(
   row: number,
   col: number,
 ): "small" | "medium" | "large" | null {
-  if (!hasRockPatternAtTile(row, col)) return null;
-
-  const distance = getDistanceFromStarterZone(row, col);
-  const patternScore = getRockPatternScore(row, col);
-
-  return getRockTierByDistance(distance, patternScore);
+  return getRockTierForTileImpl(row, col);
 }
 
 function ensureRocksForPreviewArea(state: GameState): void {
@@ -1557,28 +1443,7 @@ export function generateRocksForGrid(
   gridRows: number,
   gridCols: number,
 ): { small: FieldPosition[]; medium: FieldPosition[]; large: FieldPosition[] } {
-  const rocks = {
-    small: [] as FieldPosition[],
-    medium: [] as FieldPosition[],
-    large: [] as FieldPosition[],
-  };
-  for (let row = 0; row < gridRows; row++) {
-    for (let col = 0; col < gridCols; col++) {
-      // Skip corners in the preview area
-      const isCorner =
-        (row === 0 || row === gridRows - 1) &&
-        (col === 0 || col === gridCols - 1);
-      if (isCorner) continue;
-
-      if (isProtectedStarterField(row, col)) continue;
-
-      const tier = getRockTierForTile(row, col);
-      if (!tier) continue;
-      rocks[tier].push({ row, col });
-    }
-  }
-
-  return rocks;
+  return generateRocksForGridImpl(gridRows, gridCols);
 }
 
 /**
@@ -1593,44 +1458,7 @@ export function getFieldUnlockCost(
   cost?: number;
   rockTier?: "small" | "medium" | "large";
 } {
-  if (!isFieldUnlocked(state, row, col)) {
-    // Locked field - costs diamonds unless rock is present.
-    const baseCost = 50; // Starting diamond cost
-    const unlockedCount = state.garden.unlockedFields?.length ?? 0;
-    const cost = baseCost + unlockedCount * 10;
-    let result: {
-      type: "diamond" | "rock";
-      cost?: number;
-      rockTier?: "small" | "medium" | "large";
-    } = {
-      type: "diamond",
-      cost,
-    };
-
-    for (const rock of state.garden.rocks.small) {
-      if (rock.row === row && rock.col === col) {
-        result = { type: "rock", rockTier: "small" };
-        break;
-      }
-    }
-    for (const rock of state.garden.rocks.medium) {
-      if (rock.row === row && rock.col === col) {
-        result = { type: "rock", rockTier: "medium" };
-        break;
-      }
-    }
-    for (const rock of state.garden.rocks.large) {
-      if (rock.row === row && rock.col === col) {
-        result = { type: "rock", rockTier: "large" };
-        break;
-      }
-    }
-
-    return result;
-  }
-
-  // Otherwise it's free to access
-  return { type: "free" };
+  return getFieldUnlockCostImpl(state, row, col, isFieldUnlocked);
 }
 
 /**
@@ -1674,80 +1502,11 @@ export function unlockField(
   row: number,
   col: number,
 ): GameState {
-  // Check adjacency constraint
-  if (!isAdjacentToUnlocked(state, row, col)) {
-    return state; // Cannot unlock non-adjacent fields
-  }
-
-  const cost = getFieldUnlockCost(state, row, col);
-
-  if (cost.type === "diamond") {
-    const diamondCost = cost.cost ?? 50;
-    if ((state.resources.gems ?? 0) < diamondCost) return state;
-
-    let newState = { ...state };
-    newState.resources.gems = (newState.resources.gems ?? 0) - diamondCost;
-
-    const unlocked = [...(newState.garden.unlockedFields ?? [])];
-    if (!unlocked.some((f) => f.row === row && f.col === col)) {
-      unlocked.push({ row, col });
-    }
-    newState.garden.unlockedFields = unlocked;
-
-    // Expand visual envelope only; fields remain locked until explicitly unlocked.
-    const newRows = Math.max(newState.garden.gridSize.rows, row + 1);
-    const newCols = Math.max(newState.garden.gridSize.cols, col + 1);
-    newState.garden.gridSize = { rows: newRows, cols: newCols };
-    ensureRocksForPreviewArea(newState);
-
-    return newState;
-  }
-
-  if (cost.type === "rock") {
-    const rockTier = cost.rockTier as "small" | "medium" | "large";
-    const rockConfig_ = rockConfig[rockTier];
-
-    if ((state.resources.energy ?? 0) < rockConfig_.energyCost) return state;
-
-    // Check if player has appropriate pickaxe level
-    const pickaxeToolId = Object.keys(state.garden.tools).find((t) =>
-      t.startsWith("pickaxe"),
-    );
-    if (!pickaxeToolId) return state;
-
-    let newState = { ...state };
-    newState.resources.energy =
-      (newState.resources.energy ?? 0) - rockConfig_.energyCost;
-
-    // Remove the rock
-    const newRocks = { ...newState.garden.rocks };
-    newRocks[rockTier] = newRocks[rockTier].filter(
-      (r) => !(r.row === row && r.col === col),
-    );
-    newState.garden.rocks = newRocks;
-
-    const unlocked = [...(newState.garden.unlockedFields ?? [])];
-    if (!unlocked.some((f) => f.row === row && f.col === col)) {
-      unlocked.push({ row, col });
-    }
-    newState.garden.unlockedFields = unlocked;
-
-    // Expand visual envelope only; fields remain locked until explicitly unlocked.
-    if (
-      row >= newState.garden.gridSize.rows ||
-      col >= newState.garden.gridSize.cols
-    ) {
-      const newRows = Math.max(newState.garden.gridSize.rows, row + 1);
-      const newCols = Math.max(newState.garden.gridSize.cols, col + 1);
-      newState.garden.gridSize = { rows: newRows, cols: newCols };
-    }
-    ensureRocksForPreviewArea(newState);
-
-    return newState;
-  }
-
-  // Already accessible
-  return state;
+  return unlockFieldImpl(state, row, col, {
+    isAdjacentToUnlocked,
+    isFieldUnlocked,
+    ensureRocksForPreviewArea,
+  });
 }
 
 /**
@@ -1759,77 +1518,5 @@ export function breakRock(
   col: number,
   pickaxeRef: string,
 ): { success: boolean; reason?: string; newState?: GameState } {
-  let rockTier: "small" | "medium" | "large" | null = null;
-
-  // Find which tier of rock is at this position
-  if (state.garden.rocks.small.some((r) => r.row === row && r.col === col)) {
-    rockTier = "small";
-  } else if (
-    state.garden.rocks.medium.some((r) => r.row === row && r.col === col)
-  ) {
-    rockTier = "medium";
-  } else if (
-    state.garden.rocks.large.some((r) => r.row === row && r.col === col)
-  ) {
-    rockTier = "large";
-  }
-
-  if (!rockTier) {
-    return { success: false, reason: "No rock at this position" };
-  }
-
-  const config = rockConfig[rockTier];
-  const inventoryPickaxe = state.inventory.find(
-    (item) => item.uid === pickaxeRef,
-  );
-  const pickaxeId = inventoryPickaxe?.itemId ?? pickaxeRef;
-  const pickaxeLevel =
-    inventoryPickaxe?.level ?? state.garden.tools[pickaxeId] ?? 0;
-
-  // Check pickaxe level requirement
-  if (pickaxeLevel < config.minPickaxeLevel) {
-    return {
-      success: false,
-      reason: `Your pickaxe is level ${pickaxeLevel}. You need level ${config.minPickaxeLevel} to break ${rockTier} rocks.`,
-    };
-  }
-
-  // Check energy cost
-  if ((state.resources.energy ?? 0) < config.energyCost) {
-    return {
-      success: false,
-      reason: `Not enough mana. You need ${config.energyCost} mana, but only have ${state.resources.energy ?? 0}.`,
-    };
-  }
-
-  // Break the rock
-  let newState = { ...state };
-  newState.resources.energy =
-    (newState.resources.energy ?? 0) - config.energyCost;
-
-  // Remove the rock
-  const newRocks = { ...newState.garden.rocks };
-  newRocks[rockTier] = newRocks[rockTier].filter(
-    (r) => !(r.row === row && r.col === col),
-  );
-  newState.garden.rocks = newRocks;
-
-  const unlocked = [...(newState.garden.unlockedFields ?? [])];
-  if (!unlocked.some((f) => f.row === row && f.col === col)) {
-    unlocked.push({ row, col });
-  }
-  newState.garden.unlockedFields = unlocked;
-
-  // If rock was at grid boundary, expand visual envelope.
-  if (
-    row >= newState.garden.gridSize.rows ||
-    col >= newState.garden.gridSize.cols
-  ) {
-    const newRows = Math.max(newState.garden.gridSize.rows, row + 1);
-    const newCols = Math.max(newState.garden.gridSize.cols, col + 1);
-    newState.garden.gridSize = { rows: newRows, cols: newCols };
-  }
-  ensureRocksForPreviewArea(newState);
-
-  return { success: true, newState };
+  return breakRockImpl(state, row, col, pickaxeRef, ensureRocksForPreviewArea);
 }

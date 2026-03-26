@@ -60,6 +60,71 @@ describe("garden action handler", () => {
     expect(reduced.resources.gems).toBe(400);
   });
 
+  it("does not reduce crop growth time when gems are insufficient", () => {
+    const state = createDefaultState();
+    const planted = applyGardenAction(state, {
+      type: "garden/plantCrop",
+      cropId: "sunflower_common",
+      row: 0,
+      col: 0,
+    });
+    planted.resources.gems = 0;
+
+    const next = applyGardenAction(planted, {
+      type: "garden/reduceCropGrowthTime",
+      cropId: "sunflower_common",
+      cropIndex: 0,
+      minutes: 10,
+      gemCost: 100,
+    });
+
+    expect(next).toBe(planted);
+  });
+
+  it("places and removes sprinklers on empty fields via explicit actions", () => {
+    const state = createDefaultState();
+
+    const withSprinkler = applyGardenAction(state, {
+      type: "garden/placeSprinkler",
+      row: 2,
+      col: 2,
+      sprinklerId: "sprinkler_common",
+    });
+
+    expect(withSprinkler.garden.sprinklers.sprinkler_common).toEqual([
+      { row: 2, col: 2 },
+    ]);
+
+    const withoutSprinkler = applyGardenAction(withSprinkler, {
+      type: "garden/removeSprinkler",
+      row: 2,
+      col: 2,
+    });
+
+    expect(withoutSprinkler.garden.sprinklers.sprinkler_common ?? []).toEqual(
+      [],
+    );
+  });
+
+  it("does not place sprinkler when another automation tool occupies the tile", () => {
+    const state = createDefaultState();
+    const withHarvester = applyGardenAction(state, {
+      type: "garden/placeHarvester",
+      row: 1,
+      col: 1,
+      harvesterId: "harvester_common",
+    });
+
+    const next = applyGardenAction(withHarvester, {
+      type: "garden/placeSprinkler",
+      row: 1,
+      col: 1,
+      sprinklerId: "sprinkler_common",
+    });
+
+    expect(next).toBe(withHarvester);
+  });
+
   it("starts and stops seed maker with timer reset", () => {
     const state = createDefaultState();
 
