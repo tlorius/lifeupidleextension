@@ -164,6 +164,7 @@ export function applyGameAction(
     case "inventory/usePotion":
     case "inventory/sellSelectedItems":
     case "inventory/addDebugItems":
+    case "inventory/buyShopItem":
       return {
         state: reduceInventoryAction(state, action),
         combatEvents: [],

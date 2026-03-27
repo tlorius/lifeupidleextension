@@ -1,6 +1,8 @@
 import {
   COMBAT_CHASE_DROP_CONFIG,
   COMBAT_LOOT_TABLES,
+  COMBAT_RUBY_DROP_CONFIG,
+  getRubyDropChanceForLevel,
   type CombatLootEntry,
 } from "./combatConfig";
 import { addItem } from "./engine";
@@ -162,6 +164,23 @@ export function applyEnemyReward(
       gems: (state.resources.gems ?? 0) + runtime.enemy.gemsReward,
     },
   };
+
+  const rubyDropChance = getRubyDropChanceForLevel(runtime.enemy.level);
+  if (rubyDropChance > 0 && rng() < rubyDropChance) {
+    const rubyAmount = Math.max(1, COMBAT_RUBY_DROP_CONFIG.amountPerDrop);
+    nextState = {
+      ...nextState,
+      resources: {
+        ...nextState.resources,
+        ruby: (nextState.resources.ruby ?? 0) + rubyAmount,
+      },
+    };
+    events.push({
+      type: "lootGranted",
+      itemId: "ruby_currency",
+      quantity: rubyAmount,
+    });
+  }
 
   const preRewardHp = state.stats.hp ?? 1;
   const preRewardLevel = state.playerProgress.level;

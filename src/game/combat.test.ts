@@ -13,6 +13,7 @@ import {
   runCombatTick,
   useCombatConsumable,
 } from "./combat";
+import { getRubyDropChanceForLevel } from "./combatConfig";
 import { getItemDefSafe } from "./items";
 import { createDefaultState } from "./state";
 
@@ -349,5 +350,51 @@ describe("combat engine", () => {
           event.type === "systemUnlocked" && event.systemId === "spells",
       ),
     ).toBe(true);
+  });
+
+  it("grants ruby drops for level 50+ enemies when roll succeeds", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    const runtime = createInitialCombatRuntime(state);
+    runtime.currentLevel = 50;
+    runtime.enemy = createEnemyInstance(50);
+    runtime.enemy.currentHp = 1;
+
+    const result = runCombatTick(runtime, state, 2000, () => 0);
+
+    expect(result.state.resources.ruby ?? 0).toBeGreaterThan(0);
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === "lootGranted" && event.itemId === "ruby_currency",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not grant ruby drops below level 50", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    const runtime = createInitialCombatRuntime(state);
+    runtime.currentLevel = 49;
+    runtime.enemy = createEnemyInstance(49);
+    runtime.enemy.currentHp = 1;
+
+    const result = runCombatTick(runtime, state, 2000, () => 0);
+
+    expect(result.state.resources.ruby ?? 0).toBe(0);
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === "lootGranted" && event.itemId === "ruby_currency",
+      ),
+    ).toBe(false);
+  });
+
+  it("resolves ruby chance by level decade steps", () => {
+    expect(getRubyDropChanceForLevel(49)).toBe(0);
+    expect(getRubyDropChanceForLevel(50)).toBe(0.01);
+    expect(getRubyDropChanceForLevel(59)).toBe(0.01);
+    expect(getRubyDropChanceForLevel(60)).toBe(0.01);
+    expect(getRubyDropChanceForLevel(200)).toBe(0.01);
   });
 });

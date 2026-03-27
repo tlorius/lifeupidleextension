@@ -90,7 +90,7 @@ export function Fight() {
   const [visualEnemyHpPercent, setVisualEnemyHpPercent] = useState(
     () => enemyHpPercent,
   );
-  // Snapshot history for the 3-second damage trail bar
+  // Snapshot history for the 1.5-second damage trail bar
   const hpSnapshotRef = useRef<Array<{ t: number; hp: number }>>([]);
   const [hpFiveSecAgoPercent, setHpFiveSecAgoPercent] = useState(
     () => enemyHpPercent,
@@ -180,7 +180,7 @@ export function Fight() {
     return () => timers.forEach((t) => window.clearTimeout(t));
   }, [combatEvents, attacksPerSecond, combat.enemy.maxHp]);
 
-  // Sample visual HP every second to power the 5-second damage trail
+  // Sample visual HP every second to power the 1.5-second damage trail
   useEffect(() => {
     const now = clockNow;
     const maxHp = Math.max(1, combat.enemy.maxHp);
@@ -191,11 +191,11 @@ export function Fight() {
 
     hpSnapshotRef.current.push({ t: now, hp: currentPct });
     hpSnapshotRef.current = hpSnapshotRef.current.filter(
-      (e) => now - e.t <= 6_000,
+      (e) => now - e.t <= 3_000,
     );
 
-    const fiveSecsAgo = now - 3_000;
-    const past = hpSnapshotRef.current.filter((e) => e.t <= fiveSecsAgo);
+    const lookbackTime = now - 1_500;
+    const past = hpSnapshotRef.current.filter((e) => e.t <= lookbackTime);
     if (past.length > 0) {
       setHpFiveSecAgoPercent(past[past.length - 1].hp);
     }
@@ -723,7 +723,7 @@ export function Fight() {
           / {formatCombatNumber(combat.enemy.maxHp)}
         </div>
         <div className="ui-fight-enemy-hp-shell">
-          {/* 5-second damage trail — white bar behind the red HP bar */}
+          {/* 1.5-second damage trail — white bar behind the red HP bar */}
           <div
             style={{
               position: "absolute",

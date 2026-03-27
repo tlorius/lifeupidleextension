@@ -18,6 +18,7 @@ export function createDefaultState(): GameState {
       gold: 0,
       gems: 100,
       energy: 100,
+      ruby: 0,
     },
     inventory: [],
     equipment: {

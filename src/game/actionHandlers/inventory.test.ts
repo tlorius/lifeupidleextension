@@ -66,4 +66,57 @@ describe("inventory action handler", () => {
 
     expect(first).toEqual(second);
   });
+
+  it("buys shop items with ruby and deducts ruby balance", () => {
+    const state = createDefaultState();
+    state.resources.ruby = 25;
+
+    const next = reduceInventoryAction(state, {
+      type: "inventory/buyShopItem",
+      itemId: "gorelord_cleaver",
+      currency: "ruby",
+      costPerItem: 10,
+      quantity: 2,
+    });
+
+    expect(next.resources.ruby).toBe(5);
+    expect(
+      next.inventory.filter((entry) => entry.itemId === "gorelord_cleaver")
+        .length,
+    ).toBe(2);
+  });
+
+  it("does not buy shop items when ruby is insufficient", () => {
+    const state = createDefaultState();
+    state.resources.ruby = 9;
+
+    const next = reduceInventoryAction(state, {
+      type: "inventory/buyShopItem",
+      itemId: "gorelord_cleaver",
+      currency: "ruby",
+      costPerItem: 10,
+      quantity: 1,
+    });
+
+    expect(next).toBe(state);
+  });
+
+  it("buys shop items with gems and deducts gem balance", () => {
+    const state = createDefaultState();
+    state.resources.gems = 20;
+
+    const next = reduceInventoryAction(state, {
+      type: "inventory/buyShopItem",
+      itemId: "starlime_seed_rare",
+      currency: "gems",
+      costPerItem: 4,
+      quantity: 3,
+    });
+
+    expect(next.resources.gems).toBe(8);
+    expect(
+      next.inventory.filter((entry) => entry.itemId === "starlime_seed_rare")
+        .length,
+    ).toBe(3);
+  });
 });

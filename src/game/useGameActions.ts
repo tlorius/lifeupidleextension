@@ -36,6 +36,19 @@ export function useGameActions() {
       dispatch({ type: "inventory/usePotion", itemUid }),
     sellSelectedItems: (itemUids: string[]) =>
       dispatch({ type: "inventory/sellSelectedItems", itemUids }),
+    buyShopItem: (
+      itemId: string,
+      currency: "gold" | "gems" | "ruby",
+      costPerItem: number,
+      quantity: number = 1,
+    ) =>
+      dispatch({
+        type: "inventory/buyShopItem",
+        itemId,
+        currency,
+        costPerItem,
+        quantity,
+      }),
 
     addDebugItems: () => dispatch({ type: "inventory/addDebugItems" }),
     buyUpgrade: (upgradeId: string) =>

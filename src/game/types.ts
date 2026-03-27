@@ -9,6 +9,7 @@ export interface Resources {
   gold: number;
   energy?: number;
   gems?: number;
+  ruby?: number;
 }
 
 export type rarity = "common" | "rare" | "epic" | "legendary" | "unique";

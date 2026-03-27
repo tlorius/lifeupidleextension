@@ -30,9 +30,15 @@ interface ItemDetailProps {
   item: ItemInstance;
   onClose: () => void;
   onPotionUsed?: (payload: PotionToastPayload) => void;
+  readOnly?: boolean;
 }
 
-export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
+export function ItemDetail({
+  item,
+  onClose,
+  onPotionUsed,
+  readOnly = false,
+}: ItemDetailProps) {
   const { state } = useGame();
   const { equipItem, sellItem, upgradeItem, usePotion } = useGameActions();
   const [accessoryTargetSlot, setAccessoryTargetSlot] = useState<
@@ -458,6 +464,12 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
         <div className="ui-detail-section">
           <h3 className="ui-detail-title">Actions</h3>
 
+          {readOnly && (
+            <div className="ui-effect-card" style={{ marginBottom: 8 }}>
+              Preview mode: actions are disabled in shop item inspection.
+            </div>
+          )}
+
           {isPotion && (
             <div className="ui-effect-card">
               {def.id === "health_potion" && "Use: Restore 50 mana."}
@@ -484,7 +496,9 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
             <button
               className="btn-primary ui-full-width-btn ui-touch-target"
               style={{ marginBottom: 8 }}
+              disabled={readOnly}
               onClick={() => {
+                if (readOnly) return;
                 const projectedState = reduceGameAction(state, {
                   type: "inventory/usePotion",
                   itemUid: item.uid,
@@ -499,7 +513,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 onClose();
               }}
             >
-              Use Potion
+              {readOnly ? "Use Potion (Preview)" : "Use Potion"}
             </button>
           )}
 
@@ -550,11 +564,15 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 </div>
                 <button
                   className="btn-primary ui-full-width-btn ui-touch-target"
+                  disabled={readOnly}
                   onClick={() => {
+                    if (readOnly) return;
                     equipItem(item.uid, accessoryTargetSlot);
                   }}
                 >
-                  Equip in {slotLabel[accessoryTargetSlot]}
+                  {readOnly
+                    ? `Equip in ${slotLabel[accessoryTargetSlot]} (Preview)`
+                    : `Equip in ${slotLabel[accessoryTargetSlot]}`}
                 </button>
               </div>
             ) : (
@@ -563,17 +581,23 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 style={{
                   marginBottom: 8,
                   cursor:
-                    !equipped && isEquipableType ? "pointer" : "not-allowed",
+                    !readOnly && !equipped && isEquipableType
+                      ? "pointer"
+                      : "not-allowed",
                   opacity: !equipped && isEquipableType ? 1 : 0.6,
                 }}
                 onClick={() => {
-                  if (!equipped && isEquipableType) {
+                  if (!readOnly && !equipped && isEquipableType) {
                     equipItem(item.uid);
                   }
                 }}
-                disabled={equipped || !isEquipableType}
+                disabled={readOnly || equipped || !isEquipableType}
               >
-                {equipped ? "Already Equipped" : "Equip"}
+                {readOnly
+                  ? "Equip (Preview)"
+                  : equipped
+                    ? "Already Equipped"
+                    : "Equip"}
               </button>
             ))}
 
@@ -582,30 +606,36 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
             className={`${canAffordUpgrade ? "btn-primary" : ""} ui-full-width-btn ui-touch-target`}
             style={{
               marginBottom: 8,
-              cursor: canAffordUpgrade ? "pointer" : "not-allowed",
+              cursor: !readOnly && canAffordUpgrade ? "pointer" : "not-allowed",
               opacity: canUpgradeItem ? 1 : 0.65,
             }}
             onClick={() => {
-              if (canAffordUpgrade) {
+              if (!readOnly && canAffordUpgrade) {
                 upgradeItem(item.uid);
               }
             }}
-            disabled={!canAffordUpgrade}
+            disabled={readOnly || !canAffordUpgrade}
           >
-            {canUpgradeItem
-              ? `Upgrade (${formatCompactNumber(upgradeCost)}💎)`
-              : "Potions cannot be upgraded"}
+            {readOnly
+              ? "Upgrade (Preview)"
+              : canUpgradeItem
+                ? `Upgrade (${formatCompactNumber(upgradeCost)}💎)`
+                : "Potions cannot be upgraded"}
           </button>
 
           {/* Sell Button */}
           <button
             className="btn-danger ui-full-width-btn ui-touch-target"
+            disabled={readOnly}
             onClick={() => {
+              if (readOnly) return;
               sellItem(item.uid);
               onClose();
             }}
           >
-            Sell ({formatCompactNumber(def.sellPrice || 0)}🪙)
+            {readOnly
+              ? "Sell (Preview)"
+              : `Sell (${formatCompactNumber(def.sellPrice || 0)}🪙)`}
           </button>
         </div>
 

@@ -1,4 +1,5 @@
 import {
+  addItem,
   equipItem,
   isItemEquipped,
   sellItem,
@@ -18,7 +19,14 @@ export type InventoryAction =
   | { type: "inventory/sellItem"; itemUid: string }
   | { type: "inventory/usePotion"; itemUid: string }
   | { type: "inventory/sellSelectedItems"; itemUids: string[] }
-  | { type: "inventory/addDebugItems" };
+  | { type: "inventory/addDebugItems" }
+  | {
+      type: "inventory/buyShopItem";
+      itemId: string;
+      quantity?: number;
+      currency: "gold" | "gems" | "ruby";
+      costPerItem: number;
+    };
 
 type InventoryEquipItemAction = Extract<
   InventoryAction,
@@ -69,6 +77,59 @@ function applyAddDebugItemsAction(state: GameState): GameState {
   return addDebugItems(state);
 }
 
+function applyBuyShopItemAction(
+  state: GameState,
+  action: Extract<InventoryAction, { type: "inventory/buyShopItem" }>,
+): GameState {
+  const itemDef = getItemDefSafe(action.itemId);
+  if (!itemDef) return state;
+
+  const quantity = Math.max(1, Math.floor(action.quantity ?? 1));
+  const costPerItem = Math.max(0, Math.floor(action.costPerItem));
+  const totalCost = quantity * costPerItem;
+  const currencyAmount =
+    action.currency === "gold"
+      ? state.resources.gold
+      : action.currency === "gems"
+        ? (state.resources.gems ?? 0)
+        : (state.resources.ruby ?? 0);
+
+  if (currencyAmount < totalCost) return state;
+
+  let next = state;
+  for (let index = 0; index < quantity; index += 1) {
+    next = addItem(next, action.itemId);
+  }
+
+  if (action.currency === "gold") {
+    return {
+      ...next,
+      resources: {
+        ...next.resources,
+        gold: next.resources.gold - totalCost,
+      },
+    };
+  }
+
+  if (action.currency === "gems") {
+    return {
+      ...next,
+      resources: {
+        ...next.resources,
+        gems: (next.resources.gems ?? 0) - totalCost,
+      },
+    };
+  }
+
+  return {
+    ...next,
+    resources: {
+      ...next.resources,
+      ruby: (next.resources.ruby ?? 0) - totalCost,
+    },
+  };
+}
+
 export function reduceInventoryAction(
   state: GameState,
   action: InventoryAction,
@@ -91,6 +152,9 @@ export function reduceInventoryAction(
 
     case "inventory/addDebugItems":
       return applyAddDebugItemsAction(state);
+
+    case "inventory/buyShopItem":
+      return applyBuyShopItemAction(state, action);
   }
 }
 

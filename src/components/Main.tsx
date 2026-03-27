@@ -1,6 +1,11 @@
 import { useGameActions } from "../game/useGameActions";
 
-export function Main() {
+interface MainProps {
+  isDebugShopEnabled: boolean;
+  onDebugShopToggle: (enabled: boolean) => void;
+}
+
+export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
   const {
     addDebugItems,
     addEnergy,
@@ -109,6 +114,23 @@ export function Main() {
       >
         Add Items to debug
       </button>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+          fontSize: 14,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={isDebugShopEnabled}
+          onChange={(event) => onDebugShopToggle(event.target.checked)}
+        />
+        Enable debug shop tab section
+      </label>
 
       <button
         className="btn-danger"

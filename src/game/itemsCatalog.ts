@@ -1061,6 +1061,20 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     rarity: "rare",
     sellPrice: 15,
   },
+  starlime_seed_rare: {
+    id: "starlime_seed_rare",
+    name: "Starlime Seed",
+    type: "seed",
+    rarity: "rare",
+    sellPrice: 24,
+  },
+  coralfern_seed_rare: {
+    id: "coralfern_seed_rare",
+    name: "Coralfern Seed",
+    type: "seed",
+    rarity: "rare",
+    sellPrice: 24,
+  },
   cabbage_seed_rare: {
     id: "cabbage_seed_rare",
     name: "Cabbage Seed",
@@ -1112,6 +1126,20 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { intelligence: 1 },
     sellPrice: 40,
   },
+  moonpalm_seed_epic: {
+    id: "moonpalm_seed_epic",
+    name: "Moonpalm Seed",
+    type: "seed",
+    rarity: "epic",
+    sellPrice: 95,
+  },
+  dragonfruit_seed_epic: {
+    id: "dragonfruit_seed_epic",
+    name: "Dragonfruit Seed",
+    type: "seed",
+    rarity: "epic",
+    sellPrice: 95,
+  },
   // Seeds - Legendary
   yggdrasil_seed: {
     id: "yggdrasil_seed",
@@ -1120,6 +1148,20 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     rarity: "legendary",
     stats: { attack: 5, defense: 5 },
     sellPrice: 200,
+  },
+  aurora_orchid_seed_legendary: {
+    id: "aurora_orchid_seed_legendary",
+    name: "Aurora Orchid Seed",
+    type: "seed",
+    rarity: "legendary",
+    sellPrice: 240,
+  },
+  lava_blossom_seed_legendary: {
+    id: "lava_blossom_seed_legendary",
+    name: "Lava Blossom Seed",
+    type: "seed",
+    rarity: "legendary",
+    sellPrice: 240,
   },
 
   // Pets - Common

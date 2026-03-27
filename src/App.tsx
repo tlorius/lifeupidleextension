@@ -29,6 +29,7 @@ const Fight = lazy(() =>
     default: module.Fight,
   })),
 );
+const Shop = lazy(() => import("./components/Shop"));
 
 type Screen =
   | "main"
@@ -36,10 +37,12 @@ type Screen =
   | "character"
   | "upgrades"
   | "garden"
-  | "fight";
+  | "fight"
+  | "shop";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("main");
+  const [isDebugShopEnabled, setIsDebugShopEnabled] = useState(false);
 
   return (
     <div style={{ padding: 16 }}>
@@ -106,6 +109,13 @@ function App() {
           >
             Fight
           </button>
+          <button
+            className={screen === "shop" ? "btn-selected" : ""}
+            style={{ flex: "1 1 auto" }}
+            onClick={() => setScreen("shop")}
+          >
+            Shop
+          </button>
         </div>
       </div>
 
@@ -134,7 +144,17 @@ function App() {
           <Fight />
         </Suspense>
       )}
-      {screen === "main" && <Main />}
+      {screen === "shop" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Shop isDebugShopEnabled={isDebugShopEnabled} />
+        </Suspense>
+      )}
+      {screen === "main" && (
+        <Main
+          isDebugShopEnabled={isDebugShopEnabled}
+          onDebugShopToggle={setIsDebugShopEnabled}
+        />
+      )}
 
       <IdleEarningsModal />
       <TokenRewardModal />
