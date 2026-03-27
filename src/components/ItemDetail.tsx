@@ -40,7 +40,8 @@ export function ItemDetail({
   readOnly = false,
 }: ItemDetailProps) {
   const { state } = useGame();
-  const { equipItem, sellItem, upgradeItem, usePotion } = useGameActions();
+  const { equipItem, sellItem, upgradeItem, upgradeItemMax, usePotion } =
+    useGameActions();
   const [accessoryTargetSlot, setAccessoryTargetSlot] = useState<
     "accessory1" | "accessory2"
   >("accessory1");
@@ -601,27 +602,58 @@ export function ItemDetail({
               </button>
             ))}
 
-          {/* Upgrade Button */}
-          <button
-            className={`${canAffordUpgrade ? "btn-primary" : ""} ui-full-width-btn ui-touch-target`}
-            style={{
-              marginBottom: 8,
-              cursor: !readOnly && canAffordUpgrade ? "pointer" : "not-allowed",
-              opacity: canUpgradeItem ? 1 : 0.65,
-            }}
-            onClick={() => {
-              if (!readOnly && canAffordUpgrade) {
-                upgradeItem(item.uid);
-              }
-            }}
-            disabled={readOnly || !canAffordUpgrade}
-          >
-            {readOnly
-              ? "Upgrade (Preview)"
-              : canUpgradeItem
-                ? `Upgrade (${formatCompactNumber(upgradeCost)}💎)`
-                : "Potions cannot be upgraded"}
-          </button>
+          {/* Upgrade Buttons */}
+          <div className="ui-detail-option-row" style={{ marginBottom: 8 }}>
+            <button
+              className={`${canAffordUpgrade ? "btn-primary" : ""} ui-full-width-btn ui-touch-target`}
+              style={{
+                marginBottom: 0,
+                cursor:
+                  !readOnly && canAffordUpgrade ? "pointer" : "not-allowed",
+                opacity: canUpgradeItem ? 1 : 0.65,
+                flex: 1,
+              }}
+              onClick={() => {
+                if (!readOnly && canAffordUpgrade) {
+                  upgradeItem(item.uid);
+                }
+              }}
+              disabled={readOnly || !canAffordUpgrade}
+            >
+              {readOnly
+                ? "Upgrade (Preview)"
+                : canUpgradeItem
+                  ? `Upgrade (${formatCompactNumber(upgradeCost)}💎)`
+                  : "Potions cannot be upgraded"}
+            </button>
+
+            {canUpgradeItem ? (
+              <button
+                className="ui-touch-target"
+                style={{
+                  minWidth: 110,
+                  fontSize: 12,
+                  padding: "8px 10px",
+                  cursor:
+                    !readOnly && canAffordUpgrade ? "pointer" : "not-allowed",
+                  opacity: canAffordUpgrade ? 1 : 0.6,
+                }}
+                onClick={() => {
+                  if (!readOnly && canAffordUpgrade) {
+                    upgradeItemMax(item.uid);
+                  }
+                }}
+                disabled={readOnly || !canAffordUpgrade}
+                title={
+                  readOnly
+                    ? "Upgrade max (Preview)"
+                    : "Upgrade until you run out of gems"
+                }
+              >
+                {readOnly ? "Max (Preview)" : "Upgrade Max"}
+              </button>
+            ) : null}
+          </div>
 
           {/* Sell Button */}
           <button

@@ -160,6 +160,7 @@ export function applyGameAction(
 
     case "inventory/equipItem":
     case "inventory/upgradeItem":
+    case "inventory/upgradeItemMax":
     case "inventory/sellItem":
     case "inventory/usePotion":
     case "inventory/sellSelectedItems":

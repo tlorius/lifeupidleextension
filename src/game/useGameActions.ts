@@ -30,6 +30,8 @@ export function useGameActions() {
       dispatch({ type: "inventory/equipItem", itemUid, slot }),
     upgradeItem: (itemUid: string) =>
       dispatch({ type: "inventory/upgradeItem", itemUid }),
+    upgradeItemMax: (itemUid: string) =>
+      dispatch({ type: "inventory/upgradeItemMax", itemUid }),
     sellItem: (itemUid: string) =>
       dispatch({ type: "inventory/sellItem", itemUid }),
     usePotion: (itemUid: string) =>

@@ -4,6 +4,7 @@ import {
   isItemEquipped,
   sellItem,
   upgradeItem,
+  upgradeItemMax,
   usePotion,
 } from "../engine";
 import { addDebugItems, getItemDefSafe } from "../items";
@@ -16,6 +17,7 @@ export type InventoryAction =
       slot?: "accessory1" | "accessory2";
     }
   | { type: "inventory/upgradeItem"; itemUid: string }
+  | { type: "inventory/upgradeItemMax"; itemUid: string }
   | { type: "inventory/sellItem"; itemUid: string }
   | { type: "inventory/usePotion"; itemUid: string }
   | { type: "inventory/sellSelectedItems"; itemUids: string[] }
@@ -35,6 +37,10 @@ type InventoryEquipItemAction = Extract<
 type InventoryUpgradeItemAction = Extract<
   InventoryAction,
   { type: "inventory/upgradeItem" }
+>;
+type InventoryUpgradeItemMaxAction = Extract<
+  InventoryAction,
+  { type: "inventory/upgradeItemMax" }
 >;
 type InventorySellItemAction = Extract<
   InventoryAction,
@@ -57,6 +63,13 @@ function applyUpgradeItemAction(
   action: InventoryUpgradeItemAction,
 ): GameState {
   return upgradeItem(state, action.itemUid);
+}
+
+function applyUpgradeItemMaxAction(
+  state: GameState,
+  action: InventoryUpgradeItemMaxAction,
+): GameState {
+  return upgradeItemMax(state, action.itemUid);
 }
 
 function applySellItemAction(
@@ -140,6 +153,9 @@ export function reduceInventoryAction(
 
     case "inventory/upgradeItem":
       return applyUpgradeItemAction(state, action);
+
+    case "inventory/upgradeItemMax":
+      return applyUpgradeItemMaxAction(state, action);
 
     case "inventory/sellItem":
       return applySellItemAction(state, action);

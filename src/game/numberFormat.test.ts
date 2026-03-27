@@ -32,6 +32,10 @@ describe("formatCombatNumber", () => {
     expect(formatCombatNumber(1000000)).toBe("1'000'000");
   });
 
+  it("formats billions without compacting away digits", () => {
+    expect(formatCombatNumber(1000000000)).toBe("1'000'000'000");
+  });
+
   it("rounds to nearest integer before formatting", () => {
     expect(formatCombatNumber(1000.7)).toBe("1'001");
   });

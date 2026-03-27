@@ -189,6 +189,30 @@ describe("actions reducer", () => {
     expect(upgraded?.level).toBe((item?.level ?? 1) + 1);
   });
 
+  it("max-upgrades an item through reducer action", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const item = seeded.inventory.find((entry) => entry.itemId === "sword_1");
+    expect(item).toBeTruthy();
+    const richState = {
+      ...seeded,
+      resources: {
+        ...seeded.resources,
+        gems: 40,
+      },
+    };
+
+    const next = reduceGameAction(richState, {
+      type: "inventory/upgradeItemMax",
+      itemUid: item!.uid,
+    });
+    const upgraded = next.inventory.find((entry) => entry.uid === item!.uid);
+
+    expect(upgraded?.level).toBeGreaterThan((item?.level ?? 1) + 1);
+    expect(next.resources.gems ?? 0).toBeLessThan(40);
+  });
+
   it("sells one item through reducer action", () => {
     const seeded = reduceGameAction(createDefaultState(), {
       type: "inventory/addDebugItems",

@@ -506,6 +506,49 @@ export function upgradeItem(state: GameState, itemUid: string): GameState {
 }
 
 /**
+ * Upgrade an item as many times as possible with the current gem balance.
+ * Returns the same state if no upgrade can be purchased.
+ */
+export function upgradeItemMax(state: GameState, itemUid: string): GameState {
+  const itemIndex = state.inventory.findIndex((i) => i.uid === itemUid);
+  if (itemIndex === -1) return state;
+
+  const item = state.inventory[itemIndex];
+  const def = getItemDefSafe(item.itemId);
+  if (!def) return state;
+  if (def.type === "potion") return state;
+
+  let remainingGems = state.resources.gems ?? 0;
+  let nextLevel = item.level;
+  let upgraded = false;
+
+  while (true) {
+    const cost = calculateUpgradeCost(nextLevel, def.rarity);
+    if (remainingGems < cost) break;
+    remainingGems -= cost;
+    nextLevel += 1;
+    upgraded = true;
+  }
+
+  if (!upgraded) return state;
+
+  const newInventory = [...state.inventory];
+  newInventory[itemIndex] = {
+    ...item,
+    level: nextLevel,
+  };
+
+  return {
+    ...state,
+    inventory: newInventory,
+    resources: {
+      ...state.resources,
+      gems: remainingGems,
+    },
+  };
+}
+
+/**
  * Calculate stats contribution from base stats
  */
 export function getBaseStats(state: GameState): Partial<Stats> {

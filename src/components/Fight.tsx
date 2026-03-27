@@ -44,6 +44,74 @@ interface CombatToast {
   isRubyDrop?: boolean;
 }
 
+interface DamageFontBracket {
+  minDamage: number;
+  desktopSize: number;
+  mobileSize: number;
+}
+
+const PLAYER_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
+  { minDamage: 0, desktopSize: 16, mobileSize: 13 },
+  { minDamage: 1_000, desktopSize: 18, mobileSize: 14 },
+  { minDamage: 100_000, desktopSize: 20, mobileSize: 17 },
+  { minDamage: 1_000_000, desktopSize: 24, mobileSize: 20 },
+  { minDamage: 100_000_000, desktopSize: 30, mobileSize: 24 },
+  { minDamage: 1_000_000_000, desktopSize: 36, mobileSize: 29 },
+];
+
+const ENEMY_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
+  { minDamage: 0, desktopSize: 14, mobileSize: 12 },
+  { minDamage: 1_000, desktopSize: 16, mobileSize: 13 },
+  { minDamage: 100_000, desktopSize: 19, mobileSize: 16 },
+  { minDamage: 1_000_000, desktopSize: 23, mobileSize: 19 },
+  { minDamage: 100_000_000, desktopSize: 28, mobileSize: 23 },
+  { minDamage: 1_000_000_000, desktopSize: 33, mobileSize: 27 },
+];
+
+function getDamageFontSize(
+  damage: number,
+  isMobileViewport: boolean,
+  isCrit: boolean,
+  brackets: DamageFontBracket[],
+): number {
+  const safeDamage = Math.max(0, damage);
+  let selected = brackets[0];
+
+  for (const bracket of brackets) {
+    if (safeDamage >= bracket.minDamage) {
+      selected = bracket;
+    }
+  }
+
+  const baseSize = isMobileViewport
+    ? selected.mobileSize
+    : selected.desktopSize;
+  return isCrit ? Math.round(baseSize * 1.18) : baseSize;
+}
+
+function getDamagePopupLeftPercent(
+  target: "enemy" | "player",
+  text: string,
+  fontSize: number,
+): number {
+  // Keep long values away from clipping near edges while preserving side identity.
+  const baseRange =
+    target === "enemy" ? { min: 64, max: 84 } : { min: 16, max: 36 };
+  const extraPadding = Math.min(
+    12,
+    Math.max(0, text.length - 7) * 1.15 + Math.max(0, fontSize - 22) * 0.2,
+  );
+
+  const min = target === "enemy" ? baseRange.min : baseRange.min + extraPadding;
+  const max = target === "enemy" ? baseRange.max - extraPadding : baseRange.max;
+
+  if (max <= min) {
+    return (baseRange.min + baseRange.max) / 2;
+  }
+
+  return min + Math.random() * (max - min);
+}
+
 export function Fight() {
   const { state, combatEvents } = useGame();
   const { combatCastSpell, combatClickAttack, combatUseConsumable } =
@@ -349,32 +417,40 @@ export function Fight() {
       )
       .map((event, index) => {
         const isMobileViewport = window.innerWidth <= 768;
+        const damageText = formatCombatNumber(event.value ?? 0);
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
           const isPetHit = event.attackSource === "pet";
+          const fontSize = getDamageFontSize(
+            event.value ?? 0,
+            isMobileViewport,
+            isCrit,
+            PLAYER_DAMAGE_FONT_BRACKETS,
+          );
           return {
             id: `${now}-p-${index}`,
-            text: formatCombatNumber(event.value ?? 0),
+            text: damageText,
             color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
-            fontSize: isCrit
-              ? isMobileViewport
-                ? 38
-                : 48
-              : isMobileViewport
-                ? 17
-                : 20,
+            fontSize,
             top: 24 + Math.random() * 42,
-            left: 70 + Math.random() * 20,
+            left: getDamagePopupLeftPercent("enemy", damageText, fontSize),
           } as FloatingDamage;
         }
 
+        const fontSize = getDamageFontSize(
+          event.value ?? 0,
+          isMobileViewport,
+          false,
+          ENEMY_DAMAGE_FONT_BRACKETS,
+        );
+
         return {
           id: `${now}-e-${index}`,
-          text: formatCombatNumber(event.value ?? 0),
+          text: damageText,
           color: "#f45a5a",
-          fontSize: 24,
+          fontSize,
           top: 26 + Math.random() * 42,
-          left: 10 + Math.random() * 20,
+          left: getDamagePopupLeftPercent("player", damageText, fontSize),
         } as FloatingDamage;
       });
 
