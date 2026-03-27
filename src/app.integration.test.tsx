@@ -344,6 +344,49 @@ describe("app integration", () => {
     });
   });
 
+  it("allows redeeming the same valid token on separate app loads", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    window.history.replaceState({}, "", "/?token=starter-pack");
+    const firstRender = renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", {
+          name: "Congrats! You have earned items",
+        }),
+      ).toBeTruthy();
+    });
+    expect(window.location.search).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", {
+          name: "Congrats! You have earned items",
+        }),
+      ).toBeNull();
+    });
+
+    firstRender.unmount();
+
+    window.history.replaceState({}, "", "/?token=starter-pack");
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", {
+          name: "Congrats! You have earned items",
+        }),
+      ).toBeTruthy();
+    });
+    expect(window.location.search).toBe("");
+  });
+
   it("hides spell management controls when spell system is locked", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();

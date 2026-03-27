@@ -13,11 +13,9 @@ import {
 import {
   extractRewardToken,
   type GrantedTokenRewardItem,
-  loadProcessedTokens,
   normalizeTokenRewards,
   removeRewardTokenFromUrl,
   resolveTokenRewards,
-  saveProcessedTokens,
   toGrantedTokenRewards,
 } from "./tokenRewards";
 import { applyGameAction, type GameAction } from "./actions";
@@ -238,18 +236,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const token = pendingRewardToken;
     if (!token) return;
     if (idleEarningsModalItems.length > 0) return;
-
-    const processedTokens = loadProcessedTokens(localStorage);
-    if (processedTokens.has(token)) {
-      const nextSearch = removeRewardTokenFromUrl(window.location.search);
-      const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
-      window.history.replaceState({}, "", nextUrl);
-      setPendingRewardToken(null);
-      return;
-    }
-
-    processedTokens.add(token);
-    saveProcessedTokens(localStorage, processedTokens);
 
     void resolveTokenRewards(token)
       .then((rewards) => {

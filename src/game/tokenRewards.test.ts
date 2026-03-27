@@ -3,41 +3,11 @@ import { defaultState } from "./state";
 import {
   applyTokenRewards,
   extractRewardToken,
-  loadProcessedTokens,
   normalizeTokenRewards,
   resolveTokenRewards,
   removeRewardTokenFromUrl,
-  saveProcessedTokens,
   toGrantedTokenRewards,
 } from "./tokenRewards";
-
-class InMemoryStorage implements Storage {
-  private store = new Map<string, string>();
-
-  get length(): number {
-    return this.store.size;
-  }
-
-  clear(): void {
-    this.store.clear();
-  }
-
-  getItem(key: string): string | null {
-    return this.store.get(key) ?? null;
-  }
-
-  key(index: number): string | null {
-    return Array.from(this.store.keys())[index] ?? null;
-  }
-
-  removeItem(key: string): void {
-    this.store.delete(key);
-  }
-
-  setItem(key: string, value: string): void {
-    this.store.set(key, value);
-  }
-}
 
 describe("tokenRewards", () => {
   it("extracts token from supported query parameters", () => {
@@ -49,15 +19,6 @@ describe("tokenRewards", () => {
   it("removes reward token params but preserves other params", () => {
     expect(removeRewardTokenFromUrl("?token=abc&foo=bar")).toBe("?foo=bar");
     expect(removeRewardTokenFromUrl("?rewardToken=abc")).toBe("");
-  });
-
-  it("loads and saves processed tokens", () => {
-    const storage = new InMemoryStorage();
-    const tokens = new Set<string>(["one", "two"]);
-
-    saveProcessedTokens(storage, tokens);
-
-    expect(loadProcessedTokens(storage)).toEqual(tokens);
   });
 
   it("applies only valid reward items and enforces quantity minimum", () => {
