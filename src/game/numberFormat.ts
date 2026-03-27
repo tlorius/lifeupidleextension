@@ -120,3 +120,13 @@ export function formatCompactNumber(
 
   return `${formatFixedDecimals(rounded, decimals)}${units[unitIndex].suffix}`;
 }
+
+/**
+ * Formats an integer with apostrophe thousands separators for combat damage display.
+ * Examples: 1000 → "1'000", 1234567 → "1'234'567", 999 → "999"
+ */
+export function formatCombatNumber(value: number): string {
+  return Math.round(value)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+}

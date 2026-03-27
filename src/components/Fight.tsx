@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getCombatSpellDefinition } from "../game/combat";
 import { getItemDefSafe } from "../game/items";
 import { useGame } from "../game/GameContext";
@@ -14,7 +14,7 @@ import {
   type DamagePoint,
 } from "../game/selectors/fight";
 import { useGameActions } from "../game/useGameActions";
-import { formatCompactNumber } from "../game/numberFormat";
+import { formatCompactNumber, formatCombatNumber } from "../game/numberFormat";
 import { SpellSelectModal } from "./SpellSelectModal";
 import {
   FightConsumableModal,
@@ -84,6 +84,20 @@ export function Fight() {
     manaRegenPerSecond,
     checkpointLevel,
   } = useMemo(() => selectFightView(state), [state]);
+
+  // Visual HP tracked per-attack for smooth bar movement
+  const visualEnemyHpRef = useRef(combat.enemy.currentHp);
+  const [visualEnemyHpPercent, setVisualEnemyHpPercent] = useState(
+    () => enemyHpPercent,
+  );
+  // Snapshot history for the 3-second damage trail bar
+  const hpSnapshotRef = useRef<Array<{ t: number; hp: number }>>([]);
+  const [hpFiveSecAgoPercent, setHpFiveSecAgoPercent] = useState(
+    () => enemyHpPercent,
+  );
+  // Track previous enemyHpPercent to detect new enemy spawns
+  const prevEnemyHpPercentRef = useRef(enemyHpPercent);
+
   const enemySprite =
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
@@ -121,6 +135,71 @@ export function Fight() {
       prev.filter((entry) => clockNow - entry.timestamp <= 300_000),
     );
   }, [clockNow]);
+
+  // Snap visual HP to actual state whenever HP jumps up (new enemy spawned)
+  useEffect(() => {
+    if (enemyHpPercent > prevEnemyHpPercentRef.current + 20) {
+      visualEnemyHpRef.current = combat.enemy.currentHp;
+      setVisualEnemyHpPercent(enemyHpPercent);
+      setHpFiveSecAgoPercent(enemyHpPercent);
+      hpSnapshotRef.current = [];
+    }
+    prevEnemyHpPercentRef.current = enemyHpPercent;
+  }, [enemyHpPercent, combat.enemy.currentHp]);
+
+  // Stagger visual HP decrements in sync with attack popups
+  useEffect(() => {
+    if (combatEvents.length === 0) return;
+    const hits = combatEvents.filter((e) => e.type === "playerHit");
+    if (hits.length === 0) return;
+
+    const maxHp = Math.max(1, combat.enemy.maxHp);
+    const intervalMs = Math.max(
+      70,
+      Math.round(1000 / Math.max(1, attacksPerSecond)),
+    );
+    const timers: number[] = [];
+
+    hits.forEach((hit, idx) => {
+      timers.push(
+        window.setTimeout(() => {
+          visualEnemyHpRef.current = Math.max(
+            0,
+            visualEnemyHpRef.current - (hit.value ?? 0),
+          );
+          setVisualEnemyHpPercent(
+            Math.max(
+              0,
+              Math.min(100, (visualEnemyHpRef.current / maxHp) * 100),
+            ),
+          );
+        }, idx * intervalMs),
+      );
+    });
+
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [combatEvents, attacksPerSecond, combat.enemy.maxHp]);
+
+  // Sample visual HP every second to power the 5-second damage trail
+  useEffect(() => {
+    const now = clockNow;
+    const maxHp = Math.max(1, combat.enemy.maxHp);
+    const currentPct = Math.max(
+      0,
+      Math.min(100, (visualEnemyHpRef.current / maxHp) * 100),
+    );
+
+    hpSnapshotRef.current.push({ t: now, hp: currentPct });
+    hpSnapshotRef.current = hpSnapshotRef.current.filter(
+      (e) => now - e.t <= 6_000,
+    );
+
+    const fiveSecsAgo = now - 3_000;
+    const past = hpSnapshotRef.current.filter((e) => e.t <= fiveSecsAgo);
+    if (past.length > 0) {
+      setHpFiveSecAgoPercent(past[past.length - 1].hp);
+    }
+  }, [clockNow, combat.enemy.maxHp]);
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -283,7 +362,7 @@ export function Fight() {
           const isPetHit = event.attackSource === "pet";
           return {
             id: `${now}-p-${index}`,
-            text: `${Math.round(event.value ?? 0)}`,
+            text: formatCombatNumber(event.value ?? 0),
             color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
             fontSize: isCrit
               ? isMobileViewport
@@ -299,7 +378,7 @@ export function Fight() {
 
         return {
           id: `${now}-e-${index}`,
-          text: `${Math.round(event.value ?? 0)}`,
+          text: formatCombatNumber(event.value ?? 0),
           color: "#f45a5a",
           fontSize: 24,
           top: 26 + Math.random() * 42,
@@ -698,11 +777,15 @@ export function Fight() {
         </div>
 
         <div style={{ fontSize: 13, marginBottom: 6 }}>
-          HP: {Math.round(combat.enemy.currentHp)} /{" "}
-          {Math.round(combat.enemy.maxHp)}
+          HP:{" "}
+          {formatCombatNumber(
+            Math.round((visualEnemyHpPercent / 100) * combat.enemy.maxHp),
+          )}{" "}
+          / {formatCombatNumber(combat.enemy.maxHp)}
         </div>
         <div
           style={{
+            position: "relative",
             height: 10,
             borderRadius: 999,
             backgroundColor: "rgba(10, 15, 20, 0.62)",
@@ -711,9 +794,23 @@ export function Fight() {
             marginBottom: 14,
           }}
         >
+          {/* 5-second damage trail — white bar behind the red HP bar */}
           <div
             style={{
-              width: `${enemyHpPercent}%`,
+              position: "absolute",
+              left: 0,
+              width: `${hpFiveSecAgoPercent}%`,
+              height: "100%",
+              background: "rgba(255, 255, 255, 0.50)",
+              transition: "width 800ms ease-out",
+            }}
+          />
+          {/* Current HP bar */}
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              width: `${visualEnemyHpPercent}%`,
               height: "100%",
               background:
                 "linear-gradient(90deg, #b83838 0%, #e65e5e 64%, #ffc4c4 100%)",
