@@ -35,6 +35,7 @@ interface FloatingDamage {
   fontSize: number;
   top: number;
   left: number;
+  anchor: "left" | "right" | "center";
 }
 
 interface CombatToast {
@@ -48,6 +49,13 @@ interface DamageFontBracket {
   minDamage: number;
   desktopSize: number;
   mobileSize: number;
+}
+
+interface DamageTextFitConfig {
+  baseCharsDesktop: number;
+  baseCharsMobile: number;
+  scaleDropPerExtraChar: number;
+  minScale: number;
 }
 
 const PLAYER_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
@@ -67,6 +75,13 @@ const ENEMY_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
   { minDamage: 100_000_000, desktopSize: 28, mobileSize: 23 },
   { minDamage: 1_000_000_000, desktopSize: 33, mobileSize: 27 },
 ];
+
+const DAMAGE_TEXT_FIT_CONFIG: DamageTextFitConfig = {
+  baseCharsDesktop: 8,
+  baseCharsMobile: 7,
+  scaleDropPerExtraChar: 0.08,
+  minScale: 0.52,
+};
 
 function getDamageFontSize(
   damage: number,
@@ -89,27 +104,26 @@ function getDamageFontSize(
   return isCrit ? Math.round(baseSize * 1.18) : baseSize;
 }
 
-function getDamagePopupLeftPercent(
-  target: "enemy" | "player",
+function fitDamageTextSize(
+  baseFontSize: number,
   text: string,
-  fontSize: number,
+  isMobileViewport: boolean,
+  config: DamageTextFitConfig,
 ): number {
-  // Keep long values away from clipping near edges while preserving side identity.
-  const baseRange =
-    target === "enemy" ? { min: 64, max: 84 } : { min: 16, max: 36 };
-  const extraPadding = Math.min(
-    12,
-    Math.max(0, text.length - 7) * 1.15 + Math.max(0, fontSize - 22) * 0.2,
+  const baseChars = isMobileViewport
+    ? config.baseCharsMobile
+    : config.baseCharsDesktop;
+  const extraChars = Math.max(0, text.length - baseChars);
+  const scale = Math.max(
+    config.minScale,
+    1 - extraChars * config.scaleDropPerExtraChar,
   );
+  return Math.max(11, Math.round(baseFontSize * scale));
+}
 
-  const min = target === "enemy" ? baseRange.min : baseRange.min + extraPadding;
-  const max = target === "enemy" ? baseRange.max - extraPadding : baseRange.max;
-
-  if (max <= min) {
-    return (baseRange.min + baseRange.max) / 2;
-  }
-
-  return min + Math.random() * (max - min);
+function getDamagePopupLeftPercent(target: "enemy" | "player"): number {
+  // Side-anchored ranges keep long values fully visible within the arena.
+  return target === "enemy" ? 78 + Math.random() * 14 : 8 + Math.random() * 14;
 }
 
 export function Fight() {
@@ -421,11 +435,17 @@ export function Fight() {
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
           const isPetHit = event.attackSource === "pet";
-          const fontSize = getDamageFontSize(
+          const baseFontSize = getDamageFontSize(
             event.value ?? 0,
             isMobileViewport,
             isCrit,
             PLAYER_DAMAGE_FONT_BRACKETS,
+          );
+          const fontSize = fitDamageTextSize(
+            baseFontSize,
+            damageText,
+            isMobileViewport,
+            DAMAGE_TEXT_FIT_CONFIG,
           );
           return {
             id: `${now}-p-${index}`,
@@ -433,15 +453,22 @@ export function Fight() {
             color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
             fontSize,
             top: 24 + Math.random() * 42,
-            left: getDamagePopupLeftPercent("enemy", damageText, fontSize),
+            left: getDamagePopupLeftPercent("enemy"),
+            anchor: "right",
           } as FloatingDamage;
         }
 
-        const fontSize = getDamageFontSize(
+        const baseFontSize = getDamageFontSize(
           event.value ?? 0,
           isMobileViewport,
           false,
           ENEMY_DAMAGE_FONT_BRACKETS,
+        );
+        const fontSize = fitDamageTextSize(
+          baseFontSize,
+          damageText,
+          isMobileViewport,
+          DAMAGE_TEXT_FIT_CONFIG,
         );
 
         return {
@@ -450,7 +477,8 @@ export function Fight() {
           color: "#f45a5a",
           fontSize,
           top: 26 + Math.random() * 42,
-          left: getDamagePopupLeftPercent("player", damageText, fontSize),
+          left: getDamagePopupLeftPercent("player"),
+          anchor: "left",
         } as FloatingDamage;
       });
 
@@ -818,7 +846,11 @@ export function Fight() {
           />
         </div>
 
-        <button onClick={combatClickAttack} className="ui-fight-attack-btn">
+        <button
+          onClick={combatClickAttack}
+          className="ui-fight-attack-btn"
+          style={{ overflow: "visible" }}
+        >
           <div className="ui-fight-attack-top-labels">
             <span>Player</span>
             <span>Tap / Click To Strike</span>
@@ -880,12 +912,25 @@ export function Fight() {
                 position: "absolute",
                 top: `${entry.top}%`,
                 left: `${entry.left}%`,
-                transform: "translate(-50%, -50%)",
+                transform:
+                  entry.anchor === "right"
+                    ? "translate(-100%, -50%)"
+                    : entry.anchor === "left"
+                      ? "translate(0, -50%)"
+                      : "translate(-50%, -50%)",
                 color: entry.color,
                 fontSize: entry.fontSize,
                 fontWeight: 800,
                 textShadow: "0 2px 6px rgba(0,0,0,0.55)",
                 pointerEvents: "none",
+                whiteSpace: "nowrap",
+                overflow: "visible",
+                textAlign:
+                  entry.anchor === "right"
+                    ? "right"
+                    : entry.anchor === "left"
+                      ? "left"
+                      : "center",
                 animation: "fightFloatUp 650ms ease-out forwards",
               }}
             >
