@@ -104,6 +104,34 @@ describe("app integration", () => {
     });
   });
 
+  it("hides ruby resource chip before first level 50 kill", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.combat.currentLevel = 50;
+    seeded.combat.highestLevelReached = 50;
+    seeded.resources.ruby = 9;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    expect(screen.queryByTitle("Ruby")).toBeNull();
+  });
+
+  it("shows ruby resource chip after first level 50 kill", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.combat.currentLevel = 51;
+    seeded.combat.highestLevelReached = 51;
+    seeded.resources.ruby = 9;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    expect(screen.getByTitle("Ruby")).toBeTruthy();
+  });
+
   it("opens class and skill tree modals from character and spell modal from fight", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();

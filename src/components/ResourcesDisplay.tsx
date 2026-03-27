@@ -12,6 +12,7 @@ interface ResourcesDisplayProps {
 export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
   const { state } = useGame();
   const [showStats, setShowStats] = useState(false);
+  const hasRubyResourceUnlocked = state.combat.highestLevelReached > 50;
 
   const {
     total,
@@ -96,14 +97,16 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
           <span>{formatCompactNumber(state.resources.energy ?? 100)}</span>
         </div>
 
-        <div
-          className="ui-resource-chip"
-          style={resourceChipStyle}
-          title="Ruby"
-        >
-          <span>♦️</span>
-          <span>{formatCompactNumber(state.resources.ruby ?? 0)}</span>
-        </div>
+        {hasRubyResourceUnlocked ? (
+          <div
+            className="ui-resource-chip"
+            style={resourceChipStyle}
+            title="Ruby"
+          >
+            <span>♦️</span>
+            <span>{formatCompactNumber(state.resources.ruby ?? 0)}</span>
+          </div>
+        ) : null}
 
         <button
           style={{
