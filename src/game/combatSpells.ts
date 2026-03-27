@@ -1,4 +1,8 @@
-import { classDefinitions, type ClassId } from "./classes";
+import {
+  classDefinitions,
+  getActiveClassNodeRank,
+  type ClassId,
+} from "./classes";
 import type { GameState } from "./types";
 
 export interface CombatSpellDefinition {
@@ -75,6 +79,15 @@ const ALL_COMBAT_SPELL_DEFINITIONS: CombatSpellDefinition[] = [
   ...CLASS_COMBAT_SPELL_DEFINITIONS,
 ];
 
+const CLASS_SYNERGY_SPELL_REQUIREMENTS: Record<string, string> = {
+  berserker_blood_focus: "berserker_synergy",
+  sorceress_arcane_focus: "sorceress_synergy",
+  farmer_harvest_focus: "farmer_synergy",
+  archer_marks_focus: "archer_synergy",
+  idler_epoch_focus: "idler_synergy",
+  tamer_pack_focus: "tamer_synergy",
+};
+
 export function getCombatSpellDefinition(
   spellId: string,
 ): CombatSpellDefinition | null {
@@ -116,7 +129,12 @@ export function getAvailableCombatSpellsForState(
   if (!activeClassId) return general;
 
   const classSpells = getClassCombatSpellsForClass(activeClassId).filter(
-    (spell) => level >= spell.requiredLevel,
+    (spell) => {
+      if (level < spell.requiredLevel) return false;
+      const requiredNodeId = CLASS_SYNERGY_SPELL_REQUIREMENTS[spell.id];
+      if (!requiredNodeId) return true;
+      return getActiveClassNodeRank(state, requiredNodeId) > 0;
+    },
   );
   return [...general, ...classSpells];
 }

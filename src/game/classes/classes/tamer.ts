@@ -30,6 +30,14 @@ export const tamerClass: CharacterClassDefinition = {
       prerequisites: ["tamer_1"],
     },
     {
+      id: "tamer_synergy",
+      name: "Pack Focus",
+      description:
+        "Unlock Active Skill Pack Focus: your next Tamer spell deals 5x damage.",
+      maxRank: 1,
+      prerequisites: ["tamer_2"],
+    },
+    {
       id: "tamer_4",
       name: "Feral Training",
       description: "Crit Chance +1.4% per rank, Pet crit bonus.",
@@ -171,6 +179,15 @@ export const tamerClass: CharacterClassDefinition = {
     },
   ],
   classSpells: [
+    {
+      id: "tamer_pack_focus",
+      name: "Pack Focus",
+      description:
+        "Signal a perfect opening so your next Tamer spell surges with amplified pack synergy.",
+      manaCost: 22,
+      cooldownMs: 30000,
+      requiredLevel: 12,
+    },
     {
       id: "tamer_pack_howl",
       name: "Pack Howl",

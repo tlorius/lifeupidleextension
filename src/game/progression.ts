@@ -32,12 +32,15 @@ export function getXpForNextLevel(level: number): number {
     base,
     quadratic,
     linear,
+    postTenLinearMultiplierPerLevel,
     postSixtyLinearMultiplierPerLevel,
     postSoftCapExponentialMultiplier,
   } = PROGRESSION_CONFIG.xpFormula;
 
   const baseXp =
     base + normalizedLevel ** 2 * quadratic + normalizedLevel * linear;
+  const postTenLevels = Math.max(0, normalizedLevel - 10);
+  const postTenMultiplier = 1 + postTenLevels * postTenLinearMultiplierPerLevel;
   const postSixtyLevels = Math.max(0, normalizedLevel - 60);
   const postSixtyMultiplier =
     1 + postSixtyLevels * postSixtyLinearMultiplierPerLevel;
@@ -50,7 +53,9 @@ export function getXpForNextLevel(level: number): number {
       ? Math.pow(postSoftCapExponentialMultiplier, postSoftCapLevels)
       : 1;
 
-  return Math.round(baseXp * postSixtyMultiplier * postSoftCapMultiplier);
+  return Math.round(
+    baseXp * postTenMultiplier * postSixtyMultiplier * postSoftCapMultiplier,
+  );
 }
 
 export function getLevelUpGains(reachedLevel: number): Partial<Stats> {

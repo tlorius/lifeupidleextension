@@ -241,6 +241,10 @@ export interface CombatState {
   enemyAttackRemainderMs: number;
   spellCooldowns?: Record<string, number>;
   consumableCooldowns?: Record<string, number>;
+  spellSynergyBuff?: {
+    sourceClassId?: string;
+    nextClassSpellMultiplier?: number;
+  };
 }
 
 export interface GameState {

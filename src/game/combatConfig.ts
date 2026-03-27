@@ -504,7 +504,7 @@ export const COMBAT_RUBY_DROP_CONFIG = {
   levelsPerStep: 10,
   amountPerDrop: 1,
   // Index 0 covers levels 50-59, index 1 covers 60-69, and so on.
-  chanceByStep: [0.01, 0.01, 0.01, 0.01, 0.01],
+  chanceByStep: [0.005, 0.005, 0.005, 0.005, 0.005],
 } as const;
 
 export function getRubyDropChanceForLevel(level: number): number {

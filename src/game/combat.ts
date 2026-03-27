@@ -66,6 +66,10 @@ export interface CombatRuntimeState {
   enemyAttackRemainderMs: number;
   spellCooldowns?: Record<string, number>;
   consumableCooldowns?: Record<string, number>;
+  spellSynergyBuff?: {
+    sourceClassId?: ClassId;
+    nextClassSpellMultiplier?: number;
+  };
 }
 
 export interface CombatEvent {
@@ -113,6 +117,19 @@ const CRIT_VARIANCE_MAX = 1.34;
 const NON_CRIT_SET_CRIT_CHANCE_CAP = 6;
 const MIN_DAMAGE_PORTION_AFTER_DEFENSE = 0.05;
 const COMBAT_XP_REWARD_MULTIPLIER = 0.6;
+const CLASS_SYNERGY_SPELL_MULTIPLIER = 5;
+
+const CLASS_SYNERGY_DEFINITIONS: Record<
+  ClassId,
+  { nodeId: string; spellId: string }
+> = {
+  berserker: { nodeId: "berserker_synergy", spellId: "berserker_blood_focus" },
+  sorceress: { nodeId: "sorceress_synergy", spellId: "sorceress_arcane_focus" },
+  farmer: { nodeId: "farmer_synergy", spellId: "farmer_harvest_focus" },
+  archer: { nodeId: "archer_synergy", spellId: "archer_marks_focus" },
+  idler: { nodeId: "idler_synergy", spellId: "idler_epoch_focus" },
+  tamer: { nodeId: "tamer_synergy", spellId: "tamer_pack_focus" },
+};
 
 interface ActiveClassCombatModifiers {
   damageMultiplier: number;
@@ -748,13 +765,58 @@ export function castCombatSpell(
     },
   };
 
+  const activeClassId = state.character.activeClassId;
+  const classSynergy = activeClassId
+    ? CLASS_SYNERGY_DEFINITIONS[activeClassId]
+    : null;
+  const isClassSynergySpell = Boolean(
+    classSynergy && spell.id === classSynergy.spellId,
+  );
+
+  if (isClassSynergySpell && classSynergy && activeClassId) {
+    if (getActiveClassNodeRank(state, classSynergy.nodeId) <= 0) {
+      return { runtime, state, events: [] };
+    }
+
+    return {
+      runtime: {
+        ...nextRuntime,
+        spellSynergyBuff: {
+          sourceClassId: activeClassId,
+          nextClassSpellMultiplier: CLASS_SYNERGY_SPELL_MULTIPLIER,
+        },
+      },
+      state: nextState,
+      events: [{ type: "spellCast", spellId: spell.id }],
+    };
+  }
+
+  let spellCastDamageMultiplier = 1;
+  let runtimeWithBuffConsumption = nextRuntime;
+  const synergyBuff = runtime.spellSynergyBuff;
+  if (
+    synergyBuff?.nextClassSpellMultiplier &&
+    synergyBuff.nextClassSpellMultiplier > 1 &&
+    spell.source === "class" &&
+    spell.classId &&
+    spell.classId === state.character.activeClassId &&
+    synergyBuff.sourceClassId === state.character.activeClassId
+  ) {
+    spellCastDamageMultiplier = synergyBuff.nextClassSpellMultiplier;
+    runtimeWithBuffConsumption = {
+      ...nextRuntime,
+      spellSynergyBuff: undefined,
+    };
+  }
+
   return executeCombatSpellEffect({
-    runtime: nextRuntime,
+    runtime: runtimeWithBuffConsumption,
     state: nextState,
     spell,
     rng,
     combatModifiers: {
       spellDamageMultiplier: combatModifiers.spellDamageMultiplier,
+      spellCastDamageMultiplier,
       petDamageMultiplier: combatModifiers.petDamageMultiplier,
       healMultiplier: combatModifiers.healMultiplier,
       manaRestoreMultiplier: combatModifiers.manaRestoreMultiplier,

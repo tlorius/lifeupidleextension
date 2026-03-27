@@ -12,6 +12,7 @@ import type {
 
 interface CombatSpellModifiers {
   spellDamageMultiplier: number;
+  spellCastDamageMultiplier: number;
   petDamageMultiplier: number;
   healMultiplier: number;
   manaRestoreMultiplier: number;
@@ -57,7 +58,12 @@ export function executeCombatSpellEffect({
       attackSource === "pet"
         ? combatModifiers.petDamageMultiplier
         : combatModifiers.spellDamageMultiplier * setSpellMultiplier;
-    const damage = Math.max(1, Math.round(rawDamage * damageScale));
+    const damage = Math.max(
+      1,
+      Math.round(
+        rawDamage * damageScale * combatModifiers.spellCastDamageMultiplier,
+      ),
+    );
     const nextEnemyHp = Math.max(0, nextRuntime.enemy.currentHp - damage);
     nextRuntime = {
       ...nextRuntime,

@@ -29,6 +29,14 @@ export const farmerClass: CharacterClassDefinition = {
       prerequisites: ["farmer_1"],
     },
     {
+      id: "farmer_synergy",
+      name: "Harvest Focus",
+      description:
+        "Unlock Active Skill Harvest Focus: your next Farmer spell deals 5x damage.",
+      maxRank: 1,
+      prerequisites: ["farmer_2"],
+    },
+    {
       id: "farmer_4",
       name: "Bountiful Hands",
       description:
@@ -174,6 +182,15 @@ export const farmerClass: CharacterClassDefinition = {
     },
   ],
   classSpells: [
+    {
+      id: "farmer_harvest_focus",
+      name: "Harvest Focus",
+      description:
+        "Channel gathered vitality so your next Farmer spell lands as a devastating harvest strike.",
+      manaCost: 22,
+      cooldownMs: 30000,
+      requiredLevel: 12,
+    },
     {
       id: "farmer_regrowth",
       name: "Regrowth",

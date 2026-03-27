@@ -52,21 +52,35 @@ export function FightCombatLogPanel({ log }: FightCombatLogPanelProps) {
             overflowY: "auto",
           }}
         >
-          {log.entries.map((entry) => (
-            <div
-              key={entry.id}
-              style={{
-                fontSize: 12,
-                color: entry.color,
-                border: "1px solid rgba(139, 171, 198, 0.2)",
-                backgroundColor: "rgba(0,0,0,0.16)",
-                borderRadius: 8,
-                padding: "6px 8px",
-              }}
-            >
-              {entry.text}
-            </div>
-          ))}
+          {log.entries.map((entry) =>
+            (() => {
+              const isRubyDrop = entry.text.includes("RUBY DROP!");
+              return (
+                <div
+                  key={entry.id}
+                  style={{
+                    fontSize: 12,
+                    color: entry.color,
+                    border: isRubyDrop
+                      ? "1px solid rgba(255, 117, 216, 0.8)"
+                      : "1px solid rgba(139, 171, 198, 0.2)",
+                    backgroundColor: isRubyDrop
+                      ? "rgba(255, 117, 216, 0.1)"
+                      : "rgba(0,0,0,0.16)",
+                    boxShadow: isRubyDrop
+                      ? "0 0 14px rgba(255, 117, 216, 0.35)"
+                      : undefined,
+                    borderRadius: 8,
+                    padding: "6px 8px",
+                    fontWeight: isRubyDrop ? 700 : 400,
+                    letterSpacing: isRubyDrop ? 0.2 : undefined,
+                  }}
+                >
+                  {entry.text}
+                </div>
+              );
+            })(),
+          )}
         </div>
       )}
     </PanelSurface>

@@ -153,6 +153,58 @@ describe("combat engine", () => {
     );
   });
 
+  it("applies and consumes class synergy buff on the next class spell cast", () => {
+    const state = createDefaultState();
+    state.playerProgress.level = 30;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.character.activeClassId = "berserker";
+    state.character.classProgress.berserker.unlockedNodeRanks.berserker_synergy = 1;
+    state.resources.energy = 100;
+    state.stats.attack = 45;
+    state.stats.intelligence = 20;
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 100_000;
+
+    const buffResult = castCombatSpell(
+      runtime,
+      state,
+      "berserker_blood_focus",
+      () => 0.5,
+    );
+    expect(buffResult.runtime.spellSynergyBuff?.nextClassSpellMultiplier).toBe(
+      5,
+    );
+
+    const buffedHitResult = castCombatSpell(
+      buffResult.runtime,
+      buffResult.state,
+      "berserker_warcry",
+      () => 0.5,
+    );
+    const buffedDamage = buffedHitResult.events
+      .filter((event) => event.type === "playerHit")
+      .reduce((sum, event) => sum + (event.value ?? 0), 0);
+
+    const baselineRuntime = createInitialCombatRuntime(state);
+    baselineRuntime.enemy.currentHp = 100_000;
+    const baselineResult = castCombatSpell(
+      baselineRuntime,
+      state,
+      "berserker_warcry",
+      () => 0.5,
+    );
+    const baselineDamage = baselineResult.events
+      .filter((event) => event.type === "playerHit")
+      .reduce((sum, event) => sum + (event.value ?? 0), 0);
+
+    expect(buffedDamage).toBeGreaterThan(baselineDamage * 4.5);
+    expect(buffedHitResult.runtime.spellSynergyBuff).toBeUndefined();
+  });
+
   it("emits pet-source hit events for tamer beast sync", () => {
     const state = createDefaultState();
     state.playerProgress.level = 25;
@@ -404,9 +456,9 @@ describe("combat engine", () => {
 
   it("resolves ruby chance by level decade steps", () => {
     expect(getRubyDropChanceForLevel(49)).toBe(0);
-    expect(getRubyDropChanceForLevel(50)).toBe(0.01);
-    expect(getRubyDropChanceForLevel(59)).toBe(0.01);
-    expect(getRubyDropChanceForLevel(60)).toBe(0.01);
-    expect(getRubyDropChanceForLevel(200)).toBe(0.01);
+    expect(getRubyDropChanceForLevel(50)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(59)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(60)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(200)).toBe(0.005);
   });
 });

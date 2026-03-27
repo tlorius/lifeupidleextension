@@ -14,10 +14,34 @@ export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
     addGoldAndGems,
     addSkillPoints,
     resetState,
+    tickSpeedMultiplier,
+    setTickSpeedMultiplier,
   } = useGameActions();
+
+  const tickSpeedOptions: Array<1 | 10 | 100> = [1, 10, 100];
   return (
     <div style={{ padding: 20 }}>
       <h1>Idle RPG</h1>
+
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 6, fontSize: 13, color: "#9eb0c2" }}>
+          Debug Tick Speed
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {tickSpeedOptions.map((multiplier) => (
+            <button
+              key={multiplier}
+              className={
+                tickSpeedMultiplier === multiplier ? "btn-selected" : ""
+              }
+              onClick={() => setTickSpeedMultiplier(multiplier)}
+              style={{ flex: 1 }}
+            >
+              {multiplier}x
+            </button>
+          ))}
+        </div>
+      </div>
 
       <button
         style={{

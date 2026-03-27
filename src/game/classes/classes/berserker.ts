@@ -29,6 +29,14 @@ export const berserkerClass: CharacterClassDefinition = {
       prerequisites: ["berserker_1"],
     },
     {
+      id: "berserker_synergy",
+      name: "Blood Focus",
+      description:
+        "Unlock Active Skill Blood Focus: your next Berserker spell deals 5x damage.",
+      maxRank: 1,
+      prerequisites: ["berserker_2"],
+    },
+    {
       id: "berserker_4",
       name: "Execution Rhythm",
       description: "Crit Chance +1.25% per rank.",
@@ -167,6 +175,15 @@ export const berserkerClass: CharacterClassDefinition = {
     },
   ],
   classSpells: [
+    {
+      id: "berserker_blood_focus",
+      name: "Blood Focus",
+      description:
+        "Prime your killer instinct so your next Berserker spell hits for massive synergy damage.",
+      manaCost: 22,
+      cooldownMs: 30000,
+      requiredLevel: 12,
+    },
     {
       id: "berserker_warcry",
       name: "Warcry",

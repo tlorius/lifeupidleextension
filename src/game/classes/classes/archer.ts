@@ -28,6 +28,14 @@ export const archerClass: CharacterClassDefinition = {
       prerequisites: ["archer_1"],
     },
     {
+      id: "archer_synergy",
+      name: "Marks Focus",
+      description:
+        "Unlock Active Skill Marks Focus: your next Archer spell deals 5x damage.",
+      maxRank: 1,
+      prerequisites: ["archer_2"],
+    },
+    {
       id: "archer_4",
       name: "Windstep",
       description: "APS +0.34 per rank, Agility +3 per rank.",
@@ -166,6 +174,15 @@ export const archerClass: CharacterClassDefinition = {
     },
   ],
   classSpells: [
+    {
+      id: "archer_marks_focus",
+      name: "Marks Focus",
+      description:
+        "Steady your aim so your next Archer spell lands with overwhelming precision.",
+      manaCost: 22,
+      cooldownMs: 30000,
+      requiredLevel: 12,
+    },
     {
       id: "archer_hailfire",
       name: "Hailfire",

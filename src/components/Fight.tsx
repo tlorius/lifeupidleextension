@@ -41,6 +41,7 @@ interface CombatToast {
   id: string;
   text: string;
   color: string;
+  isRubyDrop?: boolean;
 }
 
 export function Fight() {
@@ -73,7 +74,6 @@ export function Fight() {
     playerMaxHp,
     playerHpPercent,
     playerMana,
-    enemyHpPercent,
     attacksPerSecond,
     critChance,
     xpForNextLevel,
@@ -85,16 +85,11 @@ export function Fight() {
     checkpointLevel,
   } = useMemo(() => selectFightView(state), [state]);
 
-  // Visual HP tracks actual enemy HP percent for smooth and accurate motion.
-  const [visualEnemyHpPercent, setVisualEnemyHpPercent] = useState(
-    () => enemyHpPercent,
+  const [visualEnemyHp, setVisualEnemyHp] = useState(
+    () => combat.enemy.currentHp,
   );
-  // Trail bar lags behind current HP and catches up over 1 second.
-  const [hpTrailPercent, setHpTrailPercent] = useState(() => enemyHpPercent);
-  const trailTimeoutRef = useRef<number | null>(null);
-  const hpTickTimersRef = useRef<number[]>([]);
+  const enemyHpTickTimersRef = useRef<number[]>([]);
   const previousEnemyIdRef = useRef(combat.enemy.enemyId);
-  const previousEnemyHpPercentRef = useRef(enemyHpPercent);
 
   const enemySprite =
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
@@ -134,40 +129,26 @@ export function Fight() {
     );
   }, [clockNow]);
 
-  // Keep visual bars tied to true enemy HP and reset immediately on enemy swap.
+  // Keep visual HP aligned when the encounter swaps or HP increases.
   useEffect(() => {
-    const enemyChanged = previousEnemyIdRef.current !== combat.enemy.enemyId;
-    if (enemyChanged) {
+    if (previousEnemyIdRef.current !== combat.enemy.enemyId) {
       previousEnemyIdRef.current = combat.enemy.enemyId;
-
-      if (trailTimeoutRef.current !== null) {
-        window.clearTimeout(trailTimeoutRef.current);
-        trailTimeoutRef.current = null;
-      }
-
-      for (const timerId of hpTickTimersRef.current) {
+      for (const timerId of enemyHpTickTimersRef.current) {
         window.clearTimeout(timerId);
       }
-      hpTickTimersRef.current = [];
-
-      setVisualEnemyHpPercent(enemyHpPercent);
-      setHpTrailPercent(enemyHpPercent);
-      previousEnemyHpPercentRef.current = enemyHpPercent;
+      enemyHpTickTimersRef.current = [];
+      setVisualEnemyHp(combat.enemy.currentHp);
       return;
     }
 
-    // Upward HP changes (new enemy/heals) should sync immediately.
-    if (enemyHpPercent > previousEnemyHpPercentRef.current) {
-      setVisualEnemyHpPercent(enemyHpPercent);
-    }
+    setVisualEnemyHp((current) =>
+      combat.enemy.currentHp > current ? combat.enemy.currentHp : current,
+    );
+  }, [combat.enemy.currentHp, combat.enemy.enemyId]);
 
-    previousEnemyHpPercentRef.current = enemyHpPercent;
-  }, [enemyHpPercent, combat.enemy.enemyId]);
-
-  // Move HP bar on every player-hit tick using the same cadence as popup numbers.
+  // Replay each damage event so HP text/bar move per-hit instead of once per batch.
   useEffect(() => {
     if (combatEvents.length === 0) return;
-    if (combatEvents.some((event) => event.type === "enemyDefeated")) return;
 
     const hitDamages = combatEvents
       .filter((event) => event.type === "playerHit")
@@ -175,72 +156,36 @@ export function Fight() {
       .filter((value) => value > 0);
     if (hitDamages.length === 0) return;
 
-    for (const timerId of hpTickTimersRef.current) {
+    for (const timerId of enemyHpTickTimersRef.current) {
       window.clearTimeout(timerId);
     }
-    hpTickTimersRef.current = [];
+    enemyHpTickTimersRef.current = [];
 
     const maxHp = Math.max(1, combat.enemy.maxHp);
     const totalBatchDamage = hitDamages.reduce((sum, value) => sum + value, 0);
     let runningHp = Math.min(maxHp, combat.enemy.currentHp + totalBatchDamage);
-    const intervalMs = Math.max(
-      70,
-      Math.round(1000 / Math.max(1, attacksPerSecond)),
-    );
+    const intervalMs = Math.max(16, Math.round(1000 / hitDamages.length));
 
     hitDamages.forEach((damage, index) => {
       const timerId = window.setTimeout(() => {
         runningHp = Math.max(combat.enemy.currentHp, runningHp - damage);
-        setVisualEnemyHpPercent(
-          Math.max(0, Math.min(100, (runningHp / maxHp) * 100)),
-        );
+        setVisualEnemyHp(runningHp);
 
         if (index === hitDamages.length - 1) {
-          setVisualEnemyHpPercent(enemyHpPercent);
+          setVisualEnemyHp(combat.enemy.currentHp);
         }
       }, index * intervalMs);
 
-      hpTickTimersRef.current.push(timerId);
+      enemyHpTickTimersRef.current.push(timerId);
     });
 
     return () => {
-      for (const timerId of hpTickTimersRef.current) {
+      for (const timerId of enemyHpTickTimersRef.current) {
         window.clearTimeout(timerId);
       }
-      hpTickTimersRef.current = [];
+      enemyHpTickTimersRef.current = [];
     };
-  }, [
-    attacksPerSecond,
-    combat.enemy.currentHp,
-    combat.enemy.maxHp,
-    combatEvents,
-    enemyHpPercent,
-  ]);
-
-  // Trail follows current HP over 1 second while preventing delayed resets.
-  useEffect(() => {
-    if (trailTimeoutRef.current !== null) {
-      window.clearTimeout(trailTimeoutRef.current);
-      trailTimeoutRef.current = null;
-    }
-
-    if (visualEnemyHpPercent >= hpTrailPercent) {
-      setHpTrailPercent(visualEnemyHpPercent);
-      return;
-    }
-
-    trailTimeoutRef.current = window.setTimeout(() => {
-      setHpTrailPercent(visualEnemyHpPercent);
-      trailTimeoutRef.current = null;
-    }, 50);
-
-    return () => {
-      if (trailTimeoutRef.current !== null) {
-        window.clearTimeout(trailTimeoutRef.current);
-        trailTimeoutRef.current = null;
-      }
-    };
-  }, [hpTrailPercent, visualEnemyHpPercent]);
+  }, [combat.enemy.currentHp, combat.enemy.maxHp, combatEvents]);
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -499,6 +444,14 @@ export function Fight() {
         }
 
         if (event.type === "lootGranted") {
+          if (event.itemId === "ruby_currency") {
+            return {
+              id: `${now}-l-${index}`,
+              text: `RUBY DROP! +${event.quantity ?? 1} Ruby`,
+              color: "#ff75d8",
+            };
+          }
+
           const itemName =
             getItemDefSafe(event.itemId ?? "")?.name ?? event.itemId;
           const itemLevelText =
@@ -582,6 +535,15 @@ export function Fight() {
       )
       .map((event, index) => {
         if (event.type === "lootGranted") {
+          if (event.itemId === "ruby_currency") {
+            return {
+              id: `${now}-toast-ruby-${index}`,
+              text: `RUBY DROP! +${event.quantity ?? 1} Ruby`,
+              color: "#ff75d8",
+              isRubyDrop: true,
+            } as CombatToast;
+          }
+
           const itemName =
             getItemDefSafe(event.itemId ?? "")?.name ?? event.itemId;
           const itemLevelText =
@@ -757,32 +719,25 @@ export function Fight() {
         </div>
 
         <div className="ui-fight-enemy-hp">
-          HP:{" "}
-          {formatCombatNumber(Math.max(0, Math.round(combat.enemy.currentHp)))}{" "}
-          / {formatCombatNumber(combat.enemy.maxHp)}
+          HP: {formatCombatNumber(Math.max(0, Math.round(visualEnemyHp)))} /{" "}
+          {formatCombatNumber(combat.enemy.maxHp)}
         </div>
         <div className="ui-fight-enemy-hp-shell">
-          {/* 1-second damage trail — white bar behind the red HP bar */}
           <div
             style={{
               position: "absolute",
               left: 0,
-              width: `${hpTrailPercent}%`,
-              height: "100%",
-              background: "rgba(255, 255, 255, 0.50)",
-              transition: "width 1000ms linear",
-            }}
-          />
-          {/* Current HP bar */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              width: `${visualEnemyHpPercent}%`,
+              width: `${Math.max(
+                0,
+                Math.min(
+                  100,
+                  (visualEnemyHp / Math.max(1, combat.enemy.maxHp)) * 100,
+                ),
+              )}%`,
               height: "100%",
               background:
                 "linear-gradient(90deg, #b83838 0%, #e65e5e 64%, #ffc4c4 100%)",
-              transition: "width 80ms linear",
+              transition: "width 36ms linear",
             }}
           />
         </div>
@@ -901,6 +856,15 @@ export function Fight() {
               className="ui-fight-toast"
               style={{
                 color: toast.color,
+                border: toast.isRubyDrop
+                  ? "1px solid rgba(255, 117, 216, 0.85)"
+                  : undefined,
+                boxShadow: toast.isRubyDrop
+                  ? "0 0 16px rgba(255, 117, 216, 0.45)"
+                  : undefined,
+                animation: toast.isRubyDrop
+                  ? "fightRubyDropPulse 950ms ease-in-out 2"
+                  : undefined,
               }}
             >
               {toast.text}
@@ -944,6 +908,12 @@ export function Fight() {
         @keyframes fightToastIn {
           0% { opacity: 0; transform: translateY(10px) scale(0.98); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes fightRubyDropPulse {
+          0% { transform: translateY(0) scale(1); filter: brightness(1); }
+          40% { transform: translateY(0) scale(1.03); filter: brightness(1.35); }
+          100% { transform: translateY(0) scale(1); filter: brightness(1); }
         }`}
       </style>
 

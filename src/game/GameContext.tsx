@@ -134,6 +134,8 @@ function initializeGameState(): InitializationResult {
 const GameContext = createContext<{
   state: GameState;
   dispatch: (action: GameAction) => void;
+  tickSpeedMultiplier: number;
+  setTickSpeedMultiplier: (multiplier: number) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
   idleEarningsModalItems: IdleEarningItem[];
@@ -152,6 +154,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GameState>(
     initializationRef.current.state,
   );
+  const [tickSpeedMultiplier, setTickSpeedMultiplier] = useState<number>(1);
 
   const stateRef = useRef(state);
   const [tokenRewardModalItems, setTokenRewardModalItems] = useState<
@@ -195,12 +198,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const interval = setInterval(() => {
       let tickCombatEvents: CombatEvent[] = [];
+      const deltaMs = 1000 * tickSpeedMultiplier;
       setState((prev) => {
         const next = structuredClone(prev);
-        applyIdle(next, 1000);
-        applyGardenIdle(next, 1000);
+        applyIdle(next, deltaMs);
+        applyGardenIdle(next, deltaMs);
 
-        const combatResult = runCombatTick(next.combat, next, 1000);
+        const combatResult = runCombatTick(next.combat, next, deltaMs);
         tickCombatEvents = combatResult.events;
 
         const withCombat: GameState = {
@@ -228,7 +232,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       clearInterval(interval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, []);
+  }, [tickSpeedMultiplier]);
 
   useEffect(() => {
     let cancelled = false;
@@ -266,6 +270,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       value={{
         state,
         dispatch,
+        tickSpeedMultiplier,
+        setTickSpeedMultiplier,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
         idleEarningsModalItems,

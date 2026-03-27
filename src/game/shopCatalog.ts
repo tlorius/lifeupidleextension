@@ -23,16 +23,6 @@ const NEW_CLASS_SET_IDS = [
   "moonpack",
 ] as const;
 
-const RECENT_SET_IDS = [
-  "voidborn",
-  "arcaneforge",
-  "verdant",
-  "beastlord",
-  "bloodletter",
-  "windrazor",
-  ...NEW_CLASS_SET_IDS,
-] as const;
-
 export const SPECIAL_SEED_SHOP_ITEM_IDS = [
   "starlime_seed_rare",
   "coralfern_seed_rare",
@@ -119,21 +109,7 @@ export function getSpecialSeedOffers(): ShopOffer[] {
 export function getDebugShopOffers(): ShopOffer[] {
   const offers: ShopOffer[] = [];
 
-  const recentSetItems = Object.values(itemDefinitions)
-    .filter(
-      (def) =>
-        def.setId &&
-        RECENT_SET_IDS.includes(def.setId as (typeof RECENT_SET_IDS)[number]),
-    )
-    .map((def) => def.id);
-
-  const allDebugIds = Array.from(
-    new Set([...recentSetItems, ...SPECIAL_SEED_SHOP_ITEM_IDS]),
-  );
-
-  for (const itemId of allDebugIds) {
-    const def = itemDefinitions[itemId];
-    if (!def) continue;
+  for (const def of Object.values(itemDefinitions)) {
     offers.push({
       itemId: def.id,
       name: def.name,

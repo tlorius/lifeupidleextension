@@ -30,6 +30,14 @@ export const sorceressClass: CharacterClassDefinition = {
       prerequisites: ["sorceress_1"],
     },
     {
+      id: "sorceress_synergy",
+      name: "Arcane Focus",
+      description:
+        "Unlock Active Skill Arcane Focus: your next Sorceress spell deals 5x damage.",
+      maxRank: 1,
+      prerequisites: ["sorceress_2"],
+    },
+    {
       id: "sorceress_4",
       name: "Aegis Orbit",
       description: "Increase Healing by 3% per rank, Defense +2.2 per rank.",
@@ -170,6 +178,15 @@ export const sorceressClass: CharacterClassDefinition = {
     },
   ],
   classSpells: [
+    {
+      id: "sorceress_arcane_focus",
+      name: "Arcane Focus",
+      description:
+        "Concentrate your sigils so your next Sorceress spell detonates with amplified force.",
+      manaCost: 22,
+      cooldownMs: 30000,
+      requiredLevel: 12,
+    },
     {
       id: "sorceress_nova",
       name: "Star Nova",

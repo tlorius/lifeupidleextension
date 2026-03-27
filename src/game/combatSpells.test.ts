@@ -8,14 +8,14 @@ import {
 import { createDefaultState } from "./state";
 
 describe("class spell content", () => {
-  it("gives every class at least 22 nodes and 10 unique class spells", () => {
+  it("gives every class at least 22 nodes and at least 10 unique class spells", () => {
     for (const classDef of allClassDefinitions) {
       expect(classDef.nodes.length).toBeGreaterThanOrEqual(
         CLASS_TREE_NODE_TARGET,
       );
-      expect(classDef.classSpells).toHaveLength(10);
+      expect(classDef.classSpells.length).toBeGreaterThanOrEqual(10);
       expect(new Set(classDef.classSpells.map((spell) => spell.id)).size).toBe(
-        10,
+        classDef.classSpells.length,
       );
     }
   });
@@ -23,7 +23,7 @@ describe("class spell content", () => {
   it("registers all authored class spells in the combat spell registry", () => {
     for (const classDef of allClassDefinitions) {
       const classSpells = getClassCombatSpellsForClass(classDef.id);
-      expect(classSpells).toHaveLength(10);
+      expect(classSpells.length).toBeGreaterThanOrEqual(10);
       for (const spell of classSpells) {
         expect(getCombatSpellDefinition(spell.id)?.classId).toBe(classDef.id);
       }

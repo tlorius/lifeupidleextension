@@ -29,6 +29,14 @@ export const idlerClass: CharacterClassDefinition = {
       prerequisites: ["idler_1"],
     },
     {
+      id: "idler_synergy",
+      name: "Epoch Focus",
+      description:
+        "Unlock Active Skill Epoch Focus: your next Idler spell deals 5x damage.",
+      maxRank: 1,
+      prerequisites: ["idler_2"],
+    },
+    {
       id: "idler_4",
       name: "Streak Keeper",
       description:
@@ -173,6 +181,15 @@ export const idlerClass: CharacterClassDefinition = {
     },
   ],
   classSpells: [
+    {
+      id: "idler_epoch_focus",
+      name: "Epoch Focus",
+      description:
+        "Condense dormant momentum so your next Idler spell cashes out at 5x force.",
+      manaCost: 22,
+      cooldownMs: 30000,
+      requiredLevel: 12,
+    },
     {
       id: "idler_dividend",
       name: "Dividend Burst",

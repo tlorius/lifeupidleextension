@@ -2,7 +2,7 @@ import { useGame } from "./GameContext";
 import type { ClassId } from "./classes";
 
 export function useGameActions() {
-  const { dispatch } = useGame();
+  const { dispatch, tickSpeedMultiplier, setTickSpeedMultiplier } = useGame();
 
   return {
     addGold: (amount: number) => dispatch({ type: "resource/addGold", amount }),
@@ -60,5 +60,9 @@ export function useGameActions() {
       dispatch({ type: "combat/useConsumable", itemUid }),
     combatCastSpell: (spellId: string) =>
       dispatch({ type: "combat/castSpell", spellId }),
+
+    tickSpeedMultiplier,
+    setTickSpeedMultiplier: (multiplier: 1 | 10 | 100) =>
+      setTickSpeedMultiplier(multiplier),
   };
 }
