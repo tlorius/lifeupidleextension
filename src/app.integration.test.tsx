@@ -6,6 +6,7 @@ import {
   fireEvent,
   cleanup,
   waitFor,
+  within,
 } from "@testing-library/react";
 import App from "./App";
 import { GameProvider } from "./game/GameContext";
@@ -42,6 +43,16 @@ function renderApp() {
   );
 }
 
+async function dismissIdleEarningsModalIfShown() {
+  if (!screen.queryByText("Welcome back! Idle earnings")) return;
+
+  fireEvent.click(screen.getByRole("button", { name: "Collect" }));
+
+  await waitFor(() => {
+    expect(screen.queryByText("Welcome back! Idle earnings")).toBeNull();
+  });
+}
+
 describe("app integration", () => {
   beforeEach(() => {
     cleanup();
@@ -58,6 +69,7 @@ describe("app integration", () => {
     localStorage.setItem("idle_save", JSON.stringify(seeded));
 
     renderApp();
+    await dismissIdleEarningsModalIfShown();
 
     expect(screen.getByText("Idle RPG")).toBeTruthy();
 
@@ -132,6 +144,12 @@ describe("app integration", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Fight" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Manage Spells" }),
+      ).toBeTruthy();
+    });
     fireEvent.click(screen.getByRole("button", { name: "Manage Spells" }));
 
     await waitFor(() => {
@@ -147,6 +165,7 @@ describe("app integration", () => {
     localStorage.setItem("idle_save", JSON.stringify(seeded));
 
     renderApp();
+    await dismissIdleEarningsModalIfShown();
 
     fireEvent.click(screen.getByRole("button", { name: "Add Items to debug" }));
     fireEvent.click(screen.getByRole("button", { name: "Inventory" }));
@@ -181,5 +200,176 @@ describe("app integration", () => {
       name: "Select Rusty Sword for selling",
     });
     expect(swordCheckbox.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("supports garden storage and empty-field automation mode flow", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    fireEvent.click(screen.getByRole("button", { name: "Garden" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /Garden/ })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open crop storage" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "🛢️ Crop Silos" }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "🛢️ Crop Silos" }),
+      ).toBeNull();
+    });
+
+    fireEvent.click(
+      screen.getAllByLabelText(
+        "Empty field - click to manage planting or sprinkler",
+      )[0],
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /Field Options @/ }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Automation" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /Automation Tools @/ }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: /Field Options @/ }),
+      ).toBeTruthy();
+    });
+  });
+
+  it("assigns a spell from spell selection and exposes it in fight panel", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.playerProgress.level = 10;
+    seeded.playerProgress.unlockedSystems = {
+      ...(seeded.playerProgress.unlockedSystems ?? {}),
+      spells: true,
+    };
+    seeded.resources.gems = 500;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    fireEvent.click(screen.getByRole("button", { name: "Character" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch Class" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Select Your Class" }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Select" })[0]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Fight" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Manage Spells" }),
+      ).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Manage Spells" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Spell Selection" }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Arcane Bolt/ })[0]);
+
+    const spellSelectionHeader = screen.getByRole("heading", {
+      name: "Spell Selection",
+    });
+    const spellSelectionHeaderRow = spellSelectionHeader.parentElement;
+    expect(spellSelectionHeaderRow).toBeTruthy();
+    fireEvent.click(
+      within(spellSelectionHeaderRow as HTMLElement).getByRole("button", {
+        name: "Close",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Arcane Bolt/ })).toBeTruthy();
+    });
+  });
+
+  it("resolves token reward flow and clears token from URL", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+    window.history.replaceState({}, "", "/?token=starter-pack");
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", {
+          name: "Congrats! You have earned items",
+        }),
+      ).toBeTruthy();
+    });
+
+    expect(screen.getByText("Health Potion")).toBeTruthy();
+    expect(window.location.search).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", {
+          name: "Congrats! You have earned items",
+        }),
+      ).toBeNull();
+    });
+  });
+
+  it("hides spell management controls when spell system is locked", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.playerProgress.level = 10;
+    seeded.resources.gems = 500;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    fireEvent.click(screen.getByRole("button", { name: "Character" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch Class" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Select Your Class" }),
+      ).toBeTruthy();
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Select" })[0]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Fight" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "Manage Spells" }),
+      ).toBeNull();
+    });
   });
 });

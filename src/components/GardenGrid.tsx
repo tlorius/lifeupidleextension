@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 interface GardenGridProps {
   previewRows: number;
@@ -39,9 +39,9 @@ export function GardenGrid({
         }}
       >
         {Array.from({ length: previewRows }).map((_, row) =>
-          Array.from({ length: previewCols }).map((_, col) =>
-            renderField(row, col),
-          ),
+          Array.from({ length: previewCols }).map((_, col) => (
+            <Fragment key={`${row}-${col}`}>{renderField(row, col)}</Fragment>
+          )),
         )}
       </div>
     </div>

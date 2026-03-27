@@ -10,8 +10,9 @@
     "test": "vitest",
     "test:run": "vitest --run",
     "test:integration": "vitest --run src/app.integration.test.tsx",
+    "test:ci": "npm run test:run && npm run test:coverage",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest --coverage --run",
     "preview": "vite preview"
   },
   "dependencies": {
