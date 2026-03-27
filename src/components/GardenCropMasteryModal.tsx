@@ -1,4 +1,6 @@
+import { ModalHeader } from "./ui/ModalHeader";
 import { ModalShell } from "./ui/ModalShell";
+import { ProgressBar } from "./ui/ProgressBar";
 
 interface CropMasteryRecord {
   level: number;
@@ -57,12 +59,15 @@ export function GardenCropMasteryModal({
         ["--modal-padding" as string]: isMobile ? "12px" : "16px",
       }}
     >
-      <div className="ui-modal-header" style={{ marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>📈 Crop Mastery</h3>
-        <button className="ui-modal-close" onClick={onClose}>
-          Close
-        </button>
-      </div>
+      <ModalHeader
+        style={{ marginBottom: 12 }}
+        heading="📈 Crop Mastery"
+        actions={
+          <button className="ui-modal-close" onClick={onClose}>
+            Close
+          </button>
+        }
+      />
 
       <div className="ui-mastery-note">
         Each level grants +1% crop yield for that crop type. Prestige at level
@@ -134,16 +139,15 @@ export function GardenCropMasteryModal({
                 </div>
               </div>
 
-              <div className="ui-progress-track" style={{ marginTop: 8 }}>
-                <div
-                  className="ui-progress-fill"
-                  style={{
-                    width: `${xpProgress}%`,
-                    backgroundColor:
-                      mastery.level >= cropMaxLevel ? "#9c36ff" : "#51cf66",
-                  }}
-                />
-              </div>
+              <ProgressBar
+                className=""
+                value={xpProgress}
+                trackStyle={{ marginTop: 8 }}
+                fillStyle={{
+                  backgroundColor:
+                    mastery.level >= cropMaxLevel ? "#9c36ff" : "#51cf66",
+                }}
+              />
 
               {mastery.level >= cropMaxLevel && (
                 <div className="ui-mastery-prestige-row">

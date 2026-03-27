@@ -1,4 +1,7 @@
+import { ModalHeader } from "./ui/ModalHeader";
 import { ModalShell } from "./ui/ModalShell";
+import { ProgressBar } from "./ui/ProgressBar";
+import { ValueRow } from "./ui/ValueRow";
 
 interface CropStorageEntry {
   category: string;
@@ -36,12 +39,15 @@ export function GardenCropStorageModal({
         ["--modal-padding" as string]: isMobile ? "12px" : "16px",
       }}
     >
-      <div className="ui-modal-header" style={{ marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>🛢️ Crop Silos</h3>
-        <button className="ui-modal-close" onClick={onClose}>
-          Close
-        </button>
-      </div>
+      <ModalHeader
+        style={{ marginBottom: 12 }}
+        heading="🛢️ Crop Silos"
+        actions={
+          <button className="ui-modal-close" onClick={onClose}>
+            Close
+          </button>
+        }
+      />
 
       <div
         style={{
@@ -56,30 +62,19 @@ export function GardenCropStorageModal({
             entry.limit > 0 ? (entry.amount / entry.limit) * 100 : 0;
           return (
             <div key={entry.category} className="ui-card">
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 4,
-                }}
-              >
-                <span>
-                  {entry.icon} {entry.label}
-                </span>
-                <span>
-                  {entry.amount} / {entry.limit}
-                </span>
-              </div>
-              <div className="ui-progress-track">
-                <div
-                  className="ui-progress-fill"
-                  style={{
-                    backgroundColor: "#51cf66",
-                    width: `${Math.max(0, Math.min(100, percent))}%`,
-                  }}
-                />
-              </div>
+              <ValueRow
+                style={{ marginBottom: 4 }}
+                left={
+                  <>
+                    {entry.icon} {entry.label}
+                  </>
+                }
+                right={`${entry.amount} / ${entry.limit}`}
+              />
+              <ProgressBar
+                value={percent}
+                fillStyle={{ backgroundColor: "#51cf66" }}
+              />
             </div>
           );
         })}

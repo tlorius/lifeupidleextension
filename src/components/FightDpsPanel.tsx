@@ -3,6 +3,7 @@ import type {
   FightDpsMetrics,
   FightDpsPanelViewModel,
 } from "../game/selectors/fight";
+import { PanelSurface } from "./ui/PanelSurface";
 
 interface FightDpsPanelProps {
   panel: FightDpsPanelViewModel;
@@ -20,13 +21,11 @@ export function FightDpsPanel({
   onSelectWindow,
 }: FightDpsPanelProps) {
   return (
-    <div
+    <PanelSurface
       style={{
         marginTop: 12,
-        borderRadius: 12,
-        border: "1px solid #30465b",
-        background: "linear-gradient(160deg, #121c26 0%, #1e3141 100%)",
-        padding: 12,
+        ["--ui-panel-background" as string]:
+          "linear-gradient(160deg, #121c26 0%, #1e3141 100%)",
       }}
     >
       <div
@@ -163,6 +162,6 @@ export function FightDpsPanel({
           )}
         </div>
       )}
-    </div>
+    </PanelSurface>
   );
 }

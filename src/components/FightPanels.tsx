@@ -2,6 +2,7 @@ import type {
   FightCombatLogViewModel,
   FightEncounterSummaryViewModel,
 } from "../game/selectors/fight";
+import { PanelSurface } from "./ui/PanelSurface";
 
 interface FightEncounterSummaryPanelProps {
   summary: FightEncounterSummaryViewModel;
@@ -15,12 +16,8 @@ export function FightEncounterSummaryPanel({
   summary,
 }: FightEncounterSummaryPanelProps) {
   return (
-    <div
+    <PanelSurface
       style={{
-        borderRadius: 12,
-        border: "1px solid #30465b",
-        background: "linear-gradient(160deg, #18242f 0%, #223648 100%)",
-        padding: 12,
         fontSize: 12,
         lineHeight: 1.55,
         opacity: 0.95,
@@ -28,19 +25,17 @@ export function FightEncounterSummaryPanel({
     >
       <div style={{ marginBottom: 4 }}>{summary.levelLabel}</div>
       <div>{summary.rewardsLabel}</div>
-    </div>
+    </PanelSurface>
   );
 }
 
 export function FightCombatLogPanel({ log }: FightCombatLogPanelProps) {
   return (
-    <div
+    <PanelSurface
       style={{
         marginTop: 12,
-        borderRadius: 12,
-        border: "1px solid #30465b",
-        background: "linear-gradient(160deg, #131f29 0%, #1d2f3f 100%)",
-        padding: 12,
+        ["--ui-panel-background" as string]:
+          "linear-gradient(160deg, #131f29 0%, #1d2f3f 100%)",
       }}
     >
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
@@ -74,6 +69,6 @@ export function FightCombatLogPanel({ log }: FightCombatLogPanelProps) {
           ))}
         </div>
       )}
-    </div>
+    </PanelSurface>
   );
 }

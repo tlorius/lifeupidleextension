@@ -3,6 +3,7 @@ import { GardenDetailCard } from "./ui/GardenDetailCard";
 import { ModalShell } from "./ui/ModalShell";
 import { SectionTitle } from "./ui/SectionTitle";
 import { ToneButton } from "./ui/ToneButton";
+import { ValueRow } from "./ui/ValueRow";
 
 interface HarvestPreview {
   cropId: string;
@@ -74,33 +75,42 @@ export function GardenHarvestModal({
           Harvest Summary
         </div>
         <div style={{ fontSize: 12, lineHeight: "1.8" }}>
-          <div className="ui-garden-summary-row">
-            <span>Base Yield:</span>
-            <span>
-              {preview.baseYield} {preview.category}
-            </span>
-          </div>
-          <div
+          <ValueRow
+            className="ui-garden-summary-row"
+            left="Base Yield:"
+            right={`${preview.baseYield} ${preview.category}`}
+          />
+          <ValueRow
             className="ui-garden-summary-row"
             style={{ color: preview.waterLevel > 0 ? "#2f9e44" : "#999" }}
-          >
-            <span>
-              Water Bonus (+{Math.round((preview.waterLevel / 100) * 100)}%):
-            </span>
-            <span>+{preview.waterBonus}</span>
-          </div>
-          <div className="ui-garden-summary-row ui-garden-summary-row--total">
-            <span>Total {preview.category.toUpperCase()}:</span>
-            <span style={{ color: "#51cf66" }}>+{preview.yieldAmount}</span>
-          </div>
-          <div className="ui-garden-summary-row" style={{ marginTop: 8 }}>
-            <span>💰 Gold Reward:</span>
-            <span style={{ color: "#FFD700" }}>+{preview.goldAmount}</span>
-          </div>
-          <div className="ui-garden-summary-row" style={{ marginTop: 4 }}>
-            <span>⭐ XP (Category):</span>
-            <span style={{ color: "#4169E1" }}>+{preview.baseXP}</span>
-          </div>
+            left={
+              <>
+                Water Bonus (+{Math.round((preview.waterLevel / 100) * 100)}%):
+              </>
+            }
+            right={`+${preview.waterBonus}`}
+          />
+          <ValueRow
+            className="ui-garden-summary-row ui-garden-summary-row--total"
+            left={`Total ${preview.category.toUpperCase()}:`}
+            right={
+              <span style={{ color: "#51cf66" }}>+{preview.yieldAmount}</span>
+            }
+          />
+          <ValueRow
+            className="ui-garden-summary-row"
+            style={{ marginTop: 8 }}
+            left="💰 Gold Reward:"
+            right={
+              <span style={{ color: "#FFD700" }}>+{preview.goldAmount}</span>
+            }
+          />
+          <ValueRow
+            className="ui-garden-summary-row"
+            style={{ marginTop: 4 }}
+            left="⭐ XP (Category):"
+            right={<span style={{ color: "#4169E1" }}>+{preview.baseXP}</span>}
+          />
         </div>
       </GardenDetailCard>
 

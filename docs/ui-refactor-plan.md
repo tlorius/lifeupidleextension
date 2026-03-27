@@ -221,6 +221,21 @@ Top inline-style hotspots by occurrence:
   - Added extracted shared ui component `src/components/ui/WrapActions.tsx` for reusable wrapped inline action groups
   - Migrated repeated garden modal headings and inline action-list wrappers in `src/components/GardenTileDetailModal.tsx` and `src/components/GardenHarvestModal.tsx` to `SectionTitle` and `WrapActions`
   - Validation passed after heading/action-list ui component extraction (`npm run test:integration`, `npm run build`)
+  - Added extracted shared ui component `src/components/ui/ModalHeader.tsx` for reusable modal heading/action framing
+  - Added extracted shared ui component `src/components/ui/ProgressBar.tsx` for reusable track/fill progress rendering
+  - Migrated storage/mastery modal headers in `src/components/GardenCropStorageModal.tsx` and `src/components/GardenCropMasteryModal.tsx` to `ModalHeader`
+  - Migrated crop/storage/mastery progress rendering in `src/components/GardenTileDetailModal.tsx`, `src/components/GardenCropStorageModal.tsx`, and `src/components/GardenCropMasteryModal.tsx` to `ProgressBar`
+  - Fixed a transient `ModalHeader` prop-name typing conflict (`title` vs native HTML attribute) and revalidated cleanly
+  - Validation passed after header/progress ui component extraction (`npm run test:integration`, `npm run build`)
+  - Added extracted shared ui component `src/components/ui/NoticeCard.tsx` for reusable neutral/warning notice messaging
+  - Added extracted shared ui component `src/components/ui/ValueRow.tsx` for reusable left/right summary rows
+  - Migrated upgrade-tree empty/info notices in `src/components/UpgradesViews.tsx` to `NoticeCard`
+  - Migrated garden storage and harvest summary rows in `src/components/GardenCropStorageModal.tsx` and `src/components/GardenHarvestModal.tsx` to `ValueRow`
+  - Validation passed after notice/value-row ui component extraction (`npm run test:integration`, `npm run build`)
+  - Added extracted shared ui component `src/components/ui/PanelSurface.tsx` for reusable framed gradient panel containers
+  - Migrated repeated fight/progression panel shells in `src/components/FightDpsPanel.tsx`, `src/components/FightPanels.tsx`, and `src/components/PlayerProgressTile.tsx` to `PanelSurface`
+  - Extended `ProgressBar` adoption into `src/components/PlayerProgressTile.tsx` for the player XP fill track
+  - Validation passed after panel-surface extraction (`npm run test:integration`, `npm run build`)
 
 - Next in queue:
   - Spot-check key gameplay flows in UI (inventory actions, fight loop, garden modal interactions) for visual parity
@@ -240,6 +255,11 @@ Shared components in `src/components/ui`:
 - `GardenDetailCard.tsx`
 - `SectionTitle.tsx`
 - `WrapActions.tsx`
+- `ModalHeader.tsx`
+- `ProgressBar.tsx`
+- `NoticeCard.tsx`
+- `ValueRow.tsx`
+- `PanelSurface.tsx`
 
 - Modal foundation:
   - `.ui-modal-overlay`, `.ui-modal-panel`, `.ui-modal-header`, `.ui-modal-title`, `.ui-modal-close`

@@ -6,6 +6,7 @@ import type {
   UpgradeTreeViewModel,
 } from "../game/selectors/upgrades";
 import { ModalShell } from "./ui/ModalShell";
+import { NoticeCard } from "./ui/NoticeCard";
 
 interface UpgradesTreeSelectorProps {
   trees: UpgradeTreeSummary[];
@@ -25,19 +26,14 @@ export function UpgradesTreeSelector({
       <h2 style={{ marginBottom: 16 }}>Upgrade Trees</h2>
 
       {!hasItems && (
-        <div
-          className="ui-notice-card"
-          style={{ marginBottom: 16, fontSize: 13 }}
-        >
+        <NoticeCard style={{ marginBottom: 16, fontSize: 13 }}>
           Your inventory is currently empty. Upgrades still work, but item-based
           stat bonuses stay at zero until you add or find equipment.
-        </div>
+        </NoticeCard>
       )}
 
       {trees.length === 0 && (
-        <div className="ui-notice-card ui-notice-card--warning">
-          No upgrade trees are available.
-        </div>
+        <NoticeCard warning>No upgrade trees are available.</NoticeCard>
       )}
 
       <div className="ui-grid-gap-10" style={{ gridTemplateColumns: "1fr" }}>
@@ -159,12 +155,9 @@ export function UpgradesTreeScreen({
       </h2>
 
       {upgrades.length === 0 && (
-        <div
-          className="ui-notice-card ui-notice-card--warning"
-          style={{ borderRadius: 8, marginBottom: 16 }}
-        >
+        <NoticeCard warning style={{ borderRadius: 8, marginBottom: 16 }}>
           No upgrades were found for this tree.
-        </div>
+        </NoticeCard>
       )}
 
       {isTreeView ? (

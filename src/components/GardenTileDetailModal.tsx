@@ -15,6 +15,7 @@ import type { GameState } from "../game/types";
 import { ActionRow } from "./ui/ActionRow";
 import { GardenDetailCard } from "./ui/GardenDetailCard";
 import { ModalShell } from "./ui/ModalShell";
+import { ProgressBar } from "./ui/ProgressBar";
 import { SectionTitle } from "./ui/SectionTitle";
 import { ToneButton } from "./ui/ToneButton";
 import { WrapActions } from "./ui/WrapActions";
@@ -230,23 +231,20 @@ function GardenCropTileDetailSection({
         >
           Growth Progress: {progress.toFixed(0)}%
         </div>
-        <div
-          style={{
+        <ProgressBar
+          value={progress}
+          trackStyle={{
             height: 20,
             backgroundColor: "#2f4459",
             borderRadius: 4,
             overflow: "hidden",
           }}
-        >
-          <div
-            style={{
-              height: "100%",
-              backgroundColor: isReady ? "#4CAF50" : "#FF9800",
-              width: `${Math.min(progress, 100)}%`,
-              transition: "width 0.3s",
-            }}
-          />
-        </div>
+          fillStyle={{
+            height: "100%",
+            backgroundColor: isReady ? "#4CAF50" : "#FF9800",
+            transition: "width 0.3s",
+          }}
+        />
       </div>
 
       {!isReady && (

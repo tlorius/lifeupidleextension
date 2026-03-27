@@ -1129,11 +1129,28 @@ button:disabled {
   border-color: #6f5630;
 }
 
+.ui-value-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
 .ui-card {
   padding: 10px;
   border: 1px solid #2f4459;
   border-radius: 6px;
   background-color: #1b2d3f;
+}
+
+.ui-panel-surface {
+  border-radius: var(--ui-panel-radius, 12px);
+  border: 1px solid var(--ui-panel-border, #30465b);
+  background: var(
+    --ui-panel-background,
+    linear-gradient(160deg, #18242f 0%, #223648 100%)
+  );
+  padding: var(--ui-panel-padding, 12px);
 }
 
 .ui-garden-detail-card {
