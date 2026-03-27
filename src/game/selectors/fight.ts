@@ -8,6 +8,7 @@ import { getSpellSlotsForLevel } from "../classes";
 import { getTotalStats } from "../engine";
 import { getItemDefSafe } from "../items";
 import { getXpForNextLevel } from "../progression";
+import { formatCompactNumber } from "../numberFormat";
 import type { GameState } from "../types";
 
 export interface DamagePoint {
@@ -48,6 +49,12 @@ export interface FightViewModel {
   checkpointLevel: number;
 }
 
+export interface YAxisTick {
+  value: number;
+  label: string;
+  y: number; // percentage from top (0-100)
+}
+
 export interface FightDpsMetrics {
   currentDps: number;
   previousDps: number;
@@ -58,6 +65,8 @@ export interface FightDpsMetrics {
   dpsDelta: number;
   dpsDeltaPercent: number;
   dpsGraphPoints: string;
+  yAxisTicks: YAxisTick[];
+  maxDpsValue: number;
 }
 
 export interface FightDpsSourceStatViewModel {
@@ -236,7 +245,7 @@ export function selectFightDpsMetrics(
   clockNow: number,
   dpsWindowMs: number,
 ): FightDpsMetrics {
-  const bucketCount = 12;
+  const bucketCount = 24;
   const bucketWidthMs = dpsWindowMs / bucketCount;
   const start = clockNow - dpsWindowMs;
   const dpsBuckets = Array.from({ length: bucketCount }, () => 0);
@@ -293,7 +302,21 @@ export function selectFightDpsMetrics(
   const dpsDelta = currentDps - previousDps;
   const dpsDeltaPercent =
     previousDps > 0 ? (dpsDelta / previousDps) * 100 : currentDps > 0 ? 100 : 0;
+
   const maxValue = Math.max(1, ...normalizedBuckets);
+
+  // Generate 4-5 y-axis ticks evenly distributed
+  const tickCount = 5;
+  const tickInterval = maxValue / (tickCount - 1);
+  const yAxisTicks: YAxisTick[] = Array.from({ length: tickCount }, (_, i) => {
+    const value = tickInterval * i;
+    return {
+      value,
+      label: formatCompactNumber(value, { minCompactValue: 1000 }),
+      y: 100 - (value / maxValue) * 100,
+    };
+  });
+
   const dpsGraphPoints = normalizedBuckets
     .map((value, index) => {
       const x = (index / Math.max(1, normalizedBuckets.length - 1)) * 100;
@@ -312,6 +335,8 @@ export function selectFightDpsMetrics(
     dpsDelta,
     dpsDeltaPercent,
     dpsGraphPoints,
+    yAxisTicks,
+    maxDpsValue: maxValue,
   };
 }
 
@@ -388,11 +413,16 @@ export function selectFightDpsPanel(
       { label: "Spell DPS", value: metrics.currentSpellDps },
       { label: "Pet DPS", value: metrics.currentPetDps },
     ],
-    windowOptions: [10_000, 30_000, 60_000].map((windowMs) => ({
-      windowMs,
-      label: `${windowMs / 1000}s`,
-      isSelected: dpsWindowMs === windowMs,
-    })),
+    windowOptions: [30_000, 60_000, 120_000, 300_000].map((windowMs) => {
+      const seconds = windowMs / 1000;
+      const label =
+        seconds >= 60 ? `${Math.round(seconds / 60)}m` : `${seconds}s`;
+      return {
+        windowMs,
+        label,
+        isSelected: dpsWindowMs === windowMs,
+      };
+    }),
   };
 }
 

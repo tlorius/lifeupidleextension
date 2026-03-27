@@ -9,6 +9,11 @@ export function isClassSystemUnlocked(level: number): boolean {
   return level >= PROGRESSION_CONFIG.unlocks.classesAtLevel;
 }
 
+export function isDpsMeterUnlocked(state: GameState): boolean {
+  const dpsMeterUpgrade = state.upgrades.find((u) => u.id === "dps_goblin");
+  return dpsMeterUpgrade ? dpsMeterUpgrade.level > 0 : false;
+}
+
 export function getHardLevelCap(): number {
   return PROGRESSION_CONFIG.levelCaps.hardCapLevel;
 }
@@ -151,6 +156,7 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
     ...nextProgress.unlockedSystems,
     spells: isSpellSystemUnlocked(nextProgress.level),
     classes: isClassSystemUnlocked(nextProgress.level),
+    dpsMeter: isDpsMeterUnlocked(state),
   };
 
   if (leveledUp) {

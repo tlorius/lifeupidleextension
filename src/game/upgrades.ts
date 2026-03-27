@@ -5,6 +5,7 @@ import {
   getUnlockedUpgrades as getUnlockedUpgradesDomain,
   isUpgradeUnlocked as isUpgradeUnlockedDomain,
 } from "./upgradePrerequisites";
+import { isDpsMeterUnlocked } from "./progression";
 
 /**
  * Single source of truth for upgrade balance data.
@@ -185,6 +186,22 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
       { percentBonusType: "attack", percentBonusAmount: 0.25 },
     ],
     prerequisites: ["ruthless_tempo"],
+    linkedUpgrades: [{ upgradeId: "dps_goblin", unlocksAtLevel: 1 }],
+  },
+
+  // Immortal Legion (level 1) -> DPS Goblin - Feature unlock for DPS meter
+  dps_goblin: {
+    id: "dps_goblin",
+    name: "DPS Goblin",
+    description:
+      "Unlock the DPS Meter! Reveals detailed damage-per-second metrics, shows damage history graphs with multiple time windows (30s, 60s, 2m, 5m), source breakdowns, and detailed analysis tools.",
+    type: "attackBoost",
+    tree: "combat",
+    level: 0,
+    baseCost: 2400,
+    scaling: 2.12,
+    bonuses: [],
+    prerequisites: ["immortal_legion"],
     linkedUpgrades: [],
   },
 
@@ -910,7 +927,7 @@ export function buyUpgrade(state: GameState, upgradeId: string): GameState {
     });
   }
 
-  return {
+  const nextState = {
     ...state,
     resources: {
       ...state.resources,
@@ -918,4 +935,17 @@ export function buyUpgrade(state: GameState, upgradeId: string): GameState {
     },
     upgrades: newUpgrades,
   };
+
+  // Update unlockedSystems if dps_goblin was purchased
+  if (upgradeId === "dps_goblin") {
+    nextState.playerProgress = {
+      ...nextState.playerProgress,
+      unlockedSystems: {
+        ...nextState.playerProgress.unlockedSystems,
+        dpsMeter: isDpsMeterUnlocked(nextState),
+      },
+    };
+  }
+
+  return nextState;
 }

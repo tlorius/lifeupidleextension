@@ -87,7 +87,9 @@ describe("fight selectors", () => {
     expect(dps.currentPetDps).toBe(1);
     expect(dps.dpsDelta).toBe(7);
     expect(dps.dpsDeltaPercent).toBe(175);
-    expect(dps.dpsGraphPoints.split(" ")).toHaveLength(12);
+    expect(dps.dpsGraphPoints.split(" ")).toHaveLength(24);
+    expect(dps.yAxisTicks).toHaveLength(5);
+    expect(dps.maxDpsValue).toBeGreaterThan(0);
 
     const panel = selectFightDpsPanel(dps, 30_000, true, true);
     expect(panel.windowSeconds).toBe(30);

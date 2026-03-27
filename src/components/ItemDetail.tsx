@@ -1,6 +1,11 @@
 import { useGame } from "../game/GameContext";
 import { useGameActions } from "../game/useGameActions";
-import { uniqueSetDefinitions } from "../game/itemSets";
+import {
+  getClassLabel,
+  getSetPieceCount,
+  hasSetPieceThreshold,
+  uniqueSetDefinitions,
+} from "../game/itemSets";
 import { getItemDefSafe } from "../game/items";
 import {
   getItemStats,
@@ -103,28 +108,19 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
 
   const rarityColor = rarityColors[def.rarity] || "#999999";
   const setDef = def.setId ? uniqueSetDefinitions[def.setId] : null;
-  const setPieceCount = def.setId
-    ? [
-        state.equipment.weapon,
-        state.equipment.armor,
-        state.equipment.accessory1,
-        state.equipment.accessory2,
-        state.equipment.pet,
-      ]
-        .map((uid) => state.inventory.find((entry) => entry.uid === uid))
-        .filter(
-          (equippedItem): equippedItem is NonNullable<typeof equippedItem> =>
-            Boolean(equippedItem),
-        )
-        .map((equippedItem) => getItemDefSafe(equippedItem.itemId))
-        .filter((equippedDef): equippedDef is NonNullable<typeof equippedDef> =>
-          Boolean(equippedDef),
-        )
-        .filter((equippedDef) => equippedDef.setId === def.setId)
-        .filter((equippedDef) =>
-          ["weapon", "armor", "accessory", "pet"].includes(equippedDef.type),
-        ).length
-    : 0;
+  const setPieceCount = def.setId ? getSetPieceCount(state, def.setId) : 0;
+  const setClassActive = setDef
+    ? state.character.activeClassId === setDef.classId
+    : false;
+  const twoPieceActive = setDef
+    ? hasSetPieceThreshold(state, setDef, 2)
+    : false;
+  const fourPieceActive = setDef
+    ? hasSetPieceThreshold(state, setDef, 4)
+    : false;
+  const fivePieceActive = setDef
+    ? hasSetPieceThreshold(state, setDef, 5)
+    : false;
 
   const formatStatLabel = (stat: string): string =>
     stat.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
@@ -284,17 +280,23 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 <div
                   style={{ fontSize: 12, color: "#c7d3df", marginBottom: 8 }}
                 >
-                  Equipped pieces: {setPieceCount}/4
+                  Equipped pieces: {setPieceCount}/5
+                </div>
+                <div
+                  style={{ fontSize: 12, color: "#c7d3df", marginBottom: 8 }}
+                >
+                  Class lock: {getClassLabel(setDef.classId)} only{" "}
+                  {!setClassActive ? "(currently inactive)" : "(active)"}
                 </div>
                 <div
                   style={{ fontSize: 12, color: "#dce6f0", marginBottom: 6 }}
                 >
                   <strong
                     style={{
-                      color: setPieceCount >= 2 ? "#73dc9a" : "#9eb0c2",
+                      color: twoPieceActive ? "#73dc9a" : "#9eb0c2",
                     }}
                   >
-                    2-piece {setPieceCount >= 2 ? "(active)" : "(inactive)"}
+                    2-piece {twoPieceActive ? "(active)" : "(inactive)"}
                   </strong>
                   <div style={{ marginTop: 4 }}>
                     {Object.entries(setDef.twoPiece).map(([key, value]) => (
@@ -311,10 +313,10 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 <div style={{ fontSize: 12, color: "#dce6f0" }}>
                   <strong
                     style={{
-                      color: setPieceCount >= 4 ? "#73dc9a" : "#9eb0c2",
+                      color: fourPieceActive ? "#73dc9a" : "#9eb0c2",
                     }}
                   >
-                    4-piece {setPieceCount >= 4 ? "(active)" : "(inactive)"}
+                    4-piece {fourPieceActive ? "(active)" : "(inactive)"}
                   </strong>
                   <div style={{ marginTop: 4 }}>
                     {Object.entries(setDef.fourPiece).map(([key, value]) => (
@@ -326,6 +328,33 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                         {formatStatLabel(key)}
                       </div>
                     ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#dce6f0", marginTop: 6 }}>
+                  <strong
+                    style={{
+                      color: fivePieceActive ? "#73dc9a" : "#9eb0c2",
+                    }}
+                  >
+                    5-piece {fivePieceActive ? "(active)" : "(inactive)"}
+                  </strong>
+                  <div style={{ marginTop: 4 }}>
+                    {Object.entries(setDef.fivePiece).map(([key, value]) => (
+                      <div key={`five-${key}`} style={{ fontSize: 12 }}>
+                        +
+                        {formatCompactNumber(value ?? 0, {
+                          minCompactValue: 1000,
+                        })}{" "}
+                        {formatStatLabel(key)}
+                      </div>
+                    ))}
+                    {setDef.fivePieceSpellBonus ? (
+                      <div
+                        style={{ fontSize: 12, marginTop: 4, color: "#ffd28a" }}
+                      >
+                        {setDef.fivePieceSpellBonus.description}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </>

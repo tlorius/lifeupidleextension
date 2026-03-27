@@ -32,6 +32,7 @@ import {
   type CombatSpellDefinition,
 } from "./combatSpells";
 import { getTotalStats, usePotion } from "./engine";
+import { hasSetPieceThreshold, uniqueSetDefinitions } from "./itemSets";
 import { getItemDefSafe } from "./items";
 import type { GameState } from "./types";
 
@@ -180,6 +181,23 @@ function getActiveClassCombatModifiers(
     modifiers.damageMultiplier += rank("berserker_10") * 0.03;
     modifiers.lethalSaveChance += rank("berserker_11") > 0 ? 0.35 : 0;
     modifiers.damageMultiplier += rank("berserker_12") > 0 ? 0.2 : 0;
+    modifiers.damageMultiplier += rank("berserker_13") * 0.025;
+    modifiers.spellDamageMultiplier += rank("berserker_14") * 0.07;
+    modifiers.manaOnHit += rank("berserker_14") * 0.6;
+    modifiers.lifeStealPercent += rank("berserker_15") * 1.1;
+    modifiers.clickDamageMultiplier += rank("berserker_16") * 0.04;
+    modifiers.critChanceBonus += rank("berserker_17") * 1.5;
+    modifiers.spellDamageMultiplier += rank("berserker_17") * 0.03;
+    modifiers.manaOnHit += rank("berserker_18") * 1.2;
+    modifiers.spellDamageMultiplier += rank("berserker_18") * 0.04;
+    modifiers.incomingDamageMultiplier *= 1 - rank("berserker_19") * 0.015;
+    modifiers.damageMultiplier += rank("berserker_19") * 0.02;
+    modifiers.damageMultiplier += rank("berserker_20") * 0.05;
+    modifiers.critChanceBonus += rank("berserker_20") * 1;
+    modifiers.lifeStealPercent += rank("berserker_21") > 0 ? 3 : 0;
+    modifiers.damageMultiplier += rank("berserker_21") > 0 ? 0.08 : 0;
+    modifiers.damageMultiplier += rank("berserker_22") > 0 ? 0.18 : 0;
+    modifiers.spellDamageMultiplier += rank("berserker_22") > 0 ? 0.12 : 0;
   }
 
   if (activeClassId === "sorceress") {
@@ -195,6 +213,21 @@ function getActiveClassCombatModifiers(
     modifiers.spellDamageMultiplier += rank("sorceress_10") * 0.06;
     modifiers.lethalSaveChance += rank("sorceress_11") > 0 ? 0.28 : 0;
     modifiers.spellDamageMultiplier += rank("sorceress_12") > 0 ? 0.22 : 0;
+    modifiers.manaRestoreMultiplier += rank("sorceress_13") * 0.06;
+    modifiers.spellDamageMultiplier += rank("sorceress_14") * 0.05;
+    modifiers.spellCooldownMultiplier *= 1 - rank("sorceress_15") * 0.025;
+    modifiers.critChanceBonus += rank("sorceress_16") * 1.8;
+    modifiers.spellDamageMultiplier += rank("sorceress_16") * 0.02;
+    modifiers.spellManaCostMultiplier *= 1 - rank("sorceress_17") * 0.03;
+    modifiers.healMultiplier += rank("sorceress_18") * 0.05;
+    modifiers.spellDamageMultiplier += rank("sorceress_18") * 0.025;
+    modifiers.apsMultiplier += rank("sorceress_19") * 0.035;
+    modifiers.spellDamageMultiplier += rank("sorceress_20") * 0.07;
+    modifiers.manaRestoreMultiplier += rank("sorceress_20") * 0.04;
+    modifiers.spellCooldownMultiplier *= rank("sorceress_21") > 0 ? 0.92 : 1;
+    modifiers.spellDamageMultiplier += rank("sorceress_21") > 0 ? 0.08 : 0;
+    modifiers.spellDamageMultiplier += rank("sorceress_22") > 0 ? 0.2 : 0;
+    modifiers.critChanceBonus += rank("sorceress_22") > 0 ? 3 : 0;
   }
 
   if (activeClassId === "farmer") {
@@ -207,6 +240,23 @@ function getActiveClassCombatModifiers(
     modifiers.healMultiplier += rank("farmer_10") * 0.06;
     modifiers.healMultiplier += rank("farmer_11") > 0 ? 0.12 : 0;
     modifiers.damageMultiplier += rank("farmer_12") > 0 ? 0.14 : 0;
+    modifiers.damageMultiplier += rank("farmer_13") * 0.02;
+    modifiers.healMultiplier += rank("farmer_14") * 0.05;
+    modifiers.manaRestoreMultiplier += rank("farmer_15") * 0.04;
+    modifiers.incomingDamageMultiplier *= 1 - rank("farmer_16") * 0.018;
+    modifiers.damageMultiplier += rank("farmer_17") * 0.025;
+    modifiers.healMultiplier += rank("farmer_17") * 0.02;
+    modifiers.healMultiplier += rank("farmer_18") * 0.04;
+    modifiers.manaRestoreMultiplier += rank("farmer_18") * 0.03;
+    modifiers.damageMultiplier += rank("farmer_19") * 0.03;
+    modifiers.incomingDamageMultiplier *= 1 - rank("farmer_19") * 0.01;
+    modifiers.healMultiplier += rank("farmer_20") * 0.07;
+    modifiers.damageMultiplier += rank("farmer_20") * 0.015;
+    modifiers.healMultiplier += rank("farmer_21") > 0 ? 0.1 : 0;
+    modifiers.damageMultiplier += rank("farmer_21") > 0 ? 0.06 : 0;
+    modifiers.healMultiplier += rank("farmer_22") > 0 ? 0.12 : 0;
+    modifiers.damageMultiplier += rank("farmer_22") > 0 ? 0.14 : 0;
+    modifiers.manaRestoreMultiplier += rank("farmer_22") > 0 ? 0.08 : 0;
   }
 
   if (activeClassId === "archer") {
@@ -223,6 +273,23 @@ function getActiveClassCombatModifiers(
     modifiers.apsMultiplier += rank("archer_11") > 0 ? 0.06 : 0;
     modifiers.apsCapBonus += rank("archer_6") * 2 + rank("archer_12") * 20;
     modifiers.damageMultiplier += rank("archer_12") > 0 ? 0.16 : 0;
+    modifiers.apsFlat += rank("archer_13") * 0.28;
+    modifiers.critChanceBonus += rank("archer_14") * 1.2;
+    modifiers.clickDamageMultiplier += rank("archer_15") * 0.04;
+    modifiers.damageMultiplier += rank("archer_16") * 0.025;
+    modifiers.critChanceBonus += rank("archer_16") * 0.5;
+    modifiers.apsMultiplier += rank("archer_17") * 0.04;
+    modifiers.petProcChance += rank("archer_18") * 0.015;
+    modifiers.damageMultiplier += rank("archer_18") * 0.02;
+    modifiers.critChanceBonus += rank("archer_19") * 1.5;
+    modifiers.apsCapBonus += rank("archer_19") * 2;
+    modifiers.apsMultiplier += rank("archer_20") * 0.05;
+    modifiers.damageMultiplier += rank("archer_20") * 0.02;
+    modifiers.apsCapBonus += rank("archer_21") > 0 ? 12 : 0;
+    modifiers.damageMultiplier += rank("archer_21") > 0 ? 0.08 : 0;
+    modifiers.damageMultiplier += rank("archer_22") > 0 ? 0.16 : 0;
+    modifiers.critChanceBonus += rank("archer_22") > 0 ? 4 : 0;
+    modifiers.apsMultiplier += rank("archer_22") > 0 ? 0.08 : 0;
   }
 
   if (activeClassId === "idler") {
@@ -232,6 +299,21 @@ function getActiveClassCombatModifiers(
     modifiers.spellCooldownMultiplier *= 1 - rank("idler_10") * 0.02;
     modifiers.incomingDamageMultiplier *= 1 - rank("idler_11") * 0.04;
     modifiers.damageMultiplier += rank("idler_12") > 0 ? 0.08 : 0;
+    modifiers.manaRestoreMultiplier += rank("idler_13") * 0.05;
+    modifiers.damageMultiplier += rank("idler_14") * 0.025;
+    modifiers.incomingDamageMultiplier *= 1 - rank("idler_15") * 0.015;
+    modifiers.spellCooldownMultiplier *= 1 - rank("idler_16") * 0.025;
+    modifiers.damageMultiplier += rank("idler_17") * 0.03;
+    modifiers.manaRestoreMultiplier += rank("idler_18") * 0.05;
+    modifiers.spellCooldownMultiplier *= 1 - rank("idler_18") * 0.015;
+    modifiers.damageMultiplier += rank("idler_19") * 0.035;
+    modifiers.incomingDamageMultiplier *= 1 - rank("idler_20") * 0.02;
+    modifiers.damageMultiplier += rank("idler_20") * 0.015;
+    modifiers.spellCooldownMultiplier *= rank("idler_21") > 0 ? 0.92 : 1;
+    modifiers.manaRestoreMultiplier += rank("idler_21") > 0 ? 0.08 : 0;
+    modifiers.damageMultiplier += rank("idler_22") > 0 ? 0.16 : 0;
+    modifiers.incomingDamageMultiplier *= rank("idler_22") > 0 ? 0.94 : 1;
+    modifiers.manaRestoreMultiplier += rank("idler_22") > 0 ? 0.08 : 0;
   }
 
   if (activeClassId === "tamer") {
@@ -247,6 +329,22 @@ function getActiveClassCombatModifiers(
     modifiers.petProcChance += rank("tamer_10") * 0.03;
     modifiers.lethalSaveChance += rank("tamer_11") > 0 ? 0.32 : 0;
     modifiers.petDamageMultiplier += rank("tamer_12") > 0 ? 0.2 : 0;
+    modifiers.petDamageMultiplier += rank("tamer_13") * 0.06;
+    modifiers.petProcChance += rank("tamer_14") * 0.025;
+    modifiers.petProcDamageMultiplier += rank("tamer_15") * 0.1;
+    modifiers.damageMultiplier += rank("tamer_16") * 0.02;
+    modifiers.critChanceBonus += rank("tamer_17") * 1.2;
+    modifiers.petDamageMultiplier += rank("tamer_17") * 0.02;
+    modifiers.incomingDamageMultiplier *= 1 - rank("tamer_18") * 0.02;
+    modifiers.petDamageMultiplier += rank("tamer_19") * 0.07;
+    modifiers.petProcChance += rank("tamer_19") * 0.01;
+    modifiers.petProcDamageMultiplier += rank("tamer_20") * 0.12;
+    modifiers.damageMultiplier += rank("tamer_20") * 0.015;
+    modifiers.petDamageMultiplier += rank("tamer_21") > 0 ? 0.1 : 0;
+    modifiers.incomingDamageMultiplier *= rank("tamer_21") > 0 ? 0.94 : 1;
+    modifiers.petDamageMultiplier += rank("tamer_22") > 0 ? 0.2 : 0;
+    modifiers.petProcDamageMultiplier += rank("tamer_22") > 0 ? 0.15 : 0;
+    modifiers.critChanceBonus += rank("tamer_22") > 0 ? 3 : 0;
   }
 
   modifiers.incomingDamageMultiplier = Math.max(
@@ -453,26 +551,10 @@ export function getPlayerCritChance(state: GameState): number {
 }
 
 function hasActiveCritSetBonus(state: GameState): boolean {
-  const equipped = [
-    state.equipment.weapon,
-    state.equipment.armor,
-    state.equipment.accessory1,
-    state.equipment.accessory2,
-    state.equipment.pet,
-  ];
-
-  let pieces = 0;
-  for (const uid of equipped) {
-    if (!uid) continue;
-    const inventoryItem = state.inventory.find((entry) => entry.uid === uid);
-    if (!inventoryItem) continue;
-    const itemDef = getItemDefSafe(inventoryItem.itemId);
-    if (itemDef?.setId === "bloodletter") {
-      pieces += 1;
-    }
-  }
-
-  return pieces >= 2;
+  const bloodletterSet = uniqueSetDefinitions.bloodletter;
+  return (
+    Boolean(bloodletterSet) && hasSetPieceThreshold(state, bloodletterSet, 2)
+  );
 }
 
 function rollInRange(rng: CombatRng, min: number, max: number): number {

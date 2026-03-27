@@ -61,7 +61,7 @@ export interface CharacterState {
 
 export const CLASS_UNLOCK_LEVEL = 10;
 export const CLASS_SWITCH_GEM_COST = 100;
-export const CLASS_TREE_NODE_TARGET = 12;
+export const CLASS_TREE_NODE_TARGET = 22;
 export const CLASS_MAX_SPELL_SLOTS = 8;
 
 export function getSpellSlotsForLevel(level: number): number {

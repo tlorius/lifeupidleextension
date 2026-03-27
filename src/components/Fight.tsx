@@ -241,6 +241,8 @@ export function Fight() {
     dpsDelta,
     dpsDeltaPercent,
     dpsGraphPoints,
+    yAxisTicks,
+    maxDpsValue,
   } = useMemo(
     () => selectFightDpsMetrics(damageHistory, clockNow, dpsWindowMs),
     [clockNow, damageHistory, dpsWindowMs],
@@ -279,6 +281,8 @@ export function Fight() {
           dpsDelta,
           dpsDeltaPercent,
           dpsGraphPoints,
+          yAxisTicks,
+          maxDpsValue,
         },
         dpsWindowMs,
         damageHistory.length > 0,
@@ -295,6 +299,8 @@ export function Fight() {
       dpsDelta,
       dpsDeltaPercent,
       dpsGraphPoints,
+      yAxisTicks,
+      maxDpsValue,
       dpsWindowMs,
       damageHistory.length,
       isDpsExpanded,
@@ -878,10 +884,13 @@ export function Fight() {
           dpsDelta,
           dpsDeltaPercent,
           dpsGraphPoints,
+          yAxisTicks,
+          maxDpsValue,
         }}
         isExpanded={isDpsExpanded}
         onToggleExpanded={() => setIsDpsExpanded((value) => !value)}
         onSelectWindow={setDpsWindowMs}
+        isUnlocked={state.playerProgress.unlockedSystems?.dpsMeter ?? false}
       />
 
       <FightCombatLogPanel log={combatLogPanel} />

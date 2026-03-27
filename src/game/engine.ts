@@ -1,5 +1,9 @@
 import { getItemDefSafe } from "./items";
-import { uniqueSetDefinitions } from "./itemSets";
+import {
+  hasSetPieceThreshold,
+  isSetClassActive,
+  uniqueSetDefinitions,
+} from "./itemSets";
 import { getActiveClassNodeRank } from "./classes";
 import { getUpgradeStats as getUpgradeStatsDomain } from "./upgradeStats";
 import {
@@ -715,62 +719,20 @@ function getActiveClassNodeStatBonuses(state: GameState): Partial<Stats> {
 }
 
 export function getUniqueSetStats(state: GameState): Partial<Stats> {
-  const setCategoryPieces = new Map<
-    string,
-    { weapon: boolean; armor: boolean; accessory: boolean; pet: boolean }
-  >();
-
-  const equippedUids = [
-    state.equipment.weapon,
-    state.equipment.armor,
-    state.equipment.accessory1,
-    state.equipment.accessory2,
-    state.equipment.pet,
-  ].filter((uid): uid is string => Boolean(uid));
-
-  for (const uid of equippedUids) {
-    const item = state.inventory.find((entry) => entry.uid === uid);
-    if (!item) continue;
-
-    const def = getItemDefSafe(item.itemId);
-    if (!def?.setId || def.rarity !== "unique") continue;
-
-    const setPieces = setCategoryPieces.get(def.setId) ?? {
-      weapon: false,
-      armor: false,
-      accessory: false,
-      pet: false,
-    };
-
-    if (def.type === "weapon") setPieces.weapon = true;
-    if (def.type === "armor") setPieces.armor = true;
-    if (def.type === "accessory") setPieces.accessory = true;
-    if (def.type === "pet") setPieces.pet = true;
-
-    setCategoryPieces.set(def.setId, {
-      weapon: setPieces.weapon,
-      armor: setPieces.armor,
-      accessory: setPieces.accessory,
-      pet: setPieces.pet,
-    });
-  }
-
   const result: Partial<Stats> = {};
-  for (const [setId, pieces] of setCategoryPieces.entries()) {
+  for (const setId of Object.keys(uniqueSetDefinitions)) {
     const setDef = uniqueSetDefinitions[setId];
     if (!setDef) continue;
+    if (!isSetClassActive(state, setDef)) continue;
 
-    const pieceCount = [
-      pieces.weapon,
-      pieces.armor,
-      pieces.accessory,
-      pieces.pet,
-    ].filter(Boolean).length;
-    if (pieceCount >= 2) {
+    if (hasSetPieceThreshold(state, setDef, 2)) {
       addStats(result, setDef.twoPiece);
     }
-    if (pieceCount >= 4) {
+    if (hasSetPieceThreshold(state, setDef, 4)) {
       addStats(result, setDef.fourPiece);
+    }
+    if (hasSetPieceThreshold(state, setDef, 5)) {
+      addStats(result, setDef.fivePiece);
     }
   }
 

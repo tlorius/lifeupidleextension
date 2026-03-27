@@ -210,6 +210,7 @@ export interface PlayerProgress {
   unlockedSystems?: {
     spells?: boolean;
     classes?: boolean;
+    dpsMeter?: boolean;
   };
   lastLevelUpAt?: number;
 }

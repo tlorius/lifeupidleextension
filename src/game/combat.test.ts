@@ -202,7 +202,7 @@ describe("combat engine", () => {
     const result = castCombatSpell(runtime, state, "idler_timebank", () => 0.5);
 
     expect(result.state.resources.energy).toBeGreaterThan(40 - 20);
-    expect(result.runtime.spellCooldowns?.arcane_bolt).toBeLessThan(9000);
+    expect(result.runtime.spellCooldowns?.arcane_bolt ?? 0).toBeLessThan(9000);
     expect(result.runtime.spellCooldowns?.ember_lance ?? 0).toBe(0);
     expect(result.events.some((event) => event.type === "spellCast")).toBe(
       true,
