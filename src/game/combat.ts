@@ -105,6 +105,7 @@ export interface CombatOfflineResult {
 
 const CRIT_DAMAGE_MULTIPLIER = 3.8;
 const CLICK_CRIT_BONUS_MULTIPLIER = 1.25;
+const BASE_CLICK_DAMAGE_MULTIPLIER = 1.45;
 const NORMAL_HIT_VARIANCE_MIN = 0.92;
 const NORMAL_HIT_VARIANCE_MAX = 1.08;
 const CRIT_VARIANCE_MIN = 1.02;
@@ -599,7 +600,9 @@ export function calculatePlayerHit(
       ? 1 + Math.min(0.7, Math.max(0, aps - 1) * archerHunterFocusRank * 0.01)
       : 1;
   const sourceDamageMultiplier =
-    attackSource === "click" ? combatModifiers.clickDamageMultiplier : 1;
+    attackSource === "click"
+      ? BASE_CLICK_DAMAGE_MULTIPLIER * combatModifiers.clickDamageMultiplier
+      : 1;
   const damage = Math.max(
     1,
     Math.round(

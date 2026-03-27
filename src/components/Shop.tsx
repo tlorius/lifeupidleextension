@@ -41,6 +41,14 @@ const DEBUG_CATEGORY_FILTERS: DebugCategoryFilter[] = [
   "pet",
 ];
 
+const RARITY_COLORS: Record<string, string> = {
+  common: "#999999",
+  rare: "#4169E1",
+  epic: "#9932CC",
+  legendary: "#FFD700",
+  unique: "#FF8C00",
+};
+
 export default function Shop({ isDebugShopEnabled }: ShopProps) {
   const { state } = useGame();
   const { buyShopItem } = useGameActions();
@@ -235,6 +243,7 @@ function ShopOfferCard({
   const currencyIcon =
     offer.currency === "gold" ? "🪙" : offer.currency === "gems" ? "💎" : "♦️";
   const affordColor = hasEnough ? "#9fe3a8" : "#ff9f9f";
+  const rarityColor = RARITY_COLORS[offer.rarity] ?? RARITY_COLORS.common;
 
   return (
     <div
@@ -247,7 +256,9 @@ function ShopOfferCard({
       }}
       onClick={onOpenDetails}
     >
-      <div style={{ fontWeight: 700, marginBottom: 6 }}>{offer.name}</div>
+      <div style={{ fontWeight: 700, marginBottom: 6, color: rarityColor }}>
+        {offer.name}
+      </div>
       <div style={{ fontSize: 12, color: "#9eb0c2", marginBottom: 6 }}>
         Rarity: {offer.rarity}
       </div>

@@ -85,18 +85,16 @@ export function Fight() {
     checkpointLevel,
   } = useMemo(() => selectFightView(state), [state]);
 
-  // Visual HP tracked per-attack for smooth bar movement
-  const visualEnemyHpRef = useRef(combat.enemy.currentHp);
+  // Visual HP tracks actual enemy HP percent for smooth and accurate motion.
   const [visualEnemyHpPercent, setVisualEnemyHpPercent] = useState(
     () => enemyHpPercent,
   );
-  // Snapshot history for the 1.5-second damage trail bar
-  const hpSnapshotRef = useRef<Array<{ t: number; hp: number }>>([]);
-  const [hpFiveSecAgoPercent, setHpFiveSecAgoPercent] = useState(
-    () => enemyHpPercent,
-  );
-  // Track previous enemyHpPercent to detect new enemy spawns
-  const prevEnemyHpPercentRef = useRef(enemyHpPercent);
+  // Trail bar lags behind current HP and catches up over 1 second.
+  const [hpTrailPercent, setHpTrailPercent] = useState(() => enemyHpPercent);
+  const trailTimeoutRef = useRef<number | null>(null);
+  const hpTickTimersRef = useRef<number[]>([]);
+  const previousEnemyIdRef = useRef(combat.enemy.enemyId);
+  const previousEnemyHpPercentRef = useRef(enemyHpPercent);
 
   const enemySprite =
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
@@ -136,70 +134,113 @@ export function Fight() {
     );
   }, [clockNow]);
 
-  // Snap visual HP to actual state whenever HP jumps up (new enemy spawned)
+  // Keep visual bars tied to true enemy HP and reset immediately on enemy swap.
   useEffect(() => {
-    if (enemyHpPercent > prevEnemyHpPercentRef.current + 20) {
-      visualEnemyHpRef.current = combat.enemy.currentHp;
-      setVisualEnemyHpPercent(enemyHpPercent);
-      setHpFiveSecAgoPercent(enemyHpPercent);
-      hpSnapshotRef.current = [];
-    }
-    prevEnemyHpPercentRef.current = enemyHpPercent;
-  }, [enemyHpPercent, combat.enemy.currentHp]);
+    const enemyChanged = previousEnemyIdRef.current !== combat.enemy.enemyId;
+    if (enemyChanged) {
+      previousEnemyIdRef.current = combat.enemy.enemyId;
 
-  // Stagger visual HP decrements in sync with attack popups
+      if (trailTimeoutRef.current !== null) {
+        window.clearTimeout(trailTimeoutRef.current);
+        trailTimeoutRef.current = null;
+      }
+
+      for (const timerId of hpTickTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+      hpTickTimersRef.current = [];
+
+      setVisualEnemyHpPercent(enemyHpPercent);
+      setHpTrailPercent(enemyHpPercent);
+      previousEnemyHpPercentRef.current = enemyHpPercent;
+      return;
+    }
+
+    // Upward HP changes (new enemy/heals) should sync immediately.
+    if (enemyHpPercent > previousEnemyHpPercentRef.current) {
+      setVisualEnemyHpPercent(enemyHpPercent);
+    }
+
+    previousEnemyHpPercentRef.current = enemyHpPercent;
+  }, [enemyHpPercent, combat.enemy.enemyId]);
+
+  // Move HP bar on every player-hit tick using the same cadence as popup numbers.
   useEffect(() => {
     if (combatEvents.length === 0) return;
-    const hits = combatEvents.filter((e) => e.type === "playerHit");
-    if (hits.length === 0) return;
+    if (combatEvents.some((event) => event.type === "enemyDefeated")) return;
+
+    const hitDamages = combatEvents
+      .filter((event) => event.type === "playerHit")
+      .map((event) => Math.max(0, event.value ?? 0))
+      .filter((value) => value > 0);
+    if (hitDamages.length === 0) return;
+
+    for (const timerId of hpTickTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+    hpTickTimersRef.current = [];
 
     const maxHp = Math.max(1, combat.enemy.maxHp);
+    const totalBatchDamage = hitDamages.reduce((sum, value) => sum + value, 0);
+    let runningHp = Math.min(maxHp, combat.enemy.currentHp + totalBatchDamage);
     const intervalMs = Math.max(
       70,
       Math.round(1000 / Math.max(1, attacksPerSecond)),
     );
-    const timers: number[] = [];
 
-    hits.forEach((hit, idx) => {
-      timers.push(
-        window.setTimeout(() => {
-          visualEnemyHpRef.current = Math.max(
-            0,
-            visualEnemyHpRef.current - (hit.value ?? 0),
-          );
-          setVisualEnemyHpPercent(
-            Math.max(
-              0,
-              Math.min(100, (visualEnemyHpRef.current / maxHp) * 100),
-            ),
-          );
-        }, idx * intervalMs),
-      );
+    hitDamages.forEach((damage, index) => {
+      const timerId = window.setTimeout(() => {
+        runningHp = Math.max(combat.enemy.currentHp, runningHp - damage);
+        setVisualEnemyHpPercent(
+          Math.max(0, Math.min(100, (runningHp / maxHp) * 100)),
+        );
+
+        if (index === hitDamages.length - 1) {
+          setVisualEnemyHpPercent(enemyHpPercent);
+        }
+      }, index * intervalMs);
+
+      hpTickTimersRef.current.push(timerId);
     });
 
-    return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [combatEvents, attacksPerSecond, combat.enemy.maxHp]);
+    return () => {
+      for (const timerId of hpTickTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+      hpTickTimersRef.current = [];
+    };
+  }, [
+    attacksPerSecond,
+    combat.enemy.currentHp,
+    combat.enemy.maxHp,
+    combatEvents,
+    enemyHpPercent,
+  ]);
 
-  // Sample visual HP every second to power the 1.5-second damage trail
+  // Trail follows current HP over 1 second while preventing delayed resets.
   useEffect(() => {
-    const now = clockNow;
-    const maxHp = Math.max(1, combat.enemy.maxHp);
-    const currentPct = Math.max(
-      0,
-      Math.min(100, (visualEnemyHpRef.current / maxHp) * 100),
-    );
-
-    hpSnapshotRef.current.push({ t: now, hp: currentPct });
-    hpSnapshotRef.current = hpSnapshotRef.current.filter(
-      (e) => now - e.t <= 3_000,
-    );
-
-    const lookbackTime = now - 1_500;
-    const past = hpSnapshotRef.current.filter((e) => e.t <= lookbackTime);
-    if (past.length > 0) {
-      setHpFiveSecAgoPercent(past[past.length - 1].hp);
+    if (trailTimeoutRef.current !== null) {
+      window.clearTimeout(trailTimeoutRef.current);
+      trailTimeoutRef.current = null;
     }
-  }, [clockNow, combat.enemy.maxHp]);
+
+    if (visualEnemyHpPercent >= hpTrailPercent) {
+      setHpTrailPercent(visualEnemyHpPercent);
+      return;
+    }
+
+    trailTimeoutRef.current = window.setTimeout(() => {
+      setHpTrailPercent(visualEnemyHpPercent);
+      trailTimeoutRef.current = null;
+    }, 50);
+
+    return () => {
+      if (trailTimeoutRef.current !== null) {
+        window.clearTimeout(trailTimeoutRef.current);
+        trailTimeoutRef.current = null;
+      }
+    };
+  }, [hpTrailPercent, visualEnemyHpPercent]);
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -717,21 +758,19 @@ export function Fight() {
 
         <div className="ui-fight-enemy-hp">
           HP:{" "}
-          {formatCombatNumber(
-            Math.round((visualEnemyHpPercent / 100) * combat.enemy.maxHp),
-          )}{" "}
+          {formatCombatNumber(Math.max(0, Math.round(combat.enemy.currentHp)))}{" "}
           / {formatCombatNumber(combat.enemy.maxHp)}
         </div>
         <div className="ui-fight-enemy-hp-shell">
-          {/* 1.5-second damage trail — white bar behind the red HP bar */}
+          {/* 1-second damage trail — white bar behind the red HP bar */}
           <div
             style={{
               position: "absolute",
               left: 0,
-              width: `${hpFiveSecAgoPercent}%`,
+              width: `${hpTrailPercent}%`,
               height: "100%",
               background: "rgba(255, 255, 255, 0.50)",
-              transition: "width 800ms ease-out",
+              transition: "width 1000ms linear",
             }}
           />
           {/* Current HP bar */}
@@ -743,7 +782,7 @@ export function Fight() {
               height: "100%",
               background:
                 "linear-gradient(90deg, #b83838 0%, #e65e5e 64%, #ffc4c4 100%)",
-              transition: "width 140ms linear",
+              transition: "width 80ms linear",
             }}
           />
         </div>

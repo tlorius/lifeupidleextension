@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../state";
 import { addDebugItems } from "../items";
 import { applyCombatAction } from "./combat";
@@ -48,6 +48,7 @@ describe("combat action handler", () => {
   });
 
   it("produces identical results for identical combat action sequences", () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const base = createDefaultState();
 
     const sequence = [
@@ -66,6 +67,8 @@ describe("combat action handler", () => {
 
     const first = runSequence();
     const second = runSequence();
+
+    randomSpy.mockRestore();
 
     expect(first).toEqual(second);
   });

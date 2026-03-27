@@ -47,6 +47,18 @@ describe("combat engine", () => {
     expect(hit.damage).toBe(58);
   });
 
+  it("makes baseline click attacks stronger than auto attacks", () => {
+    const state = createDefaultState();
+    state.stats.attack = 100;
+    state.stats.critChance = 0;
+
+    const autoHit = calculatePlayerHit(state, () => 0.5, "auto");
+    const clickHit = calculatePlayerHit(state, () => 0.5, "click");
+
+    expect(clickHit.isCrit).toBe(false);
+    expect(clickHit.damage).toBeGreaterThan(autoHit.damage);
+  });
+
   it("keeps high enemy damage threatening even with extreme defense", () => {
     const mitigated = getDamageAfterDefense(1000, 1_000_000);
     expect(mitigated).toBeGreaterThan(1);
