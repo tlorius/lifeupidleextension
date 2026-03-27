@@ -16,8 +16,6 @@ export interface GrantedTokenRewardItem extends NormalizedTokenRewardItem {
   level: number;
 }
 
-const PROCESSED_TOKENS_KEY = "idle_processed_reward_tokens";
-
 export function extractRewardToken(search: string): string | null {
   const params = new URLSearchParams(search);
   return params.get("token") ?? params.get("rewardToken");
@@ -29,25 +27,6 @@ export function removeRewardTokenFromUrl(search: string): string {
   params.delete("rewardToken");
   const next = params.toString();
   return next ? `?${next}` : "";
-}
-
-export function loadProcessedTokens(storage: Storage): Set<string> {
-  try {
-    const raw = storage.getItem(PROCESSED_TOKENS_KEY);
-    if (!raw) return new Set<string>();
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set<string>();
-    return new Set(parsed.filter((entry) => typeof entry === "string"));
-  } catch {
-    return new Set<string>();
-  }
-}
-
-export function saveProcessedTokens(
-  storage: Storage,
-  tokens: Set<string>,
-): void {
-  storage.setItem(PROCESSED_TOKENS_KEY, JSON.stringify(Array.from(tokens)));
 }
 
 export async function resolveTokenRewards(

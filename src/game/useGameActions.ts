@@ -2,12 +2,7 @@ import { useGame } from "./GameContext";
 import type { ClassId } from "./classes";
 
 export function useGameActions() {
-  const {
-    dispatch,
-    performCombatClickAttack,
-    useCombatConsumable,
-    castCombatSpell,
-  } = useGame();
+  const { dispatch, tickSpeedMultiplier, setTickSpeedMultiplier } = useGame();
 
   return {
     addGold: (amount: number) => dispatch({ type: "resource/addGold", amount }),
@@ -35,21 +30,41 @@ export function useGameActions() {
       dispatch({ type: "inventory/equipItem", itemUid, slot }),
     upgradeItem: (itemUid: string) =>
       dispatch({ type: "inventory/upgradeItem", itemUid }),
+    upgradeItemMax: (itemUid: string) =>
+      dispatch({ type: "inventory/upgradeItemMax", itemUid }),
     sellItem: (itemUid: string) =>
       dispatch({ type: "inventory/sellItem", itemUid }),
     usePotion: (itemUid: string) =>
       dispatch({ type: "inventory/usePotion", itemUid }),
     sellSelectedItems: (itemUids: string[]) =>
       dispatch({ type: "inventory/sellSelectedItems", itemUids }),
+    buyShopItem: (
+      itemId: string,
+      currency: "gold" | "gems" | "ruby",
+      costPerItem: number,
+      quantity: number = 1,
+    ) =>
+      dispatch({
+        type: "inventory/buyShopItem",
+        itemId,
+        currency,
+        costPerItem,
+        quantity,
+      }),
 
     addDebugItems: () => dispatch({ type: "inventory/addDebugItems" }),
     buyUpgrade: (upgradeId: string) =>
       dispatch({ type: "upgrade/buy", upgradeId }),
     resetState: () => dispatch({ type: "state/resetToDefault" }),
 
-    // Combat wrappers intentionally keep existing runtime internals untouched.
-    combatClickAttack: () => performCombatClickAttack(),
-    combatUseConsumable: (itemUid: string) => useCombatConsumable(itemUid),
-    combatCastSpell: (spellId: string) => castCombatSpell(spellId),
+    combatClickAttack: () => dispatch({ type: "combat/clickAttack" }),
+    combatUseConsumable: (itemUid: string) =>
+      dispatch({ type: "combat/useConsumable", itemUid }),
+    combatCastSpell: (spellId: string) =>
+      dispatch({ type: "combat/castSpell", spellId }),
+
+    tickSpeedMultiplier,
+    setTickSpeedMultiplier: (multiplier: 1 | 10 | 100) =>
+      setTickSpeedMultiplier(multiplier),
   };
 }

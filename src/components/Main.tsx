@@ -1,6 +1,11 @@
 import { useGameActions } from "../game/useGameActions";
 
-export function Main() {
+interface MainProps {
+  isDebugShopEnabled: boolean;
+  onDebugShopToggle: (enabled: boolean) => void;
+}
+
+export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
   const {
     addDebugItems,
     addEnergy,
@@ -9,10 +14,34 @@ export function Main() {
     addGoldAndGems,
     addSkillPoints,
     resetState,
+    tickSpeedMultiplier,
+    setTickSpeedMultiplier,
   } = useGameActions();
+
+  const tickSpeedOptions: Array<1 | 10 | 100> = [1, 10, 100];
   return (
     <div style={{ padding: 20 }}>
       <h1>Idle RPG</h1>
+
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 6, fontSize: 13, color: "#9eb0c2" }}>
+          Debug Tick Speed
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {tickSpeedOptions.map((multiplier) => (
+            <button
+              key={multiplier}
+              className={
+                tickSpeedMultiplier === multiplier ? "btn-selected" : ""
+              }
+              onClick={() => setTickSpeedMultiplier(multiplier)}
+              style={{ flex: 1 }}
+            >
+              {multiplier}x
+            </button>
+          ))}
+        </div>
+      </div>
 
       <button
         style={{
@@ -109,6 +138,23 @@ export function Main() {
       >
         Add Items to debug
       </button>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+          fontSize: 14,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={isDebugShopEnabled}
+          onChange={(event) => onDebugShopToggle(event.target.checked)}
+        />
+        Enable debug shop tab section
+      </label>
 
       <button
         className="btn-danger"

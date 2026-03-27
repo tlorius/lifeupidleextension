@@ -1,4 +1,5 @@
-export const NumberUnitSuffix = {
+// Internal unit suffix mappings (inlined into formatCompactNumber to avoid duplication)
+const UNIT_SUFFIXES = {
   K: "K",
   M: "M",
   B: "B",
@@ -23,7 +24,7 @@ export const NumberUnitSuffix = {
 } as const;
 
 export type NumberUnitSuffix =
-  (typeof NumberUnitSuffix)[keyof typeof NumberUnitSuffix];
+  (typeof UNIT_SUFFIXES)[keyof typeof UNIT_SUFFIXES];
 
 export type NumberUnitDefinition = {
   suffix: NumberUnitSuffix | string;
@@ -37,29 +38,29 @@ export interface CompactNumberOptions {
   fallbackToScientific?: boolean;
 }
 
-// Configurable unit list. Order defines progression by powers of 1000.
-export const DEFAULT_NUMBER_UNITS: NumberUnitDefinition[] = [
-  { suffix: NumberUnitSuffix.K },
-  { suffix: NumberUnitSuffix.M },
-  { suffix: NumberUnitSuffix.B },
-  { suffix: NumberUnitSuffix.T },
-  { suffix: NumberUnitSuffix.Qa },
-  { suffix: NumberUnitSuffix.Qi },
-  { suffix: NumberUnitSuffix.Sx },
-  { suffix: NumberUnitSuffix.Sp },
-  { suffix: NumberUnitSuffix.Oc },
-  { suffix: NumberUnitSuffix.No },
-  { suffix: NumberUnitSuffix.Dc },
-  { suffix: NumberUnitSuffix.Ud },
-  { suffix: NumberUnitSuffix.Dd },
-  { suffix: NumberUnitSuffix.Td },
-  { suffix: NumberUnitSuffix.Qad },
-  { suffix: NumberUnitSuffix.Qid },
-  { suffix: NumberUnitSuffix.Sxd },
-  { suffix: NumberUnitSuffix.Spd },
-  { suffix: NumberUnitSuffix.Ocd },
-  { suffix: NumberUnitSuffix.Nod },
-  { suffix: NumberUnitSuffix.Vg },
+// Default unit list (inlined in function to avoid export)
+const UNITS: NumberUnitDefinition[] = [
+  { suffix: UNIT_SUFFIXES.K },
+  { suffix: UNIT_SUFFIXES.M },
+  { suffix: UNIT_SUFFIXES.B },
+  { suffix: UNIT_SUFFIXES.T },
+  { suffix: UNIT_SUFFIXES.Qa },
+  { suffix: UNIT_SUFFIXES.Qi },
+  { suffix: UNIT_SUFFIXES.Sx },
+  { suffix: UNIT_SUFFIXES.Sp },
+  { suffix: UNIT_SUFFIXES.Oc },
+  { suffix: UNIT_SUFFIXES.No },
+  { suffix: UNIT_SUFFIXES.Dc },
+  { suffix: UNIT_SUFFIXES.Ud },
+  { suffix: UNIT_SUFFIXES.Dd },
+  { suffix: UNIT_SUFFIXES.Td },
+  { suffix: UNIT_SUFFIXES.Qad },
+  { suffix: UNIT_SUFFIXES.Qid },
+  { suffix: UNIT_SUFFIXES.Sxd },
+  { suffix: UNIT_SUFFIXES.Spd },
+  { suffix: UNIT_SUFFIXES.Ocd },
+  { suffix: UNIT_SUFFIXES.Nod },
+  { suffix: UNIT_SUFFIXES.Vg },
 ];
 
 function trimTrailingZeros(value: number, decimals: number): string {
@@ -83,7 +84,7 @@ export function formatCompactNumber(
     decimals = 2,
     minCompactValue = 1000,
     smallValueDecimals = 2,
-    units = DEFAULT_NUMBER_UNITS,
+    units = UNITS,
     fallbackToScientific = true,
   } = options;
 
@@ -118,4 +119,23 @@ export function formatCompactNumber(
   }
 
   return `${formatFixedDecimals(rounded, decimals)}${units[unitIndex].suffix}`;
+}
+
+/**
+ * Formats an integer with apostrophe thousands separators for combat damage display.
+ * Examples: 1000 → "1'000", 1234567 → "1'234'567", 999 → "999"
+ */
+export function formatCombatNumber(value: number): string {
+  const rounded = Math.round(value);
+  if (!Number.isFinite(rounded)) {
+    return rounded > 0 ? "Infinity" : "-Infinity";
+  }
+
+  // Use locale grouping to avoid scientific notation for very large values.
+  return rounded
+    .toLocaleString("en-US", {
+      useGrouping: true,
+      maximumFractionDigits: 0,
+    })
+    .replace(/,/g, "'");
 }

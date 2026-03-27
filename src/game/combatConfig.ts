@@ -498,3 +498,33 @@ export const COMBAT_CHASE_DROP_CONFIG = {
   chance: 0.03,
   lootTableId: "boss_unique_chase",
 } as const;
+
+export const COMBAT_RUBY_DROP_CONFIG = {
+  unlocksAtLevel: 50,
+  levelsPerStep: 10,
+  amountPerDrop: 1,
+  // Index 0 covers levels 50-59, index 1 covers 60-69, and so on.
+  chanceByStep: [0.005, 0.005, 0.005, 0.005, 0.005],
+} as const;
+
+export function getRubyDropChanceForLevel(level: number): number {
+  if (level < COMBAT_RUBY_DROP_CONFIG.unlocksAtLevel) return 0;
+
+  const step = Math.max(
+    0,
+    Math.floor(
+      (level - COMBAT_RUBY_DROP_CONFIG.unlocksAtLevel) /
+        COMBAT_RUBY_DROP_CONFIG.levelsPerStep,
+    ),
+  );
+
+  if (step >= COMBAT_RUBY_DROP_CONFIG.chanceByStep.length) {
+    return (
+      COMBAT_RUBY_DROP_CONFIG.chanceByStep[
+        COMBAT_RUBY_DROP_CONFIG.chanceByStep.length - 1
+      ] ?? 0
+    );
+  }
+
+  return COMBAT_RUBY_DROP_CONFIG.chanceByStep[step] ?? 0;
+}

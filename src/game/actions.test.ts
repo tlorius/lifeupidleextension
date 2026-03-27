@@ -189,6 +189,30 @@ describe("actions reducer", () => {
     expect(upgraded?.level).toBe((item?.level ?? 1) + 1);
   });
 
+  it("max-upgrades an item through reducer action", () => {
+    const seeded = reduceGameAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const item = seeded.inventory.find((entry) => entry.itemId === "sword_1");
+    expect(item).toBeTruthy();
+    const richState = {
+      ...seeded,
+      resources: {
+        ...seeded.resources,
+        gems: 40,
+      },
+    };
+
+    const next = reduceGameAction(richState, {
+      type: "inventory/upgradeItemMax",
+      itemUid: item!.uid,
+    });
+    const upgraded = next.inventory.find((entry) => entry.uid === item!.uid);
+
+    expect(upgraded?.level).toBeGreaterThan((item?.level ?? 1) + 1);
+    expect(next.resources.gems ?? 0).toBeLessThan(40);
+  });
+
   it("sells one item through reducer action", () => {
     const seeded = reduceGameAction(createDefaultState(), {
       type: "inventory/addDebugItems",
@@ -268,6 +292,64 @@ describe("actions reducer", () => {
       next.upgrades.find((upgrade) => upgrade.id === "attack_i")?.level,
     ).toBe(1);
     expect(next.resources.gold).toBeLessThan(state.resources.gold);
+  });
+
+  it("applies normalized token rewards through reducer action", () => {
+    const state = createDefaultState();
+
+    const next = reduceGameAction(state, {
+      type: "rewards/applyTokenRewards",
+      normalizedRewards: [{ itemId: "sword_1", quantity: 1 }],
+    });
+
+    expect(next.inventory.length).toBeGreaterThan(state.inventory.length);
+  });
+
+  it("routes garden sprinkler actions through reducer", () => {
+    const state = createDefaultState();
+
+    const withSprinkler = reduceGameAction(state, {
+      type: "garden/placeSprinkler",
+      row: 4,
+      col: 5,
+      sprinklerId: "sprinkler_common",
+    });
+
+    expect(withSprinkler.garden.sprinklers.sprinkler_common).toEqual([
+      { row: 4, col: 5 },
+    ]);
+
+    const removed = reduceGameAction(withSprinkler, {
+      type: "garden/removeSprinkler",
+      row: 4,
+      col: 5,
+    });
+
+    expect(removed.garden.sprinklers.sprinkler_common ?? []).toEqual([]);
+  });
+
+  it("routes garden growth reduction action through reducer", () => {
+    const planted = reduceGameAction(createDefaultState(), {
+      type: "garden/plantCrop",
+      cropId: "sunflower_common",
+      row: 0,
+      col: 0,
+    });
+    planted.resources.gems = 500;
+    const plantedAt = planted.garden.crops.sunflower_common[0].plantedAt;
+
+    const reduced = reduceGameAction(planted, {
+      type: "garden/reduceCropGrowthTime",
+      cropId: "sunflower_common",
+      cropIndex: 0,
+      minutes: 5,
+      gemCost: 50,
+    });
+
+    expect(reduced.garden.crops.sunflower_common[0].plantedAt).toBe(
+      plantedAt - 5 * 60 * 1000,
+    );
+    expect(reduced.resources.gems).toBe(450);
   });
 
   it("resets to default state", () => {

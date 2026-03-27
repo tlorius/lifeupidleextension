@@ -9,6 +9,7 @@ export interface Resources {
   gold: number;
   energy?: number;
   gems?: number;
+  ruby?: number;
 }
 
 export type rarity = "common" | "rare" | "epic" | "legendary" | "unique";
@@ -210,6 +211,7 @@ export interface PlayerProgress {
   unlockedSystems?: {
     spells?: boolean;
     classes?: boolean;
+    dpsMeter?: boolean;
   };
   lastLevelUpAt?: number;
 }
@@ -239,6 +241,10 @@ export interface CombatState {
   enemyAttackRemainderMs: number;
   spellCooldowns?: Record<string, number>;
   consumableCooldowns?: Record<string, number>;
+  spellSynergyBuff?: {
+    sourceClassId?: string;
+    nextClassSpellMultiplier?: number;
+  };
 }
 
 export interface GameState {

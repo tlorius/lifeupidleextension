@@ -1,13 +1,35 @@
-import { useState } from "react";
-import { Inventory } from "./components/Inventory";
-import { Character } from "./components/Equipment";
+import { lazy, Suspense, useState } from "react";
 import { Main } from "./components/Main";
-import { Upgrades } from "./components/Upgrades";
-import { Garden } from "./components/Garden";
-import { Fight } from "./components/Fight";
 import { ResourcesDisplay } from "./components/ResourcesDisplay";
 import { TokenRewardModal } from "./components/TokenRewardModal";
 import { IdleEarningsModal } from "./components/IdleEarningsModal";
+
+const Inventory = lazy(() =>
+  import("./components/Inventory").then((module) => ({
+    default: module.Inventory,
+  })),
+);
+const Character = lazy(() =>
+  import("./components/Equipment").then((module) => ({
+    default: module.Character,
+  })),
+);
+const Upgrades = lazy(() =>
+  import("./components/Upgrades").then((module) => ({
+    default: module.Upgrades,
+  })),
+);
+const Garden = lazy(() =>
+  import("./components/Garden").then((module) => ({
+    default: module.Garden,
+  })),
+);
+const Fight = lazy(() =>
+  import("./components/Fight").then((module) => ({
+    default: module.Fight,
+  })),
+);
+const Shop = lazy(() => import("./components/Shop"));
 
 type Screen =
   | "main"
@@ -15,10 +37,12 @@ type Screen =
   | "character"
   | "upgrades"
   | "garden"
-  | "fight";
+  | "fight"
+  | "shop";
 
 function App() {
   const [screen, setScreen] = useState<Screen>("main");
+  const [isDebugShopEnabled, setIsDebugShopEnabled] = useState(false);
 
   return (
     <div style={{ padding: 16 }}>
@@ -85,15 +109,52 @@ function App() {
           >
             Fight
           </button>
+          <button
+            className={screen === "shop" ? "btn-selected" : ""}
+            style={{ flex: "1 1 auto" }}
+            onClick={() => setScreen("shop")}
+          >
+            Shop
+          </button>
         </div>
       </div>
 
-      {screen === "inventory" && <Inventory />}
-      {screen === "character" && <Character />}
-      {screen === "upgrades" && <Upgrades />}
-      {screen === "garden" && <Garden />}
-      {screen === "fight" && <Fight />}
-      {screen === "main" && <Main />}
+      {screen === "inventory" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Inventory />
+        </Suspense>
+      )}
+      {screen === "character" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Character />
+        </Suspense>
+      )}
+      {screen === "upgrades" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Upgrades />
+        </Suspense>
+      )}
+      {screen === "garden" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Garden />
+        </Suspense>
+      )}
+      {screen === "fight" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Fight />
+        </Suspense>
+      )}
+      {screen === "shop" && (
+        <Suspense fallback={<p>Loading screen...</p>}>
+          <Shop isDebugShopEnabled={isDebugShopEnabled} />
+        </Suspense>
+      )}
+      {screen === "main" && (
+        <Main
+          isDebugShopEnabled={isDebugShopEnabled}
+          onDebugShopToggle={setIsDebugShopEnabled}
+        />
+      )}
 
       <IdleEarningsModal />
       <TokenRewardModal />

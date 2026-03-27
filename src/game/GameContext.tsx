@@ -6,25 +6,19 @@ import { applyIdle } from "./engine";
 import { applyIdlerDailyCheckIn } from "./classes";
 import { applyGardenIdle } from "./garden";
 import {
-  castCombatSpell,
-  performClickAttack,
   resolveOfflineCombatExpected,
   runCombatTick,
-  useCombatConsumable as applyCombatConsumable,
   type CombatEvent,
 } from "./combat";
 import {
-  applyTokenRewards,
   extractRewardToken,
   type GrantedTokenRewardItem,
-  loadProcessedTokens,
   normalizeTokenRewards,
   removeRewardTokenFromUrl,
   resolveTokenRewards,
-  saveProcessedTokens,
   toGrantedTokenRewards,
 } from "./tokenRewards";
-import { reduceGameAction, type GameAction } from "./actions";
+import { applyGameAction, type GameAction } from "./actions";
 
 export interface IdleEarningItem {
   resourceId: string;
@@ -139,8 +133,9 @@ function initializeGameState(): InitializationResult {
 
 const GameContext = createContext<{
   state: GameState;
-  setState: React.Dispatch<React.SetStateAction<GameState>>;
   dispatch: (action: GameAction) => void;
+  tickSpeedMultiplier: number;
+  setTickSpeedMultiplier: (multiplier: number) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
   idleEarningsModalItems: IdleEarningItem[];
@@ -148,9 +143,6 @@ const GameContext = createContext<{
   idleFightReview: IdleFightReview | null;
   dismissIdleEarningsModal: () => void;
   combatEvents: CombatEvent[];
-  performCombatClickAttack: () => void;
-  useCombatConsumable: (itemUid: string) => void;
-  castCombatSpell: (spellId: string) => void;
 } | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -162,6 +154,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GameState>(
     initializationRef.current.state,
   );
+  const [tickSpeedMultiplier, setTickSpeedMultiplier] = useState<number>(1);
 
   const stateRef = useRef(state);
   const [tokenRewardModalItems, setTokenRewardModalItems] = useState<
@@ -181,14 +174,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   );
 
   const dispatch = (action: GameAction) => {
+    let nextCombatEvents: CombatEvent[] = [];
+
     setState((prev) => {
-      const next = reduceGameAction(prev, action);
-      if (next === prev) {
+      const result = applyGameAction(prev, action);
+      nextCombatEvents = result.combatEvents;
+      if (result.state === prev) {
         return prev;
       }
-      save(next);
-      return next;
+      save(result.state);
+      return result.state;
     });
+
+    if (action.type.startsWith("combat/")) {
+      setCombatEvents(nextCombatEvents);
+    }
   };
 
   useEffect(() => {
@@ -198,12 +198,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const interval = setInterval(() => {
       let tickCombatEvents: CombatEvent[] = [];
+      const deltaMs = 1000 * tickSpeedMultiplier;
       setState((prev) => {
         const next = structuredClone(prev);
-        applyIdle(next, 1000);
-        applyGardenIdle(next, 1000);
+        applyIdle(next, deltaMs);
+        applyGardenIdle(next, deltaMs);
 
-        const combatResult = runCombatTick(next.combat, next, 1000);
+        const combatResult = runCombatTick(next.combat, next, deltaMs);
         tickCombatEvents = combatResult.events;
 
         const withCombat: GameState = {
@@ -231,72 +232,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       clearInterval(interval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, []);
-
-  const performCombatClickAttack = () => {
-    let clickCombatEvents: CombatEvent[] = [];
-
-    setState((prev) => {
-      const result = performClickAttack(prev.combat, prev);
-      clickCombatEvents = result.events;
-
-      const next: GameState = {
-        ...result.state,
-        combat: result.runtime,
-      };
-
-      save(next);
-      return next;
-    });
-
-    setCombatEvents(clickCombatEvents);
-  };
-
-  const useCombatConsumable = (itemUid: string) => {
-    let consumableEvents: CombatEvent[] = [];
-
-    setState((prev) => {
-      const result = applyCombatConsumable(prev.combat, prev, itemUid);
-      consumableEvents = result.events;
-
-      if (result.state === prev && result.runtime === prev.combat) {
-        return prev;
-      }
-
-      const next: GameState = {
-        ...result.state,
-        combat: result.runtime,
-      };
-
-      save(next);
-      return next;
-    });
-
-    setCombatEvents(consumableEvents);
-  };
-
-  const castCombatSpellAction = (spellId: string) => {
-    let spellEvents: CombatEvent[] = [];
-
-    setState((prev) => {
-      const result = castCombatSpell(prev.combat, prev, spellId);
-      spellEvents = result.events;
-
-      if (result.state === prev && result.runtime === prev.combat) {
-        return prev;
-      }
-
-      const next: GameState = {
-        ...result.state,
-        combat: result.runtime,
-      };
-
-      save(next);
-      return next;
-    });
-
-    setCombatEvents(spellEvents);
-  };
+  }, [tickSpeedMultiplier]);
 
   useEffect(() => {
     let cancelled = false;
@@ -305,28 +241,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!token) return;
     if (idleEarningsModalItems.length > 0) return;
 
-    const processedTokens = loadProcessedTokens(localStorage);
-    if (processedTokens.has(token)) {
-      const nextSearch = removeRewardTokenFromUrl(window.location.search);
-      const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
-      window.history.replaceState({}, "", nextUrl);
-      setPendingRewardToken(null);
-      return;
-    }
-
-    processedTokens.add(token);
-    saveProcessedTokens(localStorage, processedTokens);
-
     void resolveTokenRewards(token)
       .then((rewards) => {
         if (cancelled || rewards.length === 0) return;
         const normalizedRewards = normalizeTokenRewards(rewards);
         if (normalizedRewards.length === 0) return;
-        setState((prev) => {
-          const next = applyTokenRewards(prev, normalizedRewards);
-          save(next);
-          return next;
-        });
+        dispatch({ type: "rewards/applyTokenRewards", normalizedRewards });
         setTokenRewardModalItems(toGrantedTokenRewards(normalizedRewards));
       })
       .catch((error) => {
@@ -349,8 +269,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     <GameContext.Provider
       value={{
         state,
-        setState,
         dispatch,
+        tickSpeedMultiplier,
+        setTickSpeedMultiplier,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
         idleEarningsModalItems,
@@ -362,9 +283,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setIdleFightReview(null);
         },
         combatEvents,
-        performCombatClickAttack,
-        useCombatConsumable,
-        castCombatSpell: castCombatSpellAction,
       }}
     >
       {children}

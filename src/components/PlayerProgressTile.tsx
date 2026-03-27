@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { getLevelGainPreview, getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
+import { PanelSurface } from "./ui/PanelSurface";
+import { ProgressBar } from "./ui/ProgressBar";
 
 export function PlayerProgressTile() {
   const { state } = useGame();
@@ -16,13 +18,13 @@ export function PlayerProgressTile() {
   const spellsUnlocked = Boolean(state.playerProgress.unlockedSystems?.spells);
 
   return (
-    <div
+    <PanelSurface
       style={{
-        background: "linear-gradient(160deg, #1b2735 0%, #22374b 100%)",
-        border: "1px solid #3a5169",
-        borderRadius: 12,
-        padding: 14,
         color: "#edf5ff",
+        ["--ui-panel-background" as string]:
+          "linear-gradient(160deg, #1b2735 0%, #22374b 100%)",
+        ["--ui-panel-border" as string]: "#3a5169",
+        ["--ui-panel-padding" as string]: "14px",
       }}
     >
       <div
@@ -51,8 +53,9 @@ export function PlayerProgressTile() {
       <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 6 }}>
         XP {xp.toFixed(0)} / {xpToNext.toFixed(0)}
       </div>
-      <div
-        style={{
+      <ProgressBar
+        value={progressPercent}
+        trackStyle={{
           height: 10,
           width: "100%",
           borderRadius: 999,
@@ -61,17 +64,13 @@ export function PlayerProgressTile() {
           overflow: "hidden",
           marginBottom: 10,
         }}
-      >
-        <div
-          style={{
-            width: `${progressPercent}%`,
-            height: "100%",
-            background:
-              "linear-gradient(90deg, #4cd17e 0%, #72f2a4 55%, #a4ffd4 100%)",
-            transition: "width 220ms ease-out",
-          }}
-        />
-      </div>
+        fillStyle={{
+          height: "100%",
+          background:
+            "linear-gradient(90deg, #4cd17e 0%, #72f2a4 55%, #a4ffd4 100%)",
+          transition: "width 220ms ease-out",
+        }}
+      />
 
       <div style={{ fontSize: 12, opacity: 0.92, lineHeight: 1.45 }}>
         <div style={{ marginBottom: 4 }}>
@@ -83,6 +82,6 @@ export function PlayerProgressTile() {
           and class perks
         </div>
       </div>
-    </div>
+    </PanelSurface>
   );
 }

@@ -34,6 +34,7 @@ export const PROGRESSION_CONFIG = {
     base: 60,
     quadratic: 12,
     linear: 28,
+    postTenLinearMultiplierPerLevel: 0.025,
     postSixtyLinearMultiplierPerLevel: 0.06,
     postSoftCapExponentialMultiplier: 1.32,
   },

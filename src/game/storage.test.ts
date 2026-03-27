@@ -128,4 +128,88 @@ describe("storage", () => {
     const loaded = load();
     expect(loaded?.meta.lastUpdate).toBe(now);
   });
+
+  it("returns null and logs when saved JSON is malformed", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    localStorage.setItem("idle_save", "{not-valid-json");
+
+    expect(load()).toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("migrates legacy v0 payload with cereal storage keys", () => {
+    const now = 1_700_000_123_456;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    localStorage.setItem(
+      "idle_save",
+      JSON.stringify({
+        meta: {
+          version: 0,
+          lastUpdate: 100,
+        },
+        garden: {
+          cropStorage: {
+            current: {
+              cereal: 12,
+            },
+            limits: {
+              cereal: 345,
+            },
+          },
+        },
+      }),
+    );
+
+    const loaded = load();
+
+    expect(loaded?.meta.version).toBe(defaultState.meta.version);
+    expect(loaded?.garden.cropStorage.current.grains).toBe(12);
+    expect(loaded?.garden.cropStorage.limits.grains).toBe(345);
+    expect("cereal" in (loaded?.garden.cropStorage.current ?? {})).toBe(false);
+    expect("cereal" in (loaded?.garden.cropStorage.limits ?? {})).toBe(false);
+  });
+
+  it("migrates v1 payload and preserves explicit grains values", () => {
+    localStorage.setItem(
+      "idle_save",
+      JSON.stringify({
+        meta: {
+          version: 1,
+          lastUpdate: 200,
+        },
+        garden: {
+          cropStorage: {
+            current: {
+              grains: 88,
+            },
+            limits: {
+              grains: 777,
+            },
+          },
+        },
+      }),
+    );
+
+    const loaded = load();
+
+    expect(loaded?.meta.version).toBe(defaultState.meta.version);
+    expect(loaded?.garden.cropStorage.current.grains).toBe(88);
+    expect(loaded?.garden.cropStorage.limits.grains).toBe(777);
+  });
+
+  it("normalizes unexpected future-version payloads to current schema version", () => {
+    localStorage.setItem(
+      "idle_save",
+      JSON.stringify({
+        meta: {
+          version: 999,
+          lastUpdate: 123,
+        },
+      }),
+    );
+
+    const loaded = load();
+    expect(loaded?.meta.version).toBe(defaultState.meta.version);
+  });
 });

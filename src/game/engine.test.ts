@@ -4,6 +4,7 @@ import type { GameState } from "./types";
 import {
   addItem,
   applyIdle,
+  calculateUpgradeCost,
   calculateItemStat,
   equipItem,
   getGoldIncome,
@@ -11,6 +12,7 @@ import {
   getPetStats,
   getTotalStats,
   upgradeItem,
+  upgradeItemMax,
   usePotion,
 } from "./engine";
 
@@ -125,6 +127,18 @@ describe("engine", () => {
     };
 
     expect(getGoldIncome(state)).toBeCloseTo(10, 8);
+  });
+
+  it("evaluates temporary boost deterministically with explicit now", () => {
+    const state = makeState();
+    state.stats.attack = 10;
+    state.temporaryEffects = {
+      goldIncomeBoostPercent: 50,
+      goldIncomeBoostUntil: 1_000,
+    };
+
+    expect(getGoldIncome(state, 900)).toBeCloseTo(15, 8);
+    expect(getGoldIncome(state, 1_000)).toBeCloseTo(10, 8);
   });
 
   it("does not apply pet gold-income bonus when pet is not equipped", () => {
@@ -249,6 +263,28 @@ describe("engine", () => {
     expect(next.resources.energy).toBe(100);
   });
 
+  it("uses deterministic now/rng options for chaos potion effects", () => {
+    const state = makeState();
+    state.inventory = [
+      {
+        uid: "potion-chaos",
+        itemId: "chaos_potion",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = usePotion(state, "potion-chaos", {
+      now: 2_000,
+      rng: () => 0.7, // floor(0.7 * 5) => 3, gold boost branch
+    });
+
+    expect(next.temporaryEffects?.goldIncomeBoostPercent).toBe(300);
+    expect(next.temporaryEffects?.goldIncomeBoostUntil).toBe(
+      2_000 + 10 * 60 * 1000,
+    );
+  });
+
   it("equips accessories into the first free accessory slot", () => {
     const state = makeState();
     state.inventory = [
@@ -341,6 +377,50 @@ describe("engine", () => {
 
     expect(next.inventory[0].level).toBe(1);
     expect(next.resources.gems).toBe(999);
+  });
+
+  it("upgrades an item to max affordable level", () => {
+    const state = makeState();
+    state.resources.gems = 35;
+    state.inventory = [
+      {
+        uid: "sword-1",
+        itemId: "sword_1",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItemMax(state, "sword-1");
+
+    let expectedLevel = 1;
+    let expectedGems = 35;
+    while (true) {
+      const cost = calculateUpgradeCost(expectedLevel, "common");
+      if (expectedGems < cost) break;
+      expectedGems -= cost;
+      expectedLevel += 1;
+    }
+
+    expect(next.inventory[0].level).toBe(expectedLevel);
+    expect(next.resources.gems).toBe(expectedGems);
+  });
+
+  it("returns unchanged state when max-upgrade cannot afford first level", () => {
+    const state = makeState();
+    state.resources.gems = 9;
+    state.inventory = [
+      {
+        uid: "sword-1",
+        itemId: "sword_1",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItemMax(state, "sword-1");
+
+    expect(next).toBe(state);
   });
 
   it("returns pet percentage stats from equipped pet", () => {

@@ -1,20 +1,37 @@
 import { getItemDefSafe } from "./items";
-import { uniqueSetDefinitions } from "./itemSets";
+import {
+  hasSetPieceThreshold,
+  isSetClassActive,
+  uniqueSetDefinitions,
+} from "./itemSets";
 import { getActiveClassNodeRank } from "./classes";
+import { getUpgradeStats as getUpgradeStatsDomain } from "./upgradeStats";
+import {
+  calculateItemStat as calculateItemStatImpl,
+  getItemStats as getItemStatsImpl,
+  calculateUpgradeCost as calculateUpgradeCostImpl,
+} from "./engineItemMath";
 import type { GameState, ItemInstance, Stats } from "./types";
 
 export const MAX_MANA = 100;
 const BASE_MANA_REGEN_PER_SECOND = 2;
 
+interface RuntimeDeterminismOptions {
+  now?: number;
+  rng?: () => number;
+}
+
 /**
  * Calculate gold income per second based on player stats and upgrades
  */
-export function getGoldIncome(state: GameState): number {
+export function getGoldIncome(
+  state: GameState,
+  now: number = Date.now(),
+): number {
   const baseGoldPerSecond = state.stats.attack || 1;
   const totalStats = getTotalStats(state);
   const goldIncomeBonus = totalStats.goldIncome ?? 0;
 
-  const now = Date.now();
   const tempGoldBoost =
     (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
       ? (state.temporaryEffects?.goldIncomeBoostPercent ?? 0)
@@ -87,18 +104,6 @@ export function applyIdle(state: GameState, deltaMs: number): void {
 }
 
 /**
- * Rarity multipliers for stat scaling and upgrade costs.
- * Can be extended in the future with bonus effects.
- */
-const rarityMultipliers = {
-  common: { statScale: 1, costScale: 1, perLevelScale: 0.02 },
-  rare: { statScale: 1.2, costScale: 1.3, perLevelScale: 0.02 },
-  epic: { statScale: 3.2, costScale: 2.1, perLevelScale: 0.08 },
-  legendary: { statScale: 9, costScale: 4.4, perLevelScale: 0.22 },
-  unique: { statScale: 30, costScale: 8.5, perLevelScale: 0.6 },
-};
-
-/**
  * Calculate the stats for an item at a given level.
  * Applies rarity-based scaling and optional per-level scaling.
  * @param baseStat - Base stat value from item definition
@@ -112,26 +117,7 @@ export function calculateItemStat(
   rarity: string,
   bonusMultiplier: number = 1,
 ): number {
-  const multiplier =
-    rarityMultipliers[rarity as keyof typeof rarityMultipliers];
-  if (!multiplier) return baseStat;
-
-  // Apply rarity multiplier to base stat
-  let stat = baseStat * multiplier.statScale * bonusMultiplier;
-
-  // Every 10 levels, apply a 5% scaling increase
-  const tenLevelBonus = 1 + Math.floor(level / 10) * 0.05;
-  stat *= tenLevelBonus;
-
-  // Add per-level scaling. Higher rarities ramp much harder.
-  stat +=
-    baseStat *
-    multiplier.perLevelScale *
-    (level - 1) *
-    multiplier.statScale *
-    bonusMultiplier;
-
-  return stat;
+  return calculateItemStatImpl(baseStat, level, rarity, bonusMultiplier);
 }
 
 /**
@@ -145,21 +131,7 @@ export function getItemStats(
   def: { stats?: Partial<Stats>; rarity?: string },
   bonusMultipliers?: Partial<Record<keyof Stats, number>>,
 ): Partial<Stats> {
-  if (!def.stats) return {};
-
-  const stats: Partial<Stats> = {};
-  for (const [key, value] of Object.entries(def.stats)) {
-    if (value !== undefined && typeof value === "number") {
-      const bonus = bonusMultipliers?.[key as keyof Stats] ?? 1;
-      stats[key as keyof Stats] = calculateItemStat(
-        value,
-        item.level,
-        def.rarity || "common",
-        bonus,
-      );
-    }
-  }
-  return stats;
+  return getItemStatsImpl(item, def, bonusMultipliers);
 }
 
 /**
@@ -176,14 +148,12 @@ export function calculateUpgradeCost(
   baseCost: number = 10,
   costBonusMultiplier: number = 1,
 ): number {
-  const multiplier =
-    rarityMultipliers[rarity as keyof typeof rarityMultipliers];
-  if (!multiplier) return baseCost * currentLevel * costBonusMultiplier;
-
-  // Cost increases with each level, scaled by rarity
-  const cost =
-    baseCost * currentLevel * multiplier.costScale * costBonusMultiplier;
-  return Math.ceil(cost);
+  return calculateUpgradeCostImpl(
+    currentLevel,
+    rarity,
+    baseCost,
+    costBonusMultiplier,
+  );
 }
 
 /**
@@ -234,7 +204,11 @@ function consumeInventoryItem(
   return { inventory: nextInventory, item };
 }
 
-export function usePotion(state: GameState, itemUid: string): GameState {
+export function usePotion(
+  state: GameState,
+  itemUid: string,
+  options?: RuntimeDeterminismOptions,
+): GameState {
   const consumed = consumeInventoryItem(state, itemUid);
   if (!consumed?.item) return state;
 
@@ -242,7 +216,8 @@ export function usePotion(state: GameState, itemUid: string): GameState {
   const def = getItemDefSafe(item.itemId);
   if (!def || def.type !== "potion") return state;
 
-  const now = Date.now();
+  const now = options?.now ?? Date.now();
+  const rng = options?.rng ?? Math.random;
   const tempEffects = {
     goldIncomeBoostPercent: state.temporaryEffects?.goldIncomeBoostPercent ?? 0,
     goldIncomeBoostUntil: state.temporaryEffects?.goldIncomeBoostUntil ?? 0,
@@ -376,7 +351,7 @@ export function usePotion(state: GameState, itemUid: string): GameState {
       },
     };
   } else if (def.id === "chaos_potion") {
-    const roll = Math.floor(Math.random() * 5);
+    const roll = Math.floor(rng() * 5);
     if (roll === 0) {
       nextState = {
         ...nextState,
@@ -531,6 +506,49 @@ export function upgradeItem(state: GameState, itemUid: string): GameState {
 }
 
 /**
+ * Upgrade an item as many times as possible with the current gem balance.
+ * Returns the same state if no upgrade can be purchased.
+ */
+export function upgradeItemMax(state: GameState, itemUid: string): GameState {
+  const itemIndex = state.inventory.findIndex((i) => i.uid === itemUid);
+  if (itemIndex === -1) return state;
+
+  const item = state.inventory[itemIndex];
+  const def = getItemDefSafe(item.itemId);
+  if (!def) return state;
+  if (def.type === "potion") return state;
+
+  let remainingGems = state.resources.gems ?? 0;
+  let nextLevel = item.level;
+  let upgraded = false;
+
+  while (true) {
+    const cost = calculateUpgradeCost(nextLevel, def.rarity);
+    if (remainingGems < cost) break;
+    remainingGems -= cost;
+    nextLevel += 1;
+    upgraded = true;
+  }
+
+  if (!upgraded) return state;
+
+  const newInventory = [...state.inventory];
+  newInventory[itemIndex] = {
+    ...item,
+    level: nextLevel,
+  };
+
+  return {
+    ...state,
+    inventory: newInventory,
+    resources: {
+      ...state.resources,
+      gems: remainingGems,
+    },
+  };
+}
+
+/**
  * Calculate stats contribution from base stats
  */
 export function getBaseStats(state: GameState): Partial<Stats> {
@@ -584,30 +602,7 @@ export function getEquipmentStats(state: GameState): Partial<Stats> {
  * Includes both flat bonuses (statsFlat) and percentage bonuses (percentBonusType)
  */
 export function getUpgradeStats(state: GameState): Partial<Stats> {
-  const stats: Partial<Stats> = {};
-
-  for (const upgrade of state.upgrades) {
-    // Handle flat bonuses (e.g., +2 attack per level)
-    for (const bonus of upgrade.bonuses ?? []) {
-      if (bonus.statsFlat) {
-        for (const [key, value] of Object.entries(bonus.statsFlat)) {
-          if (value !== undefined && typeof value === "number") {
-            stats[key as keyof Stats] =
-              (stats[key as keyof Stats] ?? 0) + value * upgrade.level;
-          }
-        }
-      }
-
-      // Handle percentage bonuses (e.g., +10% goldIncome per level)
-      if (bonus.percentBonusType && bonus.percentBonusAmount !== undefined) {
-        const bonusType = bonus.percentBonusType;
-        const bonusPercentage = bonus.percentBonusAmount * upgrade.level * 100;
-        stats[bonusType] = (stats[bonusType] ?? 0) + bonusPercentage;
-      }
-    }
-  }
-
-  return stats;
+  return getUpgradeStatsDomain(state);
 }
 
 /**
@@ -767,62 +762,20 @@ function getActiveClassNodeStatBonuses(state: GameState): Partial<Stats> {
 }
 
 export function getUniqueSetStats(state: GameState): Partial<Stats> {
-  const setCategoryPieces = new Map<
-    string,
-    { weapon: boolean; armor: boolean; accessory: boolean; pet: boolean }
-  >();
-
-  const equippedUids = [
-    state.equipment.weapon,
-    state.equipment.armor,
-    state.equipment.accessory1,
-    state.equipment.accessory2,
-    state.equipment.pet,
-  ].filter((uid): uid is string => Boolean(uid));
-
-  for (const uid of equippedUids) {
-    const item = state.inventory.find((entry) => entry.uid === uid);
-    if (!item) continue;
-
-    const def = getItemDefSafe(item.itemId);
-    if (!def?.setId || def.rarity !== "unique") continue;
-
-    const setPieces = setCategoryPieces.get(def.setId) ?? {
-      weapon: false,
-      armor: false,
-      accessory: false,
-      pet: false,
-    };
-
-    if (def.type === "weapon") setPieces.weapon = true;
-    if (def.type === "armor") setPieces.armor = true;
-    if (def.type === "accessory") setPieces.accessory = true;
-    if (def.type === "pet") setPieces.pet = true;
-
-    setCategoryPieces.set(def.setId, {
-      weapon: setPieces.weapon,
-      armor: setPieces.armor,
-      accessory: setPieces.accessory,
-      pet: setPieces.pet,
-    });
-  }
-
   const result: Partial<Stats> = {};
-  for (const [setId, pieces] of setCategoryPieces.entries()) {
+  for (const setId of Object.keys(uniqueSetDefinitions)) {
     const setDef = uniqueSetDefinitions[setId];
     if (!setDef) continue;
+    if (!isSetClassActive(state, setDef)) continue;
 
-    const pieceCount = [
-      pieces.weapon,
-      pieces.armor,
-      pieces.accessory,
-      pieces.pet,
-    ].filter(Boolean).length;
-    if (pieceCount >= 2) {
+    if (hasSetPieceThreshold(state, setDef, 2)) {
       addStats(result, setDef.twoPiece);
     }
-    if (pieceCount >= 4) {
+    if (hasSetPieceThreshold(state, setDef, 4)) {
       addStats(result, setDef.fourPiece);
+    }
+    if (hasSetPieceThreshold(state, setDef, 5)) {
+      addStats(result, setDef.fivePiece);
     }
   }
 

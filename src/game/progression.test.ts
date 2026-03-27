@@ -12,7 +12,7 @@ describe("progression", () => {
   it("uses the authored XP curve for key levels", () => {
     expect(getXpForNextLevel(1)).toBe(100);
     expect(getXpForNextLevel(10)).toBe(1540);
-    expect(getXpForNextLevel(20)).toBe(5420);
+    expect(getXpForNextLevel(20)).toBe(6775);
     expect(getXpForNextLevel(101)).toBeGreaterThan(getXpForNextLevel(100));
   });
 

@@ -430,68 +430,6 @@ export const STARTING_STATS = {
 } as const;
 
 /**
- * UPGRADE COSTS AND SCALING
- */
-export const UPGRADE_CONFIG = {
-  upgrades: {
-    attack_1: {
-      baseCost: 50,
-      costScale: 1.5,
-      statBonus: 0.1,
-      statType: "attack%" as const,
-    },
-    sharp_blade: {
-      baseCost: 100,
-      costScale: 1.6,
-      statBonus: 0.05,
-      statType: "attack%" as const,
-    },
-    attack_mastery: {
-      baseCost: 120,
-      costScale: 1.7,
-      statBonus: 0.03,
-      statType: "attack%" as const,
-    },
-    defense_1: {
-      baseCost: 50,
-      costScale: 1.5,
-      statBonus: 0.1,
-      statType: "defense%" as const,
-    },
-    iron_skin: {
-      baseCost: 100,
-      costScale: 1.6,
-      statBonus: 0.05,
-      statType: "defense%" as const,
-    },
-    gold_rush: {
-      baseCost: 75,
-      costScale: 1.6,
-      statBonus: 0.1,
-      statType: "goldIncome%" as const,
-    },
-    gold_efficiency: {
-      baseCost: 120,
-      costScale: 1.7,
-      statBonus: 0.05,
-      statType: "goldIncome%" as const,
-    },
-    wealth: {
-      baseCost: 150,
-      costScale: 1.8,
-      statBonus: 0.03,
-      statType: "goldIncome%" as const,
-    },
-    energy_conservation: {
-      baseCost: 60,
-      costScale: 1.5,
-      statBonus: 0.1,
-      statType: "energyRegeneration%" as const,
-    },
-  },
-} as const;
-
-/**
  * STAT CALCULATION CONSTANTS
  */
 export const STAT_CONFIG = {

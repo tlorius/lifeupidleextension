@@ -6,6 +6,7 @@ import {
   canUpgradeClassNode,
   getClassNodeRank,
 } from "../game/classes";
+import { ModalShell } from "./ui/ModalShell";
 
 interface SkillTreeModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
   const { state } = useGame();
   const { upgradeClassNode } = useGameActions();
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
+  const [isConnectedView, setIsConnectedView] = useState(false);
 
   const activeClassId = state.character.activeClassId;
   const activeClass = allClassDefinitions.find((c) => c.id === activeClassId);
@@ -23,112 +25,124 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
   if (!isOpen || !activeClass) return null;
 
   const nodes = activeClass.nodes;
-
-  // Group nodes by level for better visualization
-  const nodesByLevel = new Map<number, typeof nodes>();
-  nodes.forEach((node) => {
-    const level = node.prerequisites?.length ?? 0;
-    if (!nodesByLevel.has(level)) {
-      nodesByLevel.set(level, []);
-    }
-    nodesByLevel.get(level)!.push(node);
-  });
+  const dependentNodesById = nodes.reduce<Record<string, string[]>>(
+    (accumulator, node) => {
+      for (const prerequisiteId of node.prerequisites ?? []) {
+        if (!accumulator[prerequisiteId]) {
+          accumulator[prerequisiteId] = [];
+        }
+        accumulator[prerequisiteId].push(node.id);
+      }
+      return accumulator;
+    },
+    {},
+  );
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50,
-        background: "rgba(6, 10, 16, 0.72)",
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
+    <ModalShell
+      onClose={onClose}
+      panelStyle={{
+        width: "min(900px, 100%)",
       }}
     >
-      <div
-        onClick={(event) => event.stopPropagation()}
-        style={{
-          width: "min(900px, 100%)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          borderRadius: 12,
-          border: "1px solid #3b5670",
-          background: "linear-gradient(170deg, #111b27 0%, #1b2b3c 100%)",
-          padding: 16,
-          boxShadow: "0 16px 44px rgba(0, 0, 0, 0.45)",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 16,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 20, color: "#eaf3fb" }}>
-            {activeClass.name} Skill Tree
-          </h2>
-          <button
-            onClick={onClose}
-            style={{
-              borderRadius: 6,
-              border: "1px solid rgba(130, 170, 204, 0.4)",
-              background: "rgba(20, 35, 50, 0.65)",
-              color: "#d8ecff",
-              padding: "6px 12px",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-          >
-            Close
-          </button>
-        </div>
+      {/* Header */}
+      <div className="ui-modal-header" style={{ marginBottom: 16 }}>
+        <h2 className="ui-modal-title">{activeClass.name} Skill Tree</h2>
+        <button className="ui-modal-close" onClick={onClose}>
+          Close
+        </button>
+      </div>
 
-        {/* Class Description */}
-        <div
-          style={{
-            marginBottom: 14,
-            paddingBottom: 14,
-            borderBottom: "1px solid rgba(109, 144, 173, 0.25)",
-          }}
-        >
-          <div style={{ color: "#b6d6ea", fontSize: 13, marginBottom: 4 }}>
-            {activeClass.fantasy}
-          </div>
-          <div style={{ color: "#8bc9e9", fontSize: 12 }}>
-            {activeClass.summary}
-          </div>
-        </div>
+      {/* Class Description */}
+      <div className="ui-section-divider">
+        <div className="ui-skill-fantasy">{activeClass.fantasy}</div>
+        <div className="ui-skill-class-summary">{activeClass.summary}</div>
+      </div>
 
-        {/* Skill Points Display */}
-        <div
-          style={{
-            marginBottom: 14,
-            paddingBottom: 14,
-            borderBottom: "1px solid rgba(109, 144, 173, 0.25)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ color: "#cfe1ef", fontSize: 13, fontWeight: 600 }}>
-            Available Skill Points: {state.character.availableSkillPoints}
-          </div>
+      {/* Skill Points Display */}
+      <div className="ui-section-divider ui-skill-points-row">
+        <div className="ui-skill-points-label">
+          Available Skill Points: {state.character.availableSkillPoints}
         </div>
-
-        {/* Nodes Grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 10,
-          }}
+        <button
+          className="ui-skill-view-toggle"
+          onClick={() => setIsConnectedView((value) => !value)}
         >
+          {isConnectedView ? "Card View" : "Connected View"}
+        </button>
+      </div>
+
+      {isConnectedView ? (
+        <div className="ui-skill-connected-list">
+          {nodes.map((node) => {
+            const rank = getClassNodeRank(state, activeClass.id, node.id);
+            const canUpgrade = canUpgradeClassNode(
+              state,
+              activeClass.id,
+              node.id,
+            );
+            const prerequisiteIds = node.prerequisites ?? [];
+            const dependentIds = dependentNodesById[node.id] ?? [];
+
+            return (
+              <div key={node.id} className="ui-skill-connected-node">
+                <div className="ui-skill-node-head" style={{ marginBottom: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <div className="ui-skill-node-title">{node.name}</div>
+                    <div className="ui-skill-node-rank">
+                      Rank {rank}/{node.maxRank}
+                    </div>
+                  </div>
+                  <button
+                    className="ui-skill-node-plus ui-touch-target"
+                    disabled={!canUpgrade}
+                    onClick={() => upgradeClassNode(activeClass.id, node.id)}
+                    style={{
+                      color: canUpgrade ? "#d6ecff" : "#666",
+                      cursor: canUpgrade ? "pointer" : "not-allowed",
+                      opacity: canUpgrade ? 1 : 0.5,
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="ui-skill-connected-effect">
+                  {node.description}
+                </div>
+
+                <div className="ui-skill-connected-links">
+                  <div>
+                    <strong>Requires:</strong>{" "}
+                    {prerequisiteIds.length === 0
+                      ? "None"
+                      : prerequisiteIds
+                          .map(
+                            (id) =>
+                              nodes.find((entry) => entry.id === id)?.name ??
+                              id,
+                          )
+                          .join(" | ")}
+                  </div>
+                  <div>
+                    <strong>Unlocks:</strong>{" "}
+                    {dependentIds.length === 0
+                      ? "None"
+                      : dependentIds
+                          .map(
+                            (id) =>
+                              nodes.find((entry) => entry.id === id)?.name ??
+                              id,
+                          )
+                          .join(" | ")}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="ui-skill-node-grid">
           {nodes.map((node) => {
             const rank = getClassNodeRank(state, activeClass.id, node.id);
             const canUpgrade = canUpgradeClassNode(
@@ -141,74 +155,29 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
             return (
               <div
                 key={node.id}
-                style={{
-                  border: "1px solid rgba(107, 138, 166, 0.35)",
-                  borderRadius: 8,
-                  padding: 8,
-                  background: "rgba(13, 23, 34, 0.55)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
+                className="ui-skill-node-card"
                 onClick={() => setExpandedNodeId(isExpanded ? null : node.id)}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "rgba(107, 138, 166, 0.65)";
-                  (e.currentTarget as HTMLElement).style.backgroundColor =
-                    "rgba(13, 23, 34, 0.75)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor =
-                    "rgba(107, 138, 166, 0.35)";
-                  (e.currentTarget as HTMLElement).style.backgroundColor =
-                    "rgba(13, 23, 34, 0.55)";
-                }}
               >
-                {/* Compact Node Display */}
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: isExpanded ? 8 : 0,
-                  }}
+                  className="ui-skill-node-head"
+                  style={{ marginBottom: isExpanded ? 8 : 0 }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: "#eaf3fb",
-                        marginBottom: 2,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {node.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: "#99b9d6",
-                        marginBottom: 3,
-                      }}
-                    >
+                    <div className="ui-skill-node-title">{node.name}</div>
+                    <div className="ui-skill-node-rank">
                       Rank {rank}/{node.maxRank}
                     </div>
                   </div>
                   <button
+                    className="ui-skill-node-plus ui-touch-target"
                     disabled={!canUpgrade}
                     onClick={(event) => {
                       event.stopPropagation();
                       upgradeClassNode(activeClass.id, node.id);
                     }}
                     style={{
-                      borderRadius: 4,
-                      border: "1px solid rgba(125, 168, 200, 0.5)",
-                      background: "rgba(24, 40, 58, 0.8)",
                       color: canUpgrade ? "#d6ecff" : "#666",
-                      padding: "2px 6px",
                       cursor: canUpgrade ? "pointer" : "not-allowed",
-                      fontSize: 10,
-                      fontWeight: 600,
                       opacity: canUpgrade ? 1 : 0.5,
                     }}
                   >
@@ -216,17 +185,8 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
                   </button>
                 </div>
 
-                {/* Expanded Details */}
                 {isExpanded && (
-                  <div
-                    style={{
-                      paddingTop: 8,
-                      borderTop: "1px solid rgba(109, 144, 173, 0.25)",
-                      fontSize: 10,
-                      color: "#c7d3df",
-                      lineHeight: 1.5,
-                    }}
-                  >
+                  <div className="ui-skill-node-body">
                     <div style={{ marginBottom: 6 }}>
                       <strong>Effect:</strong>
                       <div style={{ opacity: 0.9, marginTop: 2 }}>
@@ -235,13 +195,7 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
                     </div>
 
                     {node.prerequisites && node.prerequisites.length > 0 && (
-                      <div
-                        style={{
-                          marginBottom: 4,
-                          paddingTop: 6,
-                          borderTop: "1px solid rgba(109, 144, 173, 0.15)",
-                        }}
-                      >
+                      <div className="ui-skill-node-reqs">
                         <strong style={{ fontSize: 9 }}>Requires:</strong>
                         <div
                           style={{
@@ -276,35 +230,24 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
             );
           })}
         </div>
+      )}
 
-        {/* Legend/Info */}
-        <div
-          style={{
-            marginTop: 16,
-            paddingTop: 14,
-            borderTop: "1px solid rgba(109, 144, 173, 0.25)",
-            fontSize: 11,
-            color: "#8ea4b7",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-          }}
-        >
-          <div>
-            ✓ <strong>Passive:</strong> Effects are always active. No slots
-            needed.
-          </div>
-          <div>
-            🔗 <strong>Prerequisites:</strong> Unlock nodes in order.
-          </div>
-          <div>
-            ⬆ <strong>Click +:</strong> Upgrade when you have skill points.
-          </div>
-          <div>
-            💡 <strong>Click node:</strong> Expand to see full details.
-          </div>
+      {/* Legend/Info */}
+      <div className="ui-section-divider-top ui-skill-legend-grid">
+        <div>
+          ✓ <strong>Passive:</strong> Effects are always active. No slots
+          needed.
+        </div>
+        <div>
+          🔗 <strong>Prerequisites:</strong> Unlock nodes in order.
+        </div>
+        <div>
+          ⬆ <strong>Click +:</strong> Upgrade when you have skill points.
+        </div>
+        <div>
+          💡 <strong>Click node:</strong> Expand to see full details.
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }

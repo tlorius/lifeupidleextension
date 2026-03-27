@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "../game/GameContext";
 import { useGameActions } from "../game/useGameActions";
-import { getItemDefSafe } from "../game/items";
 import { uniqueSetDefinitions } from "../game/itemSets";
+import {
+  selectInventoryView,
+  type InventoryDisplayEntry,
+  type InventoryFilter,
+} from "../game/selectors/inventory";
 import { ItemDetail } from "./ItemDetail";
 import type { PotionToastPayload, PotionToastTone } from "./ItemDetail";
-import { isItemEquipped, calculateItemStat } from "../game/engine";
 import { formatCompactNumber } from "../game/numberFormat";
-import type { ItemType, Stats } from "../game/types";
+import type { ItemType } from "../game/types";
 
 function getItemIcon(itemType: ItemType, _rarity: string): string {
   // Clear icon per type (same for all rarities of a type)
@@ -25,25 +28,13 @@ function getItemIcon(itemType: ItemType, _rarity: string): string {
   return typeIcons[itemType] || "📦";
 }
 
-function calculateItemTotalStats(item: any, def: any): number {
-  if (!def?.stats) return 0;
-  let total = 0;
-  for (const [, value] of Object.entries(def.stats)) {
-    if (value !== undefined && typeof value === "number") {
-      const stat = calculateItemStat(value, item.level, def.rarity || "common");
-      total += stat;
-    }
-  }
-  return total;
-}
-
 export function Inventory() {
   const { state } = useGame();
   const { sellSelectedItems: dispatchSellSelectedItems } = useGameActions();
   const [selectedItemUid, setSelectedItemUid] = useState<string | null>(null);
   const [selectedSellUids, setSelectedSellUids] = useState<string[]>([]);
   const [isMassSelectMode, setIsMassSelectMode] = useState(false);
-  const [filter, setFilter] = useState<ItemType | "all">("all");
+  const [filter, setFilter] = useState<InventoryFilter>("all");
   const [potionToast, setPotionToast] = useState<PotionToastPayload | null>(
     null,
   );
@@ -79,12 +70,6 @@ export function Inventory() {
     "tool",
   ];
 
-  const filteredInventory = state.inventory.filter((item) => {
-    if (filter === "all") return true;
-    const def = getItemDefSafe(item.itemId);
-    return def?.type === filter;
-  });
-
   // Keep selection in sync when inventory changes (sold/used/upgraded items).
   useEffect(() => {
     const existingUids = new Set(state.inventory.map((item) => item.uid));
@@ -97,99 +82,20 @@ export function Inventory() {
     }
   }, [isMassSelectMode, selectedSellUids.length]);
 
-  type InventoryDisplayEntry = {
-    uid: string;
-    itemId: string;
-    level: number;
-    quantity: number;
-    isGroupedSeed: boolean;
-    selectableUids: string[];
-  };
-
-  const seedGroups = new Map<string, InventoryDisplayEntry>();
-  const nonSeedEntries: InventoryDisplayEntry[] = [];
-
-  for (const item of filteredInventory) {
-    const def = getItemDefSafe(item.itemId);
-    if (def?.type === "seed") {
-      const existing = seedGroups.get(item.itemId);
-      if (existing) {
-        existing.quantity += item.quantity;
-        if (item.level > existing.level) {
-          existing.level = item.level;
-          existing.uid = item.uid;
-        }
-      } else {
-        seedGroups.set(item.itemId, {
-          uid: item.uid,
-          itemId: item.itemId,
-          level: item.level,
-          quantity: item.quantity,
-          isGroupedSeed: true,
-          selectableUids: [item.uid],
-        });
-      }
-    } else {
-      nonSeedEntries.push({
-        uid: item.uid,
-        itemId: item.itemId,
-        level: item.level,
-        quantity: item.quantity,
-        isGroupedSeed: false,
-        selectableUids: [item.uid],
-      });
-    }
-  }
-
-  for (const item of filteredInventory) {
-    const grouped = seedGroups.get(item.itemId);
-    if (
-      grouped &&
-      grouped.isGroupedSeed &&
-      !grouped.selectableUids.includes(item.uid)
-    ) {
-      grouped.selectableUids.push(item.uid);
-    }
-  }
-
-  const displayInventory: InventoryDisplayEntry[] = [
-    ...nonSeedEntries,
-    ...Array.from(seedGroups.values()),
-  ].sort((a, b) => {
-    if (a.level !== b.level) return b.level - a.level;
-    const defA = getItemDefSafe(a.itemId);
-    const defB = getItemDefSafe(b.itemId);
-    const statsA = calculateItemTotalStats(a, defA);
-    const statsB = calculateItemTotalStats(b, defB);
-    return statsB - statsA;
-  });
-
-  const selectedItem = state.inventory.find((i) => i.uid === selectedItemUid);
-
-  const getSellPriceByUid = (uid: string): number => {
-    const item = state.inventory.find((entry) => entry.uid === uid);
-    if (!item) return 0;
-    const def = getItemDefSafe(item.itemId);
-    return def?.sellPrice ?? 0;
-  };
-
-  const isEntrySelectable = (entry: InventoryDisplayEntry): boolean =>
-    entry.selectableUids.some((uid) => !isItemEquipped(state, uid));
-
-  const isEntryFullySelected = (entry: InventoryDisplayEntry): boolean => {
-    const selectable = entry.selectableUids.filter(
-      (uid) => !isItemEquipped(state, uid),
-    );
-    return (
-      selectable.length > 0 &&
-      selectable.every((uid) => selectedSellUids.includes(uid))
-    );
-  };
+  const {
+    displayInventory,
+    selectedItem,
+    selectableVisibleUids,
+    allVisibleSelected,
+    isEmpty,
+    emptyMessage,
+    selectedSellCount,
+    selectedSellSummary,
+    sellConfirmationMessage,
+  } = selectInventoryView(state, filter, selectedSellUids, selectedItemUid);
 
   const toggleEntrySelection = (entry: InventoryDisplayEntry): void => {
-    const selectable = entry.selectableUids.filter(
-      (uid) => !isItemEquipped(state, uid),
-    );
+    const selectable = entry.sellableUids;
     if (selectable.length === 0) return;
 
     setSelectedSellUids((prev) => {
@@ -203,36 +109,6 @@ export function Inventory() {
       return Array.from(merged);
     });
   };
-
-  const selectableDisplayEntries = displayInventory.filter((entry) =>
-    isEntrySelectable(entry),
-  );
-  const selectableVisibleUids = Array.from(
-    new Set(
-      selectableDisplayEntries.flatMap((entry) =>
-        entry.selectableUids.filter((uid) => !isItemEquipped(state, uid)),
-      ),
-    ),
-  );
-  const allVisibleSelected =
-    selectableVisibleUids.length > 0 &&
-    selectableVisibleUids.every((uid) => selectedSellUids.includes(uid));
-  const selectedSellTotalGold = selectedSellUids.reduce(
-    (sum, uid) => sum + getSellPriceByUid(uid),
-    0,
-  );
-
-  const selectedUniqueItemNames = Array.from(
-    new Set(
-      selectedSellUids
-        .map((uid) => state.inventory.find((entry) => entry.uid === uid))
-        .filter((item): item is NonNullable<typeof item> => !!item)
-        .map((item) => getItemDefSafe(item.itemId))
-        .filter((def): def is NonNullable<typeof def> => !!def)
-        .filter((def) => def.rarity === "unique")
-        .map((def) => def.name),
-    ),
-  );
 
   const toggleSelectAllVisible = () => {
     if (selectableVisibleUids.length === 0) return;
@@ -251,13 +127,7 @@ export function Inventory() {
   const handleSellSelectedItems = () => {
     if (selectedSellUids.length === 0) return;
 
-    const baseMessage = `Sell ${selectedSellUids.length} selected item(s) for ${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold?`;
-    const uniqueWarning =
-      selectedUniqueItemNames.length > 0
-        ? `\n\nCareful are you sure you want to delete unique items ${selectedUniqueItemNames.join(", ")}`
-        : "";
-
-    const confirmed = window.confirm(`${baseMessage}${uniqueWarning}`);
+    const confirmed = window.confirm(sellConfirmationMessage);
     if (!confirmed) return;
 
     dispatchSellSelectedItems(selectedSellUids);
@@ -303,37 +173,18 @@ export function Inventory() {
       <h2>Inventory</h2>
 
       {/* Filter Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          marginBottom: 16,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="ui-filter-row">
         {itemTypes.map((type) => (
           <button
             key={type}
-            className={filter === type ? "btn-selected" : ""}
-            style={{
-              padding: "8px 12px",
-              fontSize: "12px",
-              borderRadius: 4,
-              transition: "all 0.2s",
-            }}
+            className={`${filter === type ? "btn-selected" : ""} ui-filter-btn`}
             onClick={() => setFilter(type)}
           >
             {type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
         ))}
         <button
-          className={isMassSelectMode ? "btn-selected" : ""}
-          style={{
-            padding: "8px 12px",
-            fontSize: "12px",
-            borderRadius: 4,
-            transition: "all 0.2s",
-          }}
+          className={`${isMassSelectMode ? "btn-selected" : ""} ui-filter-btn`}
           onClick={() => setIsMassSelectMode((prev) => !prev)}
         >
           {isMassSelectMode ? "Exit Mass Select" : "Mass Select"}
@@ -341,37 +192,20 @@ export function Inventory() {
       </div>
 
       {/* Inventory Items */}
-      {displayInventory.length === 0 ? (
-        <p style={{ color: "#9eb0c2" }}>No items</p>
+      {isEmpty ? (
+        <p className="ui-empty-message">{emptyMessage}</p>
       ) : (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className="ui-list-stack">
           {isMassSelectMode && (
-            <div
-              style={{
-                border: "1px solid #345068",
-                borderRadius: 8,
-                backgroundColor: "#142332",
-                padding: 10,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
+            <div className="ui-mass-toolbar">
               <label
+                className="ui-mass-toolbar-label"
                 style={{
                   cursor:
                     selectableVisibleUids.length > 0
                       ? "pointer"
                       : "not-allowed",
                   opacity: selectableVisibleUids.length > 0 ? 1 : 0.6,
-                  userSelect: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 13,
-                  color: "#dce6f0",
                 }}
               >
                 <input
@@ -384,28 +218,16 @@ export function Inventory() {
                 Select all non-equipped (visible)
               </label>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#9eb0c2" }}>
-                  {selectedSellUids.length} selected • +
-                  {formatCompactNumber(selectedSellTotalGold, {
-                    minCompactValue: 1000,
-                  })}
-                  🪙
-                </span>
+              <div className="ui-mass-toolbar-actions">
+                <span className="ui-summary-muted">{selectedSellSummary}</span>
                 <button
-                  className="btn-danger"
+                  className="btn-danger ui-btn-compact-danger ui-touch-target"
                   style={{
-                    padding: "10px 12px",
-                    fontSize: 13,
-                    borderRadius: 6,
-                    minHeight: 40,
-                    minWidth: 130,
-                    opacity: selectedSellUids.length > 0 ? 1 : 0.6,
-                    cursor:
-                      selectedSellUids.length > 0 ? "pointer" : "not-allowed",
+                    opacity: selectedSellCount > 0 ? 1 : 0.6,
+                    cursor: selectedSellCount > 0 ? "pointer" : "not-allowed",
                   }}
                   onClick={handleSellSelectedItems}
-                  disabled={selectedSellUids.length === 0}
+                  disabled={selectedSellCount === 0}
                 >
                   Sell Selected
                 </button>
@@ -414,24 +236,12 @@ export function Inventory() {
           )}
 
           {displayInventory.map((item) => {
-            const def = getItemDefSafe(item.itemId);
-            const equipped = isItemEquipped(state, item.uid);
-            const totalStats = calculateItemTotalStats(item, def);
-            const entrySelectable = isEntrySelectable(item);
-            const entrySelected = isEntryFullySelected(item);
-
-            const itemStats: Partial<Stats> = {};
-            if (def?.stats) {
-              for (const [key, value] of Object.entries(def.stats)) {
-                if (value !== undefined && typeof value === "number") {
-                  itemStats[key as keyof Stats] = calculateItemStat(
-                    value,
-                    item.level,
-                    def.rarity || "common",
-                  );
-                }
-              }
-            }
+            const def = item.definition;
+            const equipped = item.equipped;
+            const totalStats = item.totalStats;
+            const entrySelectable = item.isSelectable;
+            const entrySelected = item.isFullySelected;
+            const itemStats = item.itemStats;
 
             const rarityColors: Record<string, string> = {
               common: "#999999",
@@ -444,17 +254,10 @@ export function Inventory() {
             return (
               <div
                 key={item.uid}
+                className="ui-inventory-card"
                 style={{
                   border: equipped ? "1px solid #2c8f84" : "1px solid #2f4459",
-                  borderRadius: 8,
-                  padding: 10,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
                   backgroundColor: equipped ? "#182f3a" : "#172533",
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
                 }}
                 onClick={() => setSelectedItemUid(item.uid)}
                 onMouseEnter={(e) => {
@@ -496,15 +299,8 @@ export function Inventory() {
 
                 {/* Item Icon */}
                 <div
+                  className="ui-item-icon"
                   style={{
-                    width: 28,
-                    minWidth: 28,
-                    height: 28,
-                    fontSize: 20,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
                     filter: `drop-shadow(0 0 4px ${rarityColors[def?.rarity || "common"]}80)`,
                   }}
                 >
@@ -512,41 +308,25 @@ export function Inventory() {
                 </div>
 
                 {/* Item Details */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 8,
-                      marginBottom: 6,
-                    }}
-                  >
+                <div className="ui-item-content">
+                  <div className="ui-item-header-row">
                     <div>
                       <strong
                         style={{ color: rarityColors[def?.rarity || "common"] }}
                       >
                         {def?.name}
                       </strong>
-                      <div
-                        style={{ fontSize: 11, color: "#9eb0c2", marginTop: 3 }}
-                      >
+                      <div className="ui-item-meta">
                         Lvl {item.level} • {def?.rarity}
                       </div>
                       {def?.setId && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "#7bd7c6",
-                            marginTop: 3,
-                          }}
-                        >
+                        <div className="ui-item-set-meta">
                           Set:{" "}
                           {uniqueSetDefinitions[def.setId]?.name ?? def.setId}
                         </div>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: "#8fa3b7" }}>
+                    <div className="ui-item-total">
                       {item.isGroupedSeed
                         ? `x${formatCompactNumber(item.quantity, { minCompactValue: 1000 })}`
                         : `Total ${formatCompactNumber(totalStats, { minCompactValue: 1000 })}`}
@@ -555,37 +335,14 @@ export function Inventory() {
 
                   {/* Stats Display */}
                   {item.isGroupedSeed && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "#9eb0c2",
-                        marginBottom: 6,
-                      }}
-                    >
+                    <div className="ui-grouped-seed-note">
                       Grouped seed stack from all matching seed entries.
                     </div>
                   )}
                   {Object.keys(itemStats).length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 6,
-                        fontSize: 11,
-                        marginBottom: 6,
-                      }}
-                    >
+                    <div className="ui-item-stat-chip-row">
                       {Object.entries(itemStats).map(([key, value]) => (
-                        <div
-                          key={key}
-                          style={{
-                            color: "#dce6f0",
-                            backgroundColor: "#223447",
-                            border: "1px solid #345068",
-                            borderRadius: 999,
-                            padding: "2px 8px",
-                          }}
-                        >
+                        <div key={key} className="ui-item-stat-chip">
                           <span style={{ color: "#9eb0c2" }}>{key}:</span>{" "}
                           <strong>
                             {formatCompactNumber(value, {
@@ -597,15 +354,13 @@ export function Inventory() {
                     </div>
                   )}
 
-                  <div style={{ fontSize: 11, color: "#8ea3b8" }}>
+                  <div className="ui-item-hint">
                     {item.isGroupedSeed
                       ? "Click to view one seed entry"
                       : "Click to view details"}
                   </div>
                   {!entrySelectable && (
-                    <div
-                      style={{ fontSize: 11, color: "#b9c7d6", marginTop: 6 }}
-                    >
+                    <div className="ui-item-warning">
                       Equipped items cannot be selected for mass sell.
                     </div>
                   )}
@@ -613,21 +368,7 @@ export function Inventory() {
 
                 {/* Equipped Badge */}
                 {equipped && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 6,
-                      right: 8,
-                      backgroundColor: "#2c8f84",
-                      color: "white",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    ✓ EQUIPPED
-                  </div>
+                  <div className="ui-equipped-badge">✓ EQUIPPED</div>
                 )}
               </div>
             );
@@ -645,19 +386,11 @@ export function Inventory() {
 
       {potionToast && (
         <div
+          className="ui-toast-fixed"
           style={{
-            position: "fixed",
-            right: 16,
-            bottom: 16,
-            zIndex: 1600,
-            maxWidth: "min(380px, calc(100vw - 32px))",
-            padding: "10px 12px",
-            borderRadius: 8,
             border: activeToastStyle.border,
             backgroundColor: activeToastStyle.background,
             color: activeToastStyle.color,
-            fontSize: 12,
-            boxShadow: "0 10px 20px rgba(0, 0, 0, 0.35)",
           }}
           role="status"
           aria-live="polite"

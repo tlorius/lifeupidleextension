@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  getAvailableCombatSpellsForState,
-  getCombatSpellDefinition,
-  getGeneralCombatSpellPath,
-  getPlayerAttacksPerSecond,
-  getPlayerCritChance,
-} from "../game/combat";
-import { getSpellSlotsForLevel } from "../game/classes";
-import { getTotalStats } from "../game/engine";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getCombatSpellDefinition } from "../game/combat";
 import { getItemDefSafe } from "../game/items";
-import { getXpForNextLevel } from "../game/progression";
 import { useGame } from "../game/GameContext";
+import {
+  selectFightCombatLog,
+  selectFightConsumableModal,
+  selectFightConsumablesPanel,
+  selectFightDpsPanel,
+  selectFightDpsMetrics,
+  selectFightEncounterSummary,
+  selectFightSpellPanel,
+  selectFightView,
+  type DamagePoint,
+} from "../game/selectors/fight";
 import { useGameActions } from "../game/useGameActions";
-import { formatCompactNumber } from "../game/numberFormat";
+import { formatCompactNumber, formatCombatNumber } from "../game/numberFormat";
 import { SpellSelectModal } from "./SpellSelectModal";
+import {
+  FightConsumableModal,
+  FightConsumablesPanel,
+} from "./FightConsumables";
+import { FightDpsPanel } from "./FightDpsPanel";
+import { FightCombatLogPanel, FightEncounterSummaryPanel } from "./FightPanels";
+import { FightSpellsPanel } from "./FightSpellsPanel";
 import playerPixel from "../assets/player-pixel.svg";
 import enemyPixel from "../assets/enemy-pixel.svg";
 import enemyBossPixel from "../assets/enemy-boss-pixel.svg";
@@ -26,65 +35,95 @@ interface FloatingDamage {
   fontSize: number;
   top: number;
   left: number;
-}
-
-interface CombatLogEntry {
-  id: string;
-  text: string;
-  color: string;
+  anchor: "left" | "right" | "center";
 }
 
 interface CombatToast {
   id: string;
   text: string;
   color: string;
+  isRubyDrop?: boolean;
 }
 
-interface DamagePoint {
-  timestamp: number;
-  damage: number;
-  source: "auto" | "click" | "spell" | "pet";
+interface DamageFontBracket {
+  minDamage: number;
+  desktopSize: number;
+  mobileSize: number;
 }
 
-interface ConsumableSummary {
-  itemId: string;
-  itemUid: string;
-  name: string;
-  quantity: number;
-  rarity: string;
+interface DamageTextFitConfig {
+  baseCharsDesktop: number;
+  baseCharsMobile: number;
+  scaleDropPerExtraChar: number;
+  minScale: number;
 }
 
-function nextBossLevel(currentLevel: number): number {
-  return Math.ceil(currentLevel / 5) * 5;
+const PLAYER_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
+  { minDamage: 0, desktopSize: 16, mobileSize: 13 },
+  { minDamage: 1_000, desktopSize: 18, mobileSize: 14 },
+  { minDamage: 100_000, desktopSize: 20, mobileSize: 17 },
+  { minDamage: 1_000_000, desktopSize: 26, mobileSize: 22 },
+  { minDamage: 100_000_000, desktopSize: 30, mobileSize: 24 },
+  { minDamage: 1_000_000_000, desktopSize: 56, mobileSize: 45 },
+];
+
+const ENEMY_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
+  { minDamage: 0, desktopSize: 14, mobileSize: 12 },
+  { minDamage: 1_000, desktopSize: 16, mobileSize: 13 },
+  { minDamage: 100_000, desktopSize: 19, mobileSize: 16 },
+  { minDamage: 1_000_000, desktopSize: 25, mobileSize: 21 },
+  { minDamage: 100_000_000, desktopSize: 28, mobileSize: 23 },
+  { minDamage: 1_000_000_000, desktopSize: 52, mobileSize: 42 },
+];
+
+const DAMAGE_TEXT_FIT_CONFIG: DamageTextFitConfig = {
+  baseCharsDesktop: 8,
+  baseCharsMobile: 7,
+  scaleDropPerExtraChar: 0.08,
+  minScale: 0.52,
+};
+
+function getDamageFontSize(
+  damage: number,
+  isMobileViewport: boolean,
+  isCrit: boolean,
+  brackets: DamageFontBracket[],
+): number {
+  const safeDamage = Math.max(0, damage);
+  let selected = brackets[0];
+
+  for (const bracket of brackets) {
+    if (safeDamage >= bracket.minDamage) {
+      selected = bracket;
+    }
+  }
+
+  const baseSize = isMobileViewport
+    ? selected.mobileSize
+    : selected.desktopSize;
+  return isCrit ? Math.round(baseSize * 1.18) : baseSize;
 }
 
-function getRarityTint(rarity: string): string {
-  if (rarity === "unique") return "#ff9ad9";
-  if (rarity === "legendary") return "#ffd36f";
-  if (rarity === "epic") return "#8bc7ff";
-  if (rarity === "rare") return "#7cf0c4";
-  return "#d8e2ee";
+function fitDamageTextSize(
+  baseFontSize: number,
+  text: string,
+  isMobileViewport: boolean,
+  config: DamageTextFitConfig,
+): number {
+  const baseChars = isMobileViewport
+    ? config.baseCharsMobile
+    : config.baseCharsDesktop;
+  const extraChars = Math.max(0, text.length - baseChars);
+  const scale = Math.max(
+    config.minScale,
+    1 - extraChars * config.scaleDropPerExtraChar,
+  );
+  return Math.max(11, Math.round(baseFontSize * scale));
 }
 
-function formatRemainingMs(remainingMs: number): string {
-  const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const leftoverSeconds = seconds % 60;
-  if (minutes <= 0) return `${leftoverSeconds}s`;
-  return `${minutes}m ${leftoverSeconds}s`;
-}
-
-function getPotionIcon(itemId: string): string {
-  if (itemId === "health_potion") return "🧪";
-  if (itemId === "mana_potion") return "🔷";
-  if (itemId === "elixir") return "✨";
-  if (itemId === "immortal_brew") return "☀️";
-  if (itemId === "swift_tonic") return "⚡";
-  if (itemId === "fortitude_brew") return "🛡️";
-  if (itemId === "scholars_draught") return "📘";
-  if (itemId === "berserkers_tonic") return "🔥";
-  if (itemId === "chaos_potion") return "🌌";
-  return "🧴";
+function getDamagePopupLeftPercent(target: "enemy" | "player"): number {
+  // Side-anchored ranges keep long values fully visible within the arena.
+  return target === "enemy" ? 78 + Math.random() * 14 : 8 + Math.random() * 14;
 }
 
 export function Fight() {
@@ -92,7 +131,9 @@ export function Fight() {
   const { combatCastSpell, combatClickAttack, combatUseConsumable } =
     useGameActions();
   const [floatingDamage, setFloatingDamage] = useState<FloatingDamage[]>([]);
-  const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
+  const [combatLog, setCombatLog] = useState<
+    Array<{ id: string; text: string; color: string }>
+  >([]);
   const [toasts, setToasts] = useState<CombatToast[]>([]);
   const [damageHistory, setDamageHistory] = useState<DamagePoint[]>([]);
   const [dpsWindowMs, setDpsWindowMs] = useState<number>(30_000);
@@ -110,107 +151,32 @@ export function Fight() {
   const [isSpellSelectOpen, setIsSpellSelectOpen] = useState(false);
 
   const combat = state.combat;
-  const totalStats = getTotalStats(state);
-  const playerMaxHp = Math.max(
-    1,
-    Math.round(totalStats.hp ?? state.stats.hp ?? 1),
-  );
-  const playerHpPercent = Math.max(
-    0,
-    Math.min(100, (combat.playerCurrentHp / playerMaxHp) * 100),
-  );
-  const playerMana = Math.max(0, Math.min(100, state.resources.energy ?? 100));
-  const enemyHpPercent = Math.max(
-    0,
-    Math.min(
-      100,
-      (combat.enemy.currentHp / Math.max(1, combat.enemy.maxHp)) * 100,
-    ),
-  );
+  const {
+    totalStats,
+    playerMaxHp,
+    playerHpPercent,
+    playerMana,
+    attacksPerSecond,
+    critChance,
+    xpForNextLevel,
+    xpProgressPercent,
+    combatTitle,
+    activeClassId,
+    slottedSpells,
+    manaRegenPerSecond,
+    checkpointLevel,
+  } = useMemo(() => selectFightView(state), [state]);
 
-  const attacksPerSecond = getPlayerAttacksPerSecond(state);
-  const critChance = getPlayerCritChance(state);
-  const xpForNextLevel = getXpForNextLevel(state.playerProgress.level || 1);
-  const xpProgressPercent =
-    Number.isFinite(xpForNextLevel) && xpForNextLevel > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            ((state.playerProgress?.xp ?? 0) / xpForNextLevel) * 100,
-          ),
-        )
-      : 100;
-
-  const combatTitle = useMemo(
-    () => `${combat.enemy.name} (Lv ${combat.enemy.level})`,
-    [combat.enemy.level, combat.enemy.name],
+  const [visualEnemyHp, setVisualEnemyHp] = useState(
+    () => combat.enemy.currentHp,
   );
+  const enemyHpTickTimersRef = useRef<number[]>([]);
+  const previousEnemyIdRef = useRef(combat.enemy.enemyId);
+
   const enemySprite =
     combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
     combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
-  const spellCooldowns = combat.spellCooldowns ?? {};
-  const consumableCooldowns = combat.consumableCooldowns ?? {};
-  const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
-  const generalSpellPath = getGeneralCombatSpellPath();
-  const availableSpells = getAvailableCombatSpellsForState(state);
-  const activeClassId = state.character.activeClassId;
-  const slottedSpells = useMemo(() => {
-    if (!state.playerProgress.unlockedSystems?.spells) return [];
-    if (unlockedSpellSlots <= 0) return [];
-
-    if (!activeClassId) {
-      return availableSpells.slice(0, unlockedSpellSlots);
-    }
-
-    const selectedIds = state.character.classProgress[
-      activeClassId
-    ].selectedSpellIds.slice(0, unlockedSpellSlots);
-    const uniqueIds = new Set<string>();
-    const result = [];
-    for (const spellId of selectedIds) {
-      if (!spellId || uniqueIds.has(spellId)) continue;
-      const spell = availableSpells.find((entry) => entry.id === spellId);
-      if (!spell) continue;
-      uniqueIds.add(spell.id);
-      result.push(spell);
-    }
-
-    return result;
-  }, [
-    activeClassId,
-    availableSpells,
-    state.character.classProgress,
-    state.playerProgress.unlockedSystems?.spells,
-    unlockedSpellSlots,
-  ]);
-  const potionSummaries = useMemo(() => {
-    const grouped = new Map<string, ConsumableSummary>();
-
-    for (const item of state.inventory) {
-      const itemDef = getItemDefSafe(item.itemId);
-      if (!itemDef || itemDef.type !== "potion") continue;
-
-      const existing = grouped.get(item.itemId);
-      if (existing) {
-        existing.quantity += item.quantity ?? 1;
-        continue;
-      }
-
-      grouped.set(item.itemId, {
-        itemId: item.itemId,
-        itemUid: item.uid,
-        name: itemDef.name,
-        quantity: item.quantity ?? 1,
-        rarity: itemDef.rarity,
-      });
-    }
-
-    return Array.from(grouped.values()).sort((left, right) =>
-      left.name.localeCompare(right.name),
-    );
-  }, [state.inventory]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -245,6 +211,64 @@ export function Fight() {
     );
   }, [clockNow]);
 
+  // Keep visual HP aligned when the encounter swaps or HP increases.
+  useEffect(() => {
+    if (previousEnemyIdRef.current !== combat.enemy.enemyId) {
+      previousEnemyIdRef.current = combat.enemy.enemyId;
+      for (const timerId of enemyHpTickTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+      enemyHpTickTimersRef.current = [];
+      setVisualEnemyHp(combat.enemy.currentHp);
+      return;
+    }
+
+    setVisualEnemyHp((current) =>
+      combat.enemy.currentHp > current ? combat.enemy.currentHp : current,
+    );
+  }, [combat.enemy.currentHp, combat.enemy.enemyId]);
+
+  // Replay each damage event so HP text/bar move per-hit instead of once per batch.
+  useEffect(() => {
+    if (combatEvents.length === 0) return;
+
+    const hitDamages = combatEvents
+      .filter((event) => event.type === "playerHit")
+      .map((event) => Math.max(0, event.value ?? 0))
+      .filter((value) => value > 0);
+    if (hitDamages.length === 0) return;
+
+    for (const timerId of enemyHpTickTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+    enemyHpTickTimersRef.current = [];
+
+    const maxHp = Math.max(1, combat.enemy.maxHp);
+    const totalBatchDamage = hitDamages.reduce((sum, value) => sum + value, 0);
+    let runningHp = Math.min(maxHp, combat.enemy.currentHp + totalBatchDamage);
+    const intervalMs = Math.max(16, Math.round(1000 / hitDamages.length));
+
+    hitDamages.forEach((damage, index) => {
+      const timerId = window.setTimeout(() => {
+        runningHp = Math.max(combat.enemy.currentHp, runningHp - damage);
+        setVisualEnemyHp(runningHp);
+
+        if (index === hitDamages.length - 1) {
+          setVisualEnemyHp(combat.enemy.currentHp);
+        }
+      }, index * intervalMs);
+
+      enemyHpTickTimersRef.current.push(timerId);
+    });
+
+    return () => {
+      for (const timerId of enemyHpTickTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+      enemyHpTickTimersRef.current = [];
+    };
+  }, [combat.enemy.currentHp, combat.enemy.maxHp, combatEvents]);
+
   useEffect(() => {
     if (combatEvents.length === 0) return;
 
@@ -275,88 +299,127 @@ export function Fight() {
     });
   }, [state.inventory]);
 
-  const dpsBuckets = useMemo(() => {
-    const bucketCount = 12;
-    const bucketWidthMs = dpsWindowMs / bucketCount;
-    const start = clockNow - dpsWindowMs;
-    const values = Array.from({ length: bucketCount }, () => 0);
+  const {
+    currentDps,
+    previousDps,
+    currentAutoDps,
+    currentClickDps,
+    currentSpellDps,
+    currentPetDps,
+    dpsDelta,
+    dpsDeltaPercent,
+    dpsGraphPoints,
+    yAxisTicks,
+    maxDpsValue,
+  } = useMemo(
+    () => selectFightDpsMetrics(damageHistory, clockNow, dpsWindowMs),
+    [clockNow, damageHistory, dpsWindowMs],
+  );
 
-    for (const point of damageHistory) {
-      if (point.timestamp < start || point.timestamp > clockNow) continue;
-      const offset = point.timestamp - start;
-      const index = Math.min(
-        bucketCount - 1,
-        Math.max(0, Math.floor(offset / bucketWidthMs)),
-      );
-      values[index] += point.damage;
+  const spellPanel = useMemo(
+    () => selectFightSpellPanel(state, slottedSpells),
+    [state, slottedSpells],
+  );
+
+  const consumablesPanel = useMemo(
+    () => selectFightConsumablesPanel(state, equippedConsumables),
+    [state, equippedConsumables],
+  );
+
+  const consumableModal = useMemo(
+    () =>
+      selectFightConsumableModal(
+        state,
+        equippedConsumables,
+        selectedConsumableSlot,
+      ),
+    [state, equippedConsumables, selectedConsumableSlot],
+  );
+
+  const dpsPanel = useMemo(
+    () =>
+      selectFightDpsPanel(
+        {
+          currentDps,
+          previousDps,
+          currentAutoDps,
+          currentClickDps,
+          currentSpellDps,
+          currentPetDps,
+          dpsDelta,
+          dpsDeltaPercent,
+          dpsGraphPoints,
+          yAxisTicks,
+          maxDpsValue,
+        },
+        dpsWindowMs,
+        damageHistory.length > 0,
+        isDpsExpanded,
+      ),
+    [
+      currentAutoDps,
+      currentClickDps,
+      currentDps,
+      currentPetDps,
+      currentSpellDps,
+      currentDps,
+      previousDps,
+      dpsDelta,
+      dpsDeltaPercent,
+      dpsGraphPoints,
+      yAxisTicks,
+      maxDpsValue,
+      dpsWindowMs,
+      damageHistory.length,
+      isDpsExpanded,
+    ],
+  );
+
+  const encounterSummary = useMemo(
+    () => selectFightEncounterSummary(state),
+    [state],
+  );
+
+  const combatLogPanel = useMemo(
+    () => selectFightCombatLog(combatLog),
+    [combatLog],
+  );
+
+  const handleOpenConsumableModal = (slotIndex?: 0 | 1) => {
+    if (slotIndex !== undefined) {
+      setSelectedConsumableSlot(slotIndex);
     }
-
-    return values.map((value) => value / (bucketWidthMs / 1000));
-  }, [clockNow, damageHistory, dpsWindowMs]);
-
-  const currentDps = useMemo(() => {
-    const windowStart = clockNow - dpsWindowMs;
-    const totalDamage = damageHistory.reduce((sum, point) => {
-      return point.timestamp >= windowStart ? sum + point.damage : sum;
-    }, 0);
-    return totalDamage / Math.max(1, dpsWindowMs / 1000);
-  }, [clockNow, damageHistory, dpsWindowMs]);
-
-  const getSourceDps = (
-    source: DamagePoint["source"],
-    start: number,
-    end: number,
-  ) => {
-    const totalDamage = damageHistory.reduce((sum, point) => {
-      return point.source === source &&
-        point.timestamp >= start &&
-        point.timestamp < end
-        ? sum + point.damage
-        : sum;
-    }, 0);
-    return totalDamage / Math.max(1, (end - start) / 1000);
+    setIsConsumableModalOpen(true);
   };
 
-  const previousDps = useMemo(() => {
-    const previousStart = clockNow - dpsWindowMs * 2;
-    const previousEnd = clockNow - dpsWindowMs;
-    const totalDamage = damageHistory.reduce((sum, point) => {
-      return point.timestamp >= previousStart && point.timestamp < previousEnd
-        ? sum + point.damage
-        : sum;
-    }, 0);
-    return totalDamage / Math.max(1, dpsWindowMs / 1000);
-  }, [clockNow, damageHistory, dpsWindowMs]);
-  const currentAutoDps = useMemo(
-    () => getSourceDps("auto", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
-  const currentClickDps = useMemo(
-    () => getSourceDps("click", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
-  const currentSpellDps = useMemo(
-    () => getSourceDps("spell", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
-  const currentPetDps = useMemo(
-    () => getSourceDps("pet", clockNow - dpsWindowMs, clockNow),
-    [clockNow, damageHistory, dpsWindowMs],
-  );
+  const handleClearSelectedConsumableSlot = () => {
+    setEquippedConsumables((prev) => {
+      const next: [string | null, string | null] = [...prev] as [
+        string | null,
+        string | null,
+      ];
+      next[selectedConsumableSlot] = null;
+      return next;
+    });
+  };
 
-  const dpsDelta = currentDps - previousDps;
-  const dpsDeltaPercent =
-    previousDps > 0 ? (dpsDelta / previousDps) * 100 : currentDps > 0 ? 100 : 0;
-  const dpsGraphPoints = useMemo(() => {
-    const maxValue = Math.max(1, ...dpsBuckets);
-    return dpsBuckets
-      .map((value, index) => {
-        const x = (index / Math.max(1, dpsBuckets.length - 1)) * 100;
-        const y = 100 - (value / maxValue) * 100;
-        return `${x},${y}`;
-      })
-      .join(" ");
-  }, [dpsBuckets]);
+  const handleEquipConsumable = (itemId: string) => {
+    setEquippedConsumables((prev) => {
+      const next: [string | null, string | null] = [...prev] as [
+        string | null,
+        string | null,
+      ];
+      const otherIndex = next.findIndex(
+        (equippedId, index) =>
+          equippedId === itemId && index !== selectedConsumableSlot,
+      );
+      if (otherIndex !== -1) {
+        next[otherIndex as 0 | 1] = null;
+      }
+      next[selectedConsumableSlot] = itemId;
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (combatEvents.length === 0) return;
@@ -368,32 +431,54 @@ export function Fight() {
       )
       .map((event, index) => {
         const isMobileViewport = window.innerWidth <= 768;
+        const damageText = formatCombatNumber(event.value ?? 0);
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
           const isPetHit = event.attackSource === "pet";
+          const baseFontSize = getDamageFontSize(
+            event.value ?? 0,
+            isMobileViewport,
+            isCrit,
+            PLAYER_DAMAGE_FONT_BRACKETS,
+          );
+          const fontSize = fitDamageTextSize(
+            baseFontSize,
+            damageText,
+            isMobileViewport,
+            DAMAGE_TEXT_FIT_CONFIG,
+          );
           return {
             id: `${now}-p-${index}`,
-            text: `${Math.round(event.value ?? 0)}`,
+            text: damageText,
             color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
-            fontSize: isCrit
-              ? isMobileViewport
-                ? 38
-                : 48
-              : isMobileViewport
-                ? 17
-                : 20,
+            fontSize,
             top: 24 + Math.random() * 42,
-            left: 70 + Math.random() * 20,
+            left: getDamagePopupLeftPercent("enemy"),
+            anchor: "right",
           } as FloatingDamage;
         }
 
+        const baseFontSize = getDamageFontSize(
+          event.value ?? 0,
+          isMobileViewport,
+          false,
+          ENEMY_DAMAGE_FONT_BRACKETS,
+        );
+        const fontSize = fitDamageTextSize(
+          baseFontSize,
+          damageText,
+          isMobileViewport,
+          DAMAGE_TEXT_FIT_CONFIG,
+        );
+
         return {
           id: `${now}-e-${index}`,
-          text: `${Math.round(event.value ?? 0)}`,
+          text: damageText,
           color: "#f45a5a",
-          fontSize: 24,
+          fontSize,
           top: 26 + Math.random() * 42,
-          left: 10 + Math.random() * 20,
+          left: getDamagePopupLeftPercent("player"),
+          anchor: "left",
         } as FloatingDamage;
       });
 
@@ -463,6 +548,14 @@ export function Fight() {
         }
 
         if (event.type === "lootGranted") {
+          if (event.itemId === "ruby_currency") {
+            return {
+              id: `${now}-l-${index}`,
+              text: `RUBY DROP! +${event.quantity ?? 1} Ruby`,
+              color: "#ff75d8",
+            };
+          }
+
           const itemName =
             getItemDefSafe(event.itemId ?? "")?.name ?? event.itemId;
           const itemLevelText =
@@ -546,6 +639,15 @@ export function Fight() {
       )
       .map((event, index) => {
         if (event.type === "lootGranted") {
+          if (event.itemId === "ruby_currency") {
+            return {
+              id: `${now}-toast-ruby-${index}`,
+              text: `RUBY DROP! +${event.quantity ?? 1} Ruby`,
+              color: "#ff75d8",
+              isRubyDrop: true,
+            } as CombatToast;
+          }
+
           const itemName =
             getItemDefSafe(event.itemId ?? "")?.name ?? event.itemId;
           const itemLevelText =
@@ -618,59 +720,30 @@ export function Fight() {
   }, [combatEvents]);
 
   return (
-    <div style={{ padding: 16, color: "#e8f0f8" }}>
+    <div className="ui-fight-screen">
       {/* Player Header - Compact */}
-      <div
-        style={{
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(150deg, #15202b 0%, #263748 100%)",
-          padding: 12,
-          marginBottom: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 8,
-            gap: 10,
-          }}
-        >
+      <div className="ui-fight-player-card">
+        <div className="ui-fight-row ui-fight-row-with-bottom">
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>
+            <div className="ui-fight-level-label">
               Level {state.playerProgress.level || 1}
             </div>
           </div>
           <button
             onClick={() => setIsPlayerStatsExpanded(!isPlayerStatsExpanded)}
-            style={{
-              padding: "4px 12px",
-              fontSize: 12,
-              borderRadius: 6,
-              border: "1px solid rgba(130, 167, 201, 0.35)",
-              background: "rgba(20, 35, 50, 0.7)",
-              color: "#a8c8ff",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
+            className="ui-fight-stats-toggle ui-touch-target"
           >
             {isPlayerStatsExpanded ? "Hide" : "Stats"}
           </button>
         </div>
 
         {/* HP Bar - Always Visible */}
-        <div style={{ fontSize: 11, marginBottom: 4, opacity: 0.85 }}>
+        <div className="ui-fight-micro-label ui-fight-micro-label--below">
           HP: {Math.round(combat.playerCurrentHp)} / {playerMaxHp}
         </div>
         <div
+          className="ui-fight-bar-shell ui-fight-player-hp-shell"
           style={{
-            height: 12,
-            borderRadius: 999,
-            backgroundColor: "rgba(8, 13, 19, 0.6)",
-            overflow: "hidden",
-            border: "1px solid rgba(130, 167, 201, 0.3)",
             marginBottom: isPlayerStatsExpanded ? 10 : 0,
           }}
         >
@@ -686,21 +759,15 @@ export function Fight() {
         </div>
 
         {/* XP Progress Bar - Always Visible */}
-        <div
-          style={{ fontSize: 11, marginTop: 8, marginBottom: 4, opacity: 0.85 }}
-        >
+        <div className="ui-fight-micro-label ui-fight-micro-label--above">
           XP: {formatCompactNumber(state.playerProgress?.xp ?? 0)} /{" "}
           {Number.isFinite(xpForNextLevel)
             ? formatCompactNumber(xpForNextLevel)
             : "MAX"}
         </div>
         <div
+          className="ui-fight-bar-shell ui-fight-player-xp-shell"
           style={{
-            height: 10,
-            borderRadius: 999,
-            backgroundColor: "rgba(8, 13, 19, 0.6)",
-            overflow: "hidden",
-            border: "1px solid rgba(167, 130, 201, 0.35)",
             marginBottom: isPlayerStatsExpanded ? 10 : 0,
           }}
         >
@@ -717,67 +784,34 @@ export function Fight() {
 
         {/* Expandable Stats */}
         {isPlayerStatsExpanded && (
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: "1px solid rgba(109, 144, 173, 0.2)",
-              fontSize: 12,
-              opacity: 0.92,
-              lineHeight: 1.6,
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "8px 12px",
-            }}
-          >
+          <div className="ui-fight-expanded-grid">
             <div>ATK: {Math.round(totalStats.attack ?? 0)}</div>
             <div>DEF: {Math.round(totalStats.defense ?? 0)}</div>
             <div>AGI: {(totalStats.agility ?? 0).toFixed(2)}</div>
             <div>APS: {attacksPerSecond.toFixed(2)}</div>
             <div>Crit: {critChance.toFixed(1)}%</div>
             <div>Lvl: {combat.currentLevel}</div>
-            <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
+            <div className="ui-fight-grid-full-note">
               Mana: {formatCompactNumber(playerMana)} / 100 • Regen:{" "}
-              {formatCompactNumber(
-                2 * (1 + (totalStats.energyRegeneration ?? 0) / 100),
-                { smallValueDecimals: 1 },
-              )}
+              {formatCompactNumber(manaRegenPerSecond, {
+                smallValueDecimals: 1,
+              })}
               /s
             </div>
-            <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
-              Checkpoint: Lv {Math.max(1, combat.lastBossCheckpointLevel || 1)}
+            <div className="ui-fight-grid-full-note">
+              Checkpoint: Lv {checkpointLevel}
             </div>
           </div>
         )}
       </div>
 
       {/* Fight Arena */}
-      <div
-        style={{
-          borderRadius: 14,
-          border: "1px solid #32485d",
-          background:
-            "radial-gradient(circle at 50% 18%, rgba(64, 98, 130, 0.4) 0%, rgba(22, 31, 41, 0.95) 55%)",
-          padding: 16,
-          marginBottom: 14,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-            marginBottom: 10,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>{combatTitle}</h2>
+      <div className="ui-fight-arena">
+        <div className="ui-fight-arena-header">
+          <h2 className="ui-fight-title">{combatTitle}</h2>
           <span
+            className="ui-fight-kind-badge"
             style={{
-              fontSize: 12,
-              padding: "3px 10px",
-              borderRadius: 999,
               backgroundColor:
                 combat.enemy.kind === "boss"
                   ? "rgba(235, 97, 79, 0.35)"
@@ -788,81 +822,43 @@ export function Fight() {
           </span>
         </div>
 
-        <div style={{ fontSize: 13, marginBottom: 6 }}>
-          HP: {Math.round(combat.enemy.currentHp)} /{" "}
-          {Math.round(combat.enemy.maxHp)}
+        <div className="ui-fight-enemy-hp">
+          HP: {formatCombatNumber(Math.max(0, Math.round(visualEnemyHp)))} /{" "}
+          {formatCombatNumber(combat.enemy.maxHp)}
         </div>
-        <div
-          style={{
-            height: 10,
-            borderRadius: 999,
-            backgroundColor: "rgba(10, 15, 20, 0.62)",
-            overflow: "hidden",
-            border: "1px solid rgba(155, 130, 130, 0.34)",
-            marginBottom: 14,
-          }}
-        >
+        <div className="ui-fight-enemy-hp-shell">
           <div
             style={{
-              width: `${enemyHpPercent}%`,
+              position: "absolute",
+              left: 0,
+              width: `${Math.max(
+                0,
+                Math.min(
+                  100,
+                  (visualEnemyHp / Math.max(1, combat.enemy.maxHp)) * 100,
+                ),
+              )}%`,
               height: "100%",
               background:
                 "linear-gradient(90deg, #b83838 0%, #e65e5e 64%, #ffc4c4 100%)",
-              transition: "width 140ms linear",
+              transition: "width 36ms linear",
             }}
           />
         </div>
 
         <button
           onClick={combatClickAttack}
-          style={{
-            width: "100%",
-            minHeight: 180,
-            borderRadius: 12,
-            border: "1px solid #46617a",
-            background:
-              "linear-gradient(180deg, rgba(46, 67, 86, 0.85) 0%, rgba(27, 41, 53, 0.9) 100%)",
-            color: "#f3f8ff",
-            fontSize: 16,
-            fontWeight: 600,
-            position: "relative",
-            overflow: "hidden",
-            cursor: "pointer",
-          }}
+          className="ui-fight-attack-btn"
+          style={{ overflow: "visible" }}
         >
-          <div
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 14,
-              right: 14,
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 12,
-              opacity: 0.92,
-              letterSpacing: 0.2,
-            }}
-          >
+          <div className="ui-fight-attack-top-labels">
             <span>Player</span>
             <span>Tap / Click To Strike</span>
             <span>Enemy</span>
           </div>
 
-          <div
-            style={{
-              position: "absolute",
-              bottom: 12,
-              left: 0,
-              right: 0,
-              display: "flex",
-              justifyContent: "center",
-              gap: 38,
-              alignItems: "flex-end",
-              padding: "0 10px",
-              pointerEvents: "none",
-            }}
-          >
-            <div style={{ display: "grid", justifyItems: "center", gap: 4 }}>
+          <div className="ui-fight-sprite-row">
+            <div className="ui-fight-sprite-stack">
               <img
                 src={playerPixel}
                 alt="Player pixel art"
@@ -892,7 +888,7 @@ export function Fight() {
               )}
             </div>
 
-            <div style={{ display: "grid", justifyItems: "center", gap: 4 }}>
+            <div className="ui-fight-sprite-stack">
               <img
                 src={enemySprite}
                 alt={enemyAlt}
@@ -916,12 +912,25 @@ export function Fight() {
                 position: "absolute",
                 top: `${entry.top}%`,
                 left: `${entry.left}%`,
-                transform: "translate(-50%, -50%)",
+                transform:
+                  entry.anchor === "right"
+                    ? "translate(-100%, -50%)"
+                    : entry.anchor === "left"
+                      ? "translate(0, -50%)"
+                      : "translate(-50%, -50%)",
                 color: entry.color,
                 fontSize: entry.fontSize,
                 fontWeight: 800,
                 textShadow: "0 2px 6px rgba(0,0,0,0.55)",
                 pointerEvents: "none",
+                whiteSpace: "nowrap",
+                overflow: "visible",
+                textAlign:
+                  entry.anchor === "right"
+                    ? "right"
+                    : entry.anchor === "left"
+                      ? "left"
+                      : "center",
                 animation: "fightFloatUp 650ms ease-out forwards",
               }}
             >
@@ -931,490 +940,52 @@ export function Fight() {
         </button>
       </div>
 
-      {/* Consumables - Right Above Spells */}
-      <div
-        style={{
-          marginBottom: 14,
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(150deg, #162433 0%, #1f3248 100%)",
-          padding: 10,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 8,
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: 13 }}>🧴 Potions</div>
-          <button
-            onClick={() => setIsConsumableModalOpen(true)}
-            style={{
-              padding: "4px 8px",
-              fontSize: 11,
-              borderRadius: 7,
-              border: "1px solid rgba(109, 144, 173, 0.35)",
-              background: "rgba(20, 35, 50, 0.65)",
-              color: "#9fc6ff",
-              cursor: "pointer",
-            }}
-          >
-            Select
-          </button>
-        </div>
+      <FightConsumablesPanel
+        panel={consumablesPanel}
+        onOpenModal={() => handleOpenConsumableModal()}
+        onOpenSlot={handleOpenConsumableModal}
+        onUseConsumable={combatUseConsumable}
+      />
 
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-        >
-          {[0, 1].map((slotIndex) => {
-            const selectedItemId = equippedConsumables[slotIndex];
-            const itemSummary = selectedItemId
-              ? (potionSummaries.find((p) => p.itemId === selectedItemId) ??
-                null)
-              : null;
-            const itemDef = itemSummary
-              ? getItemDefSafe(itemSummary.itemId)
-              : null;
-            const cooldownMs = selectedItemId
-              ? (consumableCooldowns[selectedItemId] ?? 0)
-              : 0;
-            const isOnCooldown = cooldownMs > 0;
+      <FightSpellsPanel
+        isVisible={spellPanel.isVisible}
+        classLabel={spellPanel.classLabel}
+        showManageButton={spellPanel.showManageButton}
+        unlockedSpellSlots={spellPanel.unlockedSpellSlots}
+        maxSpellSlots={spellPanel.maxSpellSlots}
+        emptyMessage={spellPanel.emptyMessage}
+        spellActions={spellPanel.spellActions}
+        spellPath={spellPanel.spellPath}
+        onOpenManageSpells={() => setIsSpellSelectOpen(true)}
+        onCastSpell={combatCastSpell}
+      />
 
-            return (
-              <div
-                key={`potion-slot-${slotIndex}`}
-                style={{
-                  borderRadius: 8,
-                  border: "1px solid rgba(109, 144, 173, 0.3)",
-                  background: "rgba(13, 23, 34, 0.55)",
-                  padding: 8,
-                  display: "grid",
-                  justifyItems: "center",
-                  gap: 4,
-                }}
-              >
-                <button
-                  onClick={() => {
-                    if (!selectedItemId) {
-                      setSelectedConsumableSlot(slotIndex as 0 | 1);
-                      setIsConsumableModalOpen(true);
-                      return;
-                    }
-                    if (!isOnCooldown) {
-                      const potionInstance = state.inventory.find(
-                        (inv) =>
-                          inv.itemId === selectedItemId &&
-                          (inv.quantity ?? 0) > 0,
-                      );
-                      if (potionInstance) {
-                        combatUseConsumable(potionInstance.uid);
-                      }
-                    }
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    setSelectedConsumableSlot(slotIndex as 0 | 1);
-                    setIsConsumableModalOpen(true);
-                  }}
-                  disabled={isOnCooldown}
-                  title={
-                    itemDef
-                      ? `${itemDef.name}${isOnCooldown ? ` (${formatRemainingMs(cooldownMs)})` : ""}`
-                      : `Select potion for slot ${slotIndex + 1}`
-                  }
-                  style={{
-                    width: 36,
-                    height: 36,
-                    padding: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 20,
-                    lineHeight: 1,
-                    borderRadius: 8,
-                    border: `1px solid ${itemDef ? getRarityTint(itemDef.rarity) : "rgba(120,140,160,0.35)"}`,
-                    background: isOnCooldown
-                      ? "rgba(90, 90, 90, 0.45)"
-                      : "rgba(22, 35, 50, 0.92)",
-                    color: isOnCooldown ? "#8e8e8e" : "#f2f8ff",
-                    cursor: isOnCooldown ? "not-allowed" : "pointer",
-                    opacity: !selectedItemId ? 0.6 : 1,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      lineHeight: 1,
-                    }}
-                  >
-                    {itemDef ? getPotionIcon(itemDef.id) : "+"}
-                  </span>
-                </button>
-
-                <div style={{ fontSize: 10, opacity: 0.72 }}>
-                  {itemSummary ? `x${itemSummary.quantity}` : "Empty"}
-                </div>
-                {isOnCooldown && (
-                  <div style={{ fontSize: 10, color: "#f2a59f" }}>
-                    {formatRemainingMs(cooldownMs)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Spells - Below Fight UI */}
-      {state.playerProgress.unlockedSystems?.spells && (
-        <div
-          style={{
-            marginBottom: 14,
-            borderRadius: 12,
-            border: "1px solid #30465b",
-            background: "linear-gradient(150deg, #1c2233 0%, #2a3048 100%)",
-            padding: 12,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: 14 }}>
-              ⚡ Spells {activeClassId ? `(Class: ${activeClassId})` : ""}
-            </div>
-            {activeClassId && unlockedSpellSlots > 0 && (
-              <button
-                onClick={() => setIsSpellSelectOpen(true)}
-                style={{
-                  padding: "4px 8px",
-                  fontSize: 11,
-                  borderRadius: 7,
-                  border: "1px solid rgba(109, 144, 173, 0.35)",
-                  background: "rgba(20, 35, 50, 0.65)",
-                  color: "#9fc6ff",
-                  cursor: "pointer",
-                }}
-              >
-                Manage Spells
-              </button>
-            )}
-          </div>
-          <div style={{ fontSize: 11, color: "#99b9d6", marginBottom: 8 }}>
-            Slots unlocked: {unlockedSpellSlots} / 8
-          </div>
-
-          {unlockedSpellSlots <= 0 && (
-            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
-              Spell slots unlock at level 10. Continue leveling to equip spells.
-            </div>
-          )}
-
-          {unlockedSpellSlots > 0 && slottedSpells.length === 0 && (
-            <div style={{ fontSize: 12, color: "#c4d9ec", marginBottom: 8 }}>
-              No spells are slotted. Open Character and assign spells to slots.
-            </div>
-          )}
-
-          <div style={{ display: "grid", gap: 8 }}>
-            {slottedSpells.map((spell) => {
-              const cooldownMs = spellCooldowns[spell.id] ?? 0;
-              const canCast =
-                cooldownMs <= 0 && (playerMana ?? 0) >= spell.manaCost;
-              return (
-                <button
-                  key={spell.id}
-                  onClick={() => combatCastSpell(spell.id)}
-                  disabled={!canCast}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    alignItems: "center",
-                    gap: 8,
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(109, 144, 173, 0.35)",
-                    background: "rgba(24, 32, 48, 0.6)",
-                    color: canCast ? "#f3f8ff" : "#666",
-                    cursor: canCast ? "pointer" : "not-allowed",
-                    opacity: canCast ? 1 : 0.6,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        marginBottom: 3,
-                      }}
-                    >
-                      {spell.name}
-                    </div>
-                    <div
-                      style={{ fontSize: 10, opacity: 0.75, lineHeight: 1.4 }}
-                    >
-                      {spell.description}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>
-                      Unlock Lv {spell.requiredLevel} • Mana {spell.manaCost} •{" "}
-                      {cooldownMs > 0
-                        ? `Cooldown ${formatRemainingMs(cooldownMs)}`
-                        : "Ready"}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 700 }}>Cast</div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div
-            style={{
-              marginTop: 12,
-              borderTop: "1px solid rgba(109, 144, 173, 0.25)",
-              paddingTop: 10,
-            }}
-          >
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
-              Default Spell Path (XP Progression)
-            </div>
-            <div style={{ display: "grid", gap: 5 }}>
-              {generalSpellPath.map((spell) => {
-                const isUnlocked =
-                  state.playerProgress.level >= spell.requiredLevel;
-                return (
-                  <div
-                    key={`path-${spell.id}`}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "80px 1fr auto",
-                      gap: 8,
-                      alignItems: "center",
-                      fontSize: 11,
-                      color: isUnlocked ? "#d9f0ff" : "#8ea4b7",
-                    }}
-                  >
-                    <div>Lv {spell.requiredLevel}</div>
-                    <div>{spell.name}</div>
-                    <div>{isUnlocked ? "Unlocked" : "Locked"}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isConsumableModalOpen && (
-        <div
-          onClick={() => setIsConsumableModalOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 40,
-            background: "rgba(6, 10, 16, 0.72)",
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(460px, 100%)",
-              maxHeight: "80vh",
-              overflowY: "auto",
-              borderRadius: 12,
-              border: "1px solid #3b5670",
-              background: "linear-gradient(170deg, #111b27 0%, #1b2b3c 100%)",
-              padding: 12,
-              boxShadow: "0 16px 44px rgba(0, 0, 0, 0.45)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                marginBottom: 10,
-              }}
-            >
-              <div style={{ fontWeight: 700 }}>Select Slot Potions</div>
-              <button
-                onClick={() => setIsConsumableModalOpen(false)}
-                style={{
-                  borderRadius: 6,
-                  border: "1px solid rgba(130, 170, 204, 0.4)",
-                  background: "rgba(20, 35, 50, 0.65)",
-                  color: "#d8ecff",
-                  padding: "4px 8px",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              {[0, 1].map((slot) => (
-                <button
-                  key={`modal-slot-${slot}`}
-                  onClick={() => setSelectedConsumableSlot(slot as 0 | 1)}
-                  style={{
-                    borderRadius: 8,
-                    border:
-                      selectedConsumableSlot === slot
-                        ? "1px solid #9ad0ff"
-                        : "1px solid rgba(125, 153, 179, 0.4)",
-                    background:
-                      selectedConsumableSlot === slot
-                        ? "rgba(72, 120, 168, 0.4)"
-                        : "rgba(16, 28, 40, 0.7)",
-                    color: "#e2f2ff",
-                    padding: "6px 10px",
-                    fontSize: 12,
-                    cursor: "pointer",
-                  }}
-                >
-                  Slot {slot + 1}
-                </button>
-              ))}
-              <button
-                onClick={() => {
-                  setEquippedConsumables((prev) => {
-                    const next: [string | null, string | null] = [...prev] as [
-                      string | null,
-                      string | null,
-                    ];
-                    next[selectedConsumableSlot] = null;
-                    return next;
-                  });
-                }}
-                style={{
-                  marginLeft: "auto",
-                  borderRadius: 8,
-                  border: "1px solid rgba(207, 126, 126, 0.45)",
-                  background: "rgba(58, 18, 18, 0.55)",
-                  color: "#ffc7c7",
-                  padding: "6px 10px",
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                Clear Slot
-              </button>
-            </div>
-
-            <div style={{ display: "grid", gap: 8 }}>
-              {potionSummaries.length === 0 && (
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  No potions in inventory.
-                </div>
-              )}
-              {potionSummaries.map((potion) => {
-                const alreadyEquippedInOtherSlot = equippedConsumables.some(
-                  (itemId, idx) =>
-                    itemId === potion.itemId && idx !== selectedConsumableSlot,
-                );
-
-                return (
-                  <button
-                    key={potion.itemId}
-                    onClick={() => {
-                      setEquippedConsumables((prev) => {
-                        const next: [string | null, string | null] = [
-                          ...prev,
-                        ] as [string | null, string | null];
-                        if (alreadyEquippedInOtherSlot) {
-                          const otherIndex = next.findIndex(
-                            (itemId, idx) =>
-                              itemId === potion.itemId &&
-                              idx !== selectedConsumableSlot,
-                          );
-                          if (otherIndex !== -1)
-                            next[otherIndex as 0 | 1] = null;
-                        }
-                        next[selectedConsumableSlot] = potion.itemId;
-                        return next;
-                      });
-                    }}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
-                      gap: 10,
-                      alignItems: "center",
-                      borderRadius: 8,
-                      border: "1px solid rgba(124, 156, 183, 0.35)",
-                      background: "rgba(16, 28, 40, 0.7)",
-                      padding: "8px 10px",
-                      color: "#ecf7ff",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>
-                      {getPotionIcon(potion.itemId)}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: getRarityTint(potion.rarity),
-                      }}
-                    >
-                      {potion.name}
-                    </span>
-                    <span style={{ fontSize: 11, opacity: 0.75 }}>
-                      x{potion.quantity}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      <FightConsumableModal
+        isOpen={isConsumableModalOpen}
+        modal={consumableModal}
+        onClose={() => setIsConsumableModalOpen(false)}
+        onSelectSlot={setSelectedConsumableSlot}
+        onClearSelectedSlot={handleClearSelectedConsumableSlot}
+        onEquipConsumable={handleEquipConsumable}
+      />
 
       {toasts.length > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            right: 18,
-            bottom: 20,
-            display: "grid",
-            gap: 8,
-            zIndex: 30,
-            width: "min(320px, calc(100vw - 36px))",
-          }}
-        >
+        <div className="ui-fight-toast-stack">
           {toasts.map((toast) => (
             <div
               key={toast.id}
+              className="ui-fight-toast"
               style={{
-                borderRadius: 10,
-                border: "1px solid rgba(137, 172, 206, 0.45)",
-                background:
-                  "linear-gradient(150deg, rgba(12,22,31,0.93) 0%, rgba(22,37,52,0.9) 100%)",
                 color: toast.color,
-                padding: "8px 10px",
-                fontSize: 12,
-                fontWeight: 700,
-                boxShadow: "0 8px 28px rgba(0,0,0,0.38)",
-                animation: "fightToastIn 220ms ease-out",
+                border: toast.isRubyDrop
+                  ? "1px solid rgba(255, 117, 216, 0.85)"
+                  : undefined,
+                boxShadow: toast.isRubyDrop
+                  ? "0 0 16px rgba(255, 117, 216, 0.45)"
+                  : undefined,
+                animation: toast.isRubyDrop
+                  ? "fightRubyDropPulse 950ms ease-in-out 2"
+                  : undefined,
               }}
             >
               {toast.text}
@@ -1423,228 +994,30 @@ export function Fight() {
         </div>
       )}
 
-      <div
-        style={{
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(160deg, #18242f 0%, #223648 100%)",
-          padding: 12,
-          fontSize: 12,
-          lineHeight: 1.55,
-          opacity: 0.95,
+      <FightEncounterSummaryPanel summary={encounterSummary} />
+
+      <FightDpsPanel
+        panel={dpsPanel}
+        metrics={{
+          currentDps,
+          previousDps,
+          currentAutoDps,
+          currentClickDps,
+          currentSpellDps,
+          currentPetDps,
+          dpsDelta,
+          dpsDeltaPercent,
+          dpsGraphPoints,
+          yAxisTicks,
+          maxDpsValue,
         }}
-      >
-        <div style={{ marginBottom: 4 }}>
-          Level {combat.currentLevel} • Highest {combat.highestLevelReached} •
-          Next boss Lv {nextBossLevel(combat.currentLevel)}
-        </div>
-        <div>
-          Enemy rewards: +{combat.enemy.goldReward} Gold, +
-          {combat.enemy.gemsReward} Gems, +{combat.enemy.xpReward} XP
-        </div>
-      </div>
+        isExpanded={isDpsExpanded}
+        onToggleExpanded={() => setIsDpsExpanded((value) => !value)}
+        onSelectWindow={setDpsWindowMs}
+        isUnlocked={state.playerProgress.unlockedSystems?.dpsMeter ?? false}
+      />
 
-      <div
-        style={{
-          marginTop: 12,
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(160deg, #121c26 0%, #1e3141 100%)",
-          padding: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>DPS Meter</div>
-            <div style={{ fontSize: 12, opacity: 0.76 }}>
-              {formatCompactNumber(currentDps)} DPS over the last{" "}
-              {dpsWindowMs / 1000}s
-            </div>
-          </div>
-          <button onClick={() => setIsDpsExpanded((value) => !value)}>
-            {isDpsExpanded ? "Hide Graph" : "Show Graph"}
-          </button>
-        </div>
-
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 8,
-            flexWrap: "wrap",
-            fontSize: 12,
-          }}
-        >
-          <div>
-            Current: <strong>{formatCompactNumber(currentDps)}</strong>
-          </div>
-          <div>
-            Previous: <strong>{formatCompactNumber(previousDps)}</strong>
-          </div>
-          <div style={{ color: dpsDelta >= 0 ? "#74f5b3" : "#ff9d9d" }}>
-            {dpsDelta >= 0 ? "+" : ""}
-            {formatCompactNumber(dpsDelta)} DPS ({dpsDelta >= 0 ? "+" : ""}
-            {dpsDeltaPercent.toFixed(1)}%)
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 8,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 8,
-            fontSize: 12,
-          }}
-        >
-          <div>
-            Auto DPS: <strong>{formatCompactNumber(currentAutoDps)}</strong>
-          </div>
-          <div>
-            Click DPS: <strong>{formatCompactNumber(currentClickDps)}</strong>
-          </div>
-          <div>
-            Spell DPS: <strong>{formatCompactNumber(currentSpellDps)}</strong>
-          </div>
-          <div>
-            Pet DPS: <strong>{formatCompactNumber(currentPetDps)}</strong>
-          </div>
-        </div>
-
-        {isDpsExpanded && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              {[10_000, 30_000, 60_000].map((windowMs) => (
-                <button
-                  key={windowMs}
-                  className={dpsWindowMs === windowMs ? "btn-selected" : ""}
-                  onClick={() => setDpsWindowMs(windowMs)}
-                >
-                  {windowMs / 1000}s
-                </button>
-              ))}
-            </div>
-
-            {damageHistory.length === 0 ? (
-              <div style={{ fontSize: 12, opacity: 0.72 }}>
-                No damage recorded yet. Start attacking to populate the meter.
-              </div>
-            ) : (
-              <div
-                style={{
-                  borderRadius: 10,
-                  border: "1px solid rgba(109, 144, 173, 0.3)",
-                  background: "rgba(8, 14, 20, 0.45)",
-                  padding: 10,
-                }}
-              >
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  style={{ width: "100%", height: 140, display: "block" }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="fightDpsFill"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="rgba(86, 224, 153, 0.7)" />
-                      <stop
-                        offset="100%"
-                        stopColor="rgba(86, 224, 153, 0.05)"
-                      />
-                    </linearGradient>
-                  </defs>
-                  <polyline
-                    fill="none"
-                    stroke="rgba(120, 208, 255, 0.25)"
-                    strokeWidth="0.8"
-                    points="0,100 100,100"
-                  />
-                  <polygon
-                    fill="url(#fightDpsFill)"
-                    points={`0,100 ${dpsGraphPoints} 100,100`}
-                  />
-                  <polyline
-                    fill="none"
-                    stroke="#72f2a4"
-                    strokeWidth="1.8"
-                    points={dpsGraphPoints}
-                  />
-                </svg>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontSize: 11,
-                    opacity: 0.7,
-                    marginTop: 6,
-                  }}
-                >
-                  <span>{dpsWindowMs / 1000}s ago</span>
-                  <span>now</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          marginTop: 12,
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(160deg, #131f29 0%, #1d2f3f 100%)",
-          padding: 12,
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
-          Combat Log
-        </div>
-        {combatLog.length === 0 ? (
-          <div style={{ fontSize: 12, opacity: 0.72 }}>
-            Defeat enemies to generate loot and progression events.
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: 6,
-              maxHeight: 220,
-              overflowY: "auto",
-            }}
-          >
-            {combatLog.map((entry) => (
-              <div
-                key={entry.id}
-                style={{
-                  fontSize: 12,
-                  color: entry.color,
-                  border: "1px solid rgba(139, 171, 198, 0.2)",
-                  backgroundColor: "rgba(0,0,0,0.16)",
-                  borderRadius: 8,
-                  padding: "6px 8px",
-                }}
-              >
-                {entry.text}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <FightCombatLogPanel log={combatLogPanel} />
 
       <style>
         {`@keyframes fightFloatUp {
@@ -1656,6 +1029,12 @@ export function Fight() {
         @keyframes fightToastIn {
           0% { opacity: 0; transform: translateY(10px) scale(0.98); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes fightRubyDropPulse {
+          0% { transform: translateY(0) scale(1); filter: brightness(1); }
+          40% { transform: translateY(0) scale(1.03); filter: brightness(1.35); }
+          100% { transform: translateY(0) scale(1); filter: brightness(1); }
         }`}
       </style>
 

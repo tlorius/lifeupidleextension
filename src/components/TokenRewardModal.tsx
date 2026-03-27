@@ -1,6 +1,7 @@
 import { useGame } from "../game/GameContext";
 import { getItemDefSafe } from "../game/items";
 import type { ItemType } from "../game/types";
+import { ModalShell } from "./ui/ModalShell";
 
 function getItemIcon(itemType: ItemType): string {
   const typeIcons: Record<ItemType, string> = {
@@ -40,114 +41,89 @@ export function TokenRewardModal() {
   if (tokenRewardModalItems.length === 0) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(6, 10, 14, 0.74)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1700,
+    <ModalShell
+      onClose={dismissTokenRewardModal}
+      overlayStyle={{ zIndex: 1700, backgroundColor: "rgba(6, 10, 14, 0.74)" }}
+      panelStyle={{
+        ["--modal-width" as string]: "540px",
+        ["--modal-width-mobile" as string]: "92vw",
+        ["--modal-max-height" as string]: "84vh",
+        ["--modal-padding" as string]: "14px",
       }}
-      onClick={dismissTokenRewardModal}
     >
-      <div
-        style={{
-          width: "min(540px, 92vw)",
-          maxHeight: "84vh",
-          overflowY: "auto",
-          borderRadius: 10,
-          border: "1px solid #3b5670",
-          backgroundColor: "#162433",
-          boxShadow: "0 20px 42px rgba(0, 0, 0, 0.48)",
-          padding: 14,
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 10,
-            gap: 8,
-          }}
+      <div className="ui-modal-header" style={{ marginBottom: 10, gap: 8 }}>
+        <h3 style={{ margin: 0, color: "#e8f1fa", fontSize: 16 }}>
+          Congrats! You have earned items
+        </h3>
+        <button
+          className="ui-modal-btn-compact ui-touch-target"
+          onClick={dismissTokenRewardModal}
         >
-          <h3 style={{ margin: 0, color: "#e8f1fa", fontSize: 16 }}>
-            Congrats! You have earned items
-          </h3>
-          <button
-            style={{ padding: "6px 10px", fontSize: 12 }}
-            onClick={dismissTokenRewardModal}
-          >
-            Close
-          </button>
-        </div>
+          Close
+        </button>
+      </div>
 
-        <div style={{ display: "grid", gap: 8 }}>
-          {tokenRewardModalItems.map((reward, index) => {
-            const definition = getItemDefSafe(reward.itemId);
-            if (!definition) return null;
-            const accent =
-              rarityAccent[definition.rarity] ?? rarityAccent.common;
+      <div className="ui-grid-gap-8">
+        {tokenRewardModalItems.map((reward, index) => {
+          const definition = getItemDefSafe(reward.itemId);
+          if (!definition) return null;
+          const accent = rarityAccent[definition.rarity] ?? rarityAccent.common;
 
-            return (
+          return (
+            <div
+              key={`${reward.itemId}-${index}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "74px 34px 1fr auto",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                border: `1px solid ${accent.border}`,
+                borderRadius: 8,
+                backgroundColor: "#1c2e3f",
+                boxShadow: `inset 0 0 0 1px ${accent.glow}`,
+              }}
+            >
               <div
-                key={`${reward.itemId}-${index}`}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "74px 34px 1fr auto",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
-                  border: `1px solid ${accent.border}`,
-                  borderRadius: 8,
-                  backgroundColor: "#1c2e3f",
-                  boxShadow: `inset 0 0 0 1px ${accent.glow}`,
+                  color: "#f4d67f",
+                  fontWeight: "bold",
+                  fontSize: 14,
                 }}
               >
+                {reward.quantity}x
+              </div>
+
+              <div style={{ fontSize: 20, textAlign: "center" }}>
+                {getItemIcon(definition.type)}
+              </div>
+
+              <div>
+                <div style={{ color: "#e5edf6", fontWeight: "bold" }}>
+                  {definition.name}
+                </div>
+                <div style={{ color: "#95a8bb", fontSize: 11 }}>
+                  {definition.rarity} {definition.type}
+                </div>
+              </div>
+
+              {shouldShowLevel(definition.type) ? (
                 <div
                   style={{
-                    color: "#f4d67f",
+                    color: "#cfe0f1",
+                    fontSize: 12,
                     fontWeight: "bold",
-                    fontSize: 14,
                   }}
                 >
-                  {reward.quantity}x
+                  Lvl {reward.level}
                 </div>
-
-                <div style={{ fontSize: 20, textAlign: "center" }}>
-                  {getItemIcon(definition.type)}
-                </div>
-
-                <div>
-                  <div style={{ color: "#e5edf6", fontWeight: "bold" }}>
-                    {definition.name}
-                  </div>
-                  <div style={{ color: "#95a8bb", fontSize: 11 }}>
-                    {definition.rarity} {definition.type}
-                  </div>
-                </div>
-
-                {shouldShowLevel(definition.type) ? (
-                  <div
-                    style={{
-                      color: "#cfe0f1",
-                      fontSize: 12,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Lvl {reward.level}
-                  </div>
-                ) : (
-                  <div style={{ color: "#6f869d", fontSize: 12 }}>-</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              ) : (
+                <div style={{ color: "#6f869d", fontSize: 12 }}>-</div>
+              )}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </ModalShell>
   );
 }

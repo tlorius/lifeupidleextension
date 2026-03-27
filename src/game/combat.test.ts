@@ -13,6 +13,7 @@ import {
   runCombatTick,
   useCombatConsumable,
 } from "./combat";
+import { getRubyDropChanceForLevel } from "./combatConfig";
 import { getItemDefSafe } from "./items";
 import { createDefaultState } from "./state";
 
@@ -44,6 +45,18 @@ describe("combat engine", () => {
     const hit = calculatePlayerHit(state, () => 0);
     expect(hit.isCrit).toBe(true);
     expect(hit.damage).toBe(58);
+  });
+
+  it("makes baseline click attacks stronger than auto attacks", () => {
+    const state = createDefaultState();
+    state.stats.attack = 100;
+    state.stats.critChance = 0;
+
+    const autoHit = calculatePlayerHit(state, () => 0.5, "auto");
+    const clickHit = calculatePlayerHit(state, () => 0.5, "click");
+
+    expect(clickHit.isCrit).toBe(false);
+    expect(clickHit.damage).toBeGreaterThan(autoHit.damage);
   });
 
   it("keeps high enemy damage threatening even with extreme defense", () => {
@@ -113,6 +126,22 @@ describe("combat engine", () => {
     );
   });
 
+  it("keeps full large click damage values in playerHit event payload", () => {
+    const state = createDefaultState();
+    state.stats.attack = 1_234_567_890;
+    state.stats.critChance = 0;
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 50_000_000_000;
+
+    const expectedHit = calculatePlayerHit(state, () => 0.5, "click");
+    const result = performClickAttack(runtime, state, () => 0.5);
+    const eventHit = result.events.find((event) => event.type === "playerHit");
+
+    expect(expectedHit.damage).toBeGreaterThan(1_000_000_000);
+    expect(eventHit?.value).toBe(expectedHit.damage);
+  });
+
   it("casts arcane bolt, spends mana, and starts spell cooldown", () => {
     const state = createDefaultState();
     state.playerProgress.level = 8;
@@ -138,6 +167,58 @@ describe("combat engine", () => {
     expect(result.runtime.enemy.currentHp).toBeLessThan(
       runtime.enemy.currentHp,
     );
+  });
+
+  it("applies and consumes class synergy buff on the next class spell cast", () => {
+    const state = createDefaultState();
+    state.playerProgress.level = 30;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.character.activeClassId = "berserker";
+    state.character.classProgress.berserker.unlockedNodeRanks.berserker_synergy = 1;
+    state.resources.energy = 100;
+    state.stats.attack = 45;
+    state.stats.intelligence = 20;
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 100_000;
+
+    const buffResult = castCombatSpell(
+      runtime,
+      state,
+      "berserker_blood_focus",
+      () => 0.5,
+    );
+    expect(buffResult.runtime.spellSynergyBuff?.nextClassSpellMultiplier).toBe(
+      5,
+    );
+
+    const buffedHitResult = castCombatSpell(
+      buffResult.runtime,
+      buffResult.state,
+      "berserker_warcry",
+      () => 0.5,
+    );
+    const buffedDamage = buffedHitResult.events
+      .filter((event) => event.type === "playerHit")
+      .reduce((sum, event) => sum + (event.value ?? 0), 0);
+
+    const baselineRuntime = createInitialCombatRuntime(state);
+    baselineRuntime.enemy.currentHp = 100_000;
+    const baselineResult = castCombatSpell(
+      baselineRuntime,
+      state,
+      "berserker_warcry",
+      () => 0.5,
+    );
+    const baselineDamage = baselineResult.events
+      .filter((event) => event.type === "playerHit")
+      .reduce((sum, event) => sum + (event.value ?? 0), 0);
+
+    expect(buffedDamage).toBeGreaterThan(baselineDamage * 4.5);
+    expect(buffedHitResult.runtime.spellSynergyBuff).toBeUndefined();
   });
 
   it("emits pet-source hit events for tamer beast sync", () => {
@@ -175,6 +256,38 @@ describe("combat engine", () => {
           event.attackSource === "pet",
       ),
     ).toBe(true);
+  });
+
+  it("reduces spell cooldowns and restores mana for idler timebank", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    state.playerProgress.level = 30;
+    state.playerProgress.unlockedSystems = {
+      ...state.playerProgress.unlockedSystems,
+      spells: true,
+    };
+    state.character.activeClassId = "idler";
+    state.resources.energy = 40;
+    state.character.classProgress.idler.unlockedNodeRanks = {
+      ...(state.character.classProgress.idler.unlockedNodeRanks ?? {}),
+      idler_9: 2,
+      idler_10: 1,
+    };
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.spellCooldowns = {
+      arcane_bolt: 9000,
+      ember_lance: 3000,
+    };
+
+    const result = castCombatSpell(runtime, state, "idler_timebank", () => 0.5);
+
+    expect(result.state.resources.energy).toBeGreaterThan(40 - 20);
+    expect(result.runtime.spellCooldowns?.arcane_bolt ?? 0).toBeLessThan(9000);
+    expect(result.runtime.spellCooldowns?.ember_lance ?? 0).toBe(0);
+    expect(result.events.some((event) => event.type === "spellCast")).toBe(
+      true,
+    );
   });
 
   it("prevents combat consumables from being used again while on cooldown", () => {
@@ -317,5 +430,51 @@ describe("combat engine", () => {
           event.type === "systemUnlocked" && event.systemId === "spells",
       ),
     ).toBe(true);
+  });
+
+  it("grants ruby drops for level 50+ enemies when roll succeeds", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    const runtime = createInitialCombatRuntime(state);
+    runtime.currentLevel = 50;
+    runtime.enemy = createEnemyInstance(50);
+    runtime.enemy.currentHp = 1;
+
+    const result = runCombatTick(runtime, state, 2000, () => 0);
+
+    expect(result.state.resources.ruby ?? 0).toBeGreaterThan(0);
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === "lootGranted" && event.itemId === "ruby_currency",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not grant ruby drops below level 50", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    const runtime = createInitialCombatRuntime(state);
+    runtime.currentLevel = 49;
+    runtime.enemy = createEnemyInstance(49);
+    runtime.enemy.currentHp = 1;
+
+    const result = runCombatTick(runtime, state, 2000, () => 0);
+
+    expect(result.state.resources.ruby ?? 0).toBe(0);
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === "lootGranted" && event.itemId === "ruby_currency",
+      ),
+    ).toBe(false);
+  });
+
+  it("resolves ruby chance by level decade steps", () => {
+    expect(getRubyDropChanceForLevel(49)).toBe(0);
+    expect(getRubyDropChanceForLevel(50)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(59)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(60)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(200)).toBe(0.005);
   });
 });

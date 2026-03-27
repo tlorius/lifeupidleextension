@@ -9,6 +9,11 @@ export function isClassSystemUnlocked(level: number): boolean {
   return level >= PROGRESSION_CONFIG.unlocks.classesAtLevel;
 }
 
+export function isDpsMeterUnlocked(state: GameState): boolean {
+  const dpsMeterUpgrade = state.upgrades.find((u) => u.id === "dps_goblin");
+  return dpsMeterUpgrade ? dpsMeterUpgrade.level > 0 : false;
+}
+
 export function getHardLevelCap(): number {
   return PROGRESSION_CONFIG.levelCaps.hardCapLevel;
 }
@@ -27,12 +32,15 @@ export function getXpForNextLevel(level: number): number {
     base,
     quadratic,
     linear,
+    postTenLinearMultiplierPerLevel,
     postSixtyLinearMultiplierPerLevel,
     postSoftCapExponentialMultiplier,
   } = PROGRESSION_CONFIG.xpFormula;
 
   const baseXp =
     base + normalizedLevel ** 2 * quadratic + normalizedLevel * linear;
+  const postTenLevels = Math.max(0, normalizedLevel - 10);
+  const postTenMultiplier = 1 + postTenLevels * postTenLinearMultiplierPerLevel;
   const postSixtyLevels = Math.max(0, normalizedLevel - 60);
   const postSixtyMultiplier =
     1 + postSixtyLevels * postSixtyLinearMultiplierPerLevel;
@@ -45,7 +53,9 @@ export function getXpForNextLevel(level: number): number {
       ? Math.pow(postSoftCapExponentialMultiplier, postSoftCapLevels)
       : 1;
 
-  return Math.round(baseXp * postSixtyMultiplier * postSoftCapMultiplier);
+  return Math.round(
+    baseXp * postTenMultiplier * postSixtyMultiplier * postSoftCapMultiplier,
+  );
 }
 
 export function getLevelUpGains(reachedLevel: number): Partial<Stats> {
@@ -151,6 +161,7 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
     ...nextProgress.unlockedSystems,
     spells: isSpellSystemUnlocked(nextProgress.level),
     classes: isClassSystemUnlocked(nextProgress.level),
+    dpsMeter: isDpsMeterUnlocked(state),
   };
 
   if (leveledUp) {
