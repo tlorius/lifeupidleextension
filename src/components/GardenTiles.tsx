@@ -1,3 +1,5 @@
+import { TileChip } from "./ui/TileChip";
+
 interface GardenRockTileProps {
   tileKey: string;
   tier: "small" | "medium" | "large";
@@ -214,60 +216,45 @@ export function GardenCropTile({
       )}
 
       {coveredByAdjacentSprinkler && (
-        <div
+        <TileChip
+          tone="adj"
           style={{
             position: "absolute",
             top: 2,
             left: 2,
-            fontSize: 10,
-            backgroundColor: "#339af0",
-            color: "white",
-            borderRadius: 8,
-            padding: "1px 4px",
-            fontWeight: "bold",
           }}
           aria-label="Covered by adjacent sprinkler"
         >
           ADJ
-        </div>
+        </TileChip>
       )}
 
       {harvesterOnTile && (
-        <div
+        <TileChip
+          tone="harvester"
           style={{
             position: "absolute",
             bottom: 2,
             right: 2,
-            fontSize: 10,
-            backgroundColor: "#334155",
-            color: "#e2e8f0",
-            borderRadius: 8,
-            padding: "1px 4px",
-            fontWeight: "bold",
           }}
           aria-label="Harvester installed"
         >
           HARV
-        </div>
+        </TileChip>
       )}
 
       {planterOnTile && (
-        <div
+        <TileChip
+          tone="planter"
           style={{
             position: "absolute",
             bottom: 2,
             left: 2,
-            fontSize: 10,
-            backgroundColor: "#1b4332",
-            color: "#d8f3dc",
-            borderRadius: 8,
-            padding: "1px 4px",
-            fontWeight: "bold",
           }}
           aria-label="Planter installed"
         >
           PLAN
-        </div>
+        </TileChip>
       )}
     </div>
   );

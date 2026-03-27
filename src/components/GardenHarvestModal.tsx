@@ -1,4 +1,8 @@
+import { ActionRow } from "./ui/ActionRow";
+import { GardenDetailCard } from "./ui/GardenDetailCard";
 import { ModalShell } from "./ui/ModalShell";
+import { SectionTitle } from "./ui/SectionTitle";
+import { ToneButton } from "./ui/ToneButton";
 
 interface HarvestPreview {
   cropId: string;
@@ -48,9 +52,9 @@ export function GardenHarvestModal({
         ["--modal-padding" as string]: isMobile ? "12px" : "20px",
       }}
     >
-      <h3 className="ui-section-title-16">🌾 Ready to Harvest!</h3>
+      <SectionTitle>🌾 Ready to Harvest!</SectionTitle>
 
-      <div className="ui-card ui-garden-detail-card">
+      <GardenDetailCard>
         <div className="ui-garden-detail-title" style={{ marginBottom: 8 }}>
           {preview.name}
         </div>
@@ -63,9 +67,9 @@ export function GardenHarvestModal({
             </div>
           )}
         </div>
-      </div>
+      </GardenDetailCard>
 
-      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--summary">
+      <GardenDetailCard className="ui-garden-detail-card--summary">
         <div className="ui-garden-detail-title" style={{ marginBottom: 10 }}>
           Harvest Summary
         </div>
@@ -98,35 +102,33 @@ export function GardenHarvestModal({
             <span style={{ color: "#4169E1" }}>+{preview.baseXP}</span>
           </div>
         </div>
-      </div>
+      </GardenDetailCard>
 
       {preview.waterLevel > 0 && (
-        <div
-          className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--water"
+        <GardenDetailCard
+          className="ui-garden-detail-card--compact ui-garden-detail-card--water"
           style={{ fontSize: 12, color: "#8bc5ff" }}
         >
           <span>💧 Water bonus active!</span> Your crop's water level made it
           more productive. Keep watering your crops for better yields!
-        </div>
+        </GardenDetailCard>
       )}
 
-      <div className="ui-action-row-end">
+      <ActionRow>
         <button
           className="ui-modal-btn-secondary ui-touch-target"
           onClick={onClose}
         >
           Cancel
         </button>
-        <button
+        <ToneButton
           className="ui-modal-btn-primary ui-touch-target"
-          style={{
-            backgroundColor: "#51cf66",
-          }}
+          toneClassName="ui-btn-tone--primary-green"
           onClick={onConfirm}
         >
           Harvest Now!
-        </button>
-      </div>
+        </ToneButton>
+      </ActionRow>
     </ModalShell>
   );
 }

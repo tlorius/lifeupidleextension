@@ -12,7 +12,12 @@ import {
   selectGardenEmptyTileAutomationView,
 } from "../game/selectors/garden";
 import type { GameState } from "../game/types";
+import { ActionRow } from "./ui/ActionRow";
+import { GardenDetailCard } from "./ui/GardenDetailCard";
 import { ModalShell } from "./ui/ModalShell";
+import { SectionTitle } from "./ui/SectionTitle";
+import { ToneButton } from "./ui/ToneButton";
+import { WrapActions } from "./ui/WrapActions";
 
 interface TileDetailModalStateLike {
   isOpen: boolean;
@@ -213,7 +218,7 @@ function GardenCropTileDetailSection({
 
   return (
     <>
-      <h3 className="ui-section-title-16">{cropDef.name}</h3>
+      <SectionTitle>{cropDef.name}</SectionTitle>
 
       <div style={{ marginBottom: 16 }}>
         <div
@@ -245,15 +250,15 @@ function GardenCropTileDetailSection({
       </div>
 
       {!isReady && (
-        <div
-          className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--warning"
+        <GardenDetailCard
+          className="ui-garden-detail-card--compact ui-garden-detail-card--warning"
           style={{ fontSize: 12 }}
         >
           Time remaining: {Math.ceil(timeRemainingMinutes)} minutes
-        </div>
+        </GardenDetailCard>
       )}
 
-      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--water">
+      <GardenDetailCard className="ui-garden-detail-card--compact ui-garden-detail-card--water">
         <div className="ui-garden-detail-title">💧 Water Mechanics</div>
         <div className="ui-garden-detail-copy">
           <div>Water Level: {cropInstance.waterLevel.toFixed(0)}%</div>
@@ -270,9 +275,9 @@ function GardenCropTileDetailSection({
             • Current bonus: +{Math.ceil(cropInstance.waterLevel)}% yield
           </div>
         </div>
-      </div>
+      </GardenDetailCard>
 
-      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--automation">
+      <GardenDetailCard className="ui-garden-detail-card--compact ui-garden-detail-card--automation">
         <div className="ui-garden-detail-title">Automation Tool Controls</div>
         <div style={{ marginBottom: 8, color: "#9eb0c2" }}>
           Manage sprinkler, harvester, and planter directly on this planted
@@ -283,7 +288,7 @@ function GardenCropTileDetailSection({
           <div className="ui-garden-detail-title ui-garden-detail-title--water">
             Sprinkler
           </div>
-          <div className="ui-garden-inline-actions">
+          <WrapActions>
             {cropInstance.hasSprinkler ? (
               <button
                 className="ui-modal-btn-small ui-modal-btn-small-danger ui-touch-target"
@@ -302,14 +307,10 @@ function GardenCropTileDetailSection({
               ownedSprinklerIds.map((sprinklerId) => {
                 const sprinklerDef = getItemDefSafe(sprinklerId);
                 return (
-                  <button
+                  <ToneButton
                     key={sprinklerId}
                     className="ui-modal-btn-small ui-touch-target"
-                    style={{
-                      backgroundColor: "#e3f2fd",
-                      color: "#0d47a1",
-                      border: "1px solid #90caf9",
-                    }}
+                    toneClassName="ui-btn-tone--sprinkler"
                     onClick={() => {
                       if (
                         isFieldCoveredBySprinklerNetwork(cropRow, cropCol, true)
@@ -349,7 +350,7 @@ function GardenCropTileDetailSection({
                     onMouseLeave={() => onSetSprinklerPreview(null)}
                   >
                     Install {sprinklerDef?.name ?? sprinklerId}
-                  </button>
+                  </ToneButton>
                 );
               })
             ) : (
@@ -357,14 +358,14 @@ function GardenCropTileDetailSection({
                 Acquire a sprinkler to use this function.
               </span>
             )}
-          </div>
+          </WrapActions>
         </div>
 
         <div style={{ marginBottom: 10 }}>
           <div className="ui-garden-detail-title ui-garden-detail-title--harvester">
             Harvester
           </div>
-          <div className="ui-garden-inline-actions">
+          <WrapActions>
             {harvesterOnTile ? (
               <button
                 className="ui-modal-btn-small ui-modal-btn-small-danger ui-touch-target"
@@ -382,14 +383,10 @@ function GardenCropTileDetailSection({
               ownedHarvesterIds.map((harvesterId) => {
                 const harvesterDef = getItemDefSafe(harvesterId);
                 return (
-                  <button
+                  <ToneButton
                     key={harvesterId}
                     className="ui-modal-btn-small ui-touch-target"
-                    style={{
-                      backgroundColor: "#334155",
-                      color: "#e2e8f0",
-                      border: "1px solid #64748b",
-                    }}
+                    toneClassName="ui-btn-tone--harvester"
                     onClick={() => {
                       const nextState = placeHarvesterOnField(
                         state,
@@ -412,7 +409,7 @@ function GardenCropTileDetailSection({
                     }}
                   >
                     Install {harvesterDef?.name ?? harvesterId}
-                  </button>
+                  </ToneButton>
                 );
               })
             ) : (
@@ -420,7 +417,7 @@ function GardenCropTileDetailSection({
                 Acquire a harvester to use this function.
               </span>
             )}
-          </div>
+          </WrapActions>
         </div>
 
         <div>
@@ -433,7 +430,7 @@ function GardenCropTileDetailSection({
               {planterSeedForTilePresentation?.label ?? "None"}
             </div>
           )}
-          <div className="ui-garden-inline-actions">
+          <WrapActions>
             {planterOnTile ? (
               <>
                 <button
@@ -448,13 +445,9 @@ function GardenCropTileDetailSection({
                 >
                   Remove Planter
                 </button>
-                <button
+                <ToneButton
                   className="ui-modal-btn-small ui-touch-target"
-                  style={{
-                    backgroundColor: "#31572c",
-                    color: "#d8f3dc",
-                    border: "1px solid #4f772d",
-                  }}
+                  toneClassName="ui-btn-tone--planter-seed"
                   onClick={() =>
                     onOpenPlanterSeedSelection({
                       mode: "assign",
@@ -465,20 +458,16 @@ function GardenCropTileDetailSection({
                   }
                 >
                   Set This Planter's Seed
-                </button>
+                </ToneButton>
               </>
             ) : ownedPlanterIds.length > 0 ? (
               ownedPlanterIds.map((planterId) => {
                 const planterDef = getItemDefSafe(planterId);
                 return (
-                  <button
+                  <ToneButton
                     key={planterId}
                     className="ui-modal-btn-small ui-touch-target"
-                    style={{
-                      backgroundColor: "#1b4332",
-                      color: "#d8f3dc",
-                      border: "1px solid #2f9e44",
-                    }}
+                    toneClassName="ui-btn-tone--planter"
                     onClick={() => {
                       if (!state.garden.selectedPlanterSeedId) {
                         onOpenPlanterSeedSelection({
@@ -513,7 +502,7 @@ function GardenCropTileDetailSection({
                     }}
                   >
                     Install {planterDef?.name ?? planterId}
-                  </button>
+                  </ToneButton>
                 );
               })
             ) : (
@@ -521,15 +510,15 @@ function GardenCropTileDetailSection({
                 Acquire a planter to use this function.
               </span>
             )}
-          </div>
+          </WrapActions>
         </div>
 
         <div style={{ marginTop: 8, color: "#9eb0c2" }}>
           Coverage: {fieldCoverageText(cropRow, cropCol)}
         </div>
-      </div>
+      </GardenDetailCard>
 
-      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--compact">
+      <GardenDetailCard className="ui-garden-detail-card--compact">
         <div className="ui-garden-detail-title">📊 At Harvest</div>
         <div className="ui-garden-detail-copy">
           <div>
@@ -541,9 +530,9 @@ function GardenCropTileDetailSection({
             Type: {cropDef.isPerennial ? "🔄 Perennial" : "🚫 One-time"}
           </div>
         </div>
-      </div>
+      </GardenDetailCard>
 
-      <div className="ui-action-row-end">
+      <ActionRow>
         <button
           className="ui-modal-btn-secondary ui-touch-target"
           onClick={onClose}
@@ -582,11 +571,9 @@ function GardenCropTileDetailSection({
           </button>
         )}
         {isReady && (
-          <button
+          <ToneButton
             className="ui-modal-btn-primary ui-touch-target"
-            style={{
-              backgroundColor: "#51cf66",
-            }}
+            toneClassName="ui-btn-tone--primary-green"
             onClick={() => {
               onGardenAction({
                 type: "garden/harvestCrop",
@@ -597,9 +584,9 @@ function GardenCropTileDetailSection({
             }}
           >
             Harvest Now
-          </button>
+          </ToneButton>
         )}
-      </div>
+      </ActionRow>
     </>
   );
 }
@@ -632,11 +619,11 @@ function GardenRockTileDetailSection({
 
   return (
     <>
-      <h3 className="ui-section-title-16">
+      <SectionTitle>
         {tier.charAt(0).toUpperCase() + tier.slice(1)} Rock
-      </h3>
+      </SectionTitle>
 
-      <div className="ui-card ui-garden-detail-card">
+      <GardenDetailCard>
         <div className="ui-garden-detail-meta">
           <div>
             Location: ({row}, {col})
@@ -651,25 +638,23 @@ function GardenRockTileDetailSection({
           <div>• Pickaxe Level: {config.minPickaxeLevel}+</div>
           <div>• Mana Cost: {config.energyCost} ⚡</div>
         </div>
-      </div>
+      </GardenDetailCard>
 
-      <div className="ui-action-row-end">
+      <ActionRow>
         <button
           className="ui-modal-btn-secondary ui-touch-target"
           onClick={onClose}
         >
           Close
         </button>
-        <button
+        <ToneButton
           className="ui-modal-btn-primary ui-touch-target"
-          style={{
-            backgroundColor: "#FF9800",
-          }}
+          toneClassName="ui-btn-tone--primary-orange"
           onClick={() => onOpenRockBreakModal(row, col, tier)}
         >
           Break Rock
-        </button>
-      </div>
+        </ToneButton>
+      </ActionRow>
     </>
   );
 }
@@ -722,11 +707,11 @@ function GardenEmptyTileDetailSection({
   if (emptyMode === "automation") {
     return (
       <>
-        <h3 className="ui-section-title-16">
+        <SectionTitle>
           Automation Tools @ ({emptyRow}, {emptyCol})
-        </h3>
+        </SectionTitle>
 
-        <div className="ui-card ui-garden-detail-card ui-garden-detail-card--water">
+        <GardenDetailCard className="ui-garden-detail-card--water">
           <div
             className="ui-garden-detail-meta ui-garden-detail-copy--accent"
             style={{ fontWeight: "bold", marginBottom: 6 }}
@@ -751,21 +736,17 @@ function GardenEmptyTileDetailSection({
           <div className="ui-garden-detail-copy" style={{ marginTop: 6 }}>
             Coverage: {fieldCoverageText(emptyRow, emptyCol)}
           </div>
-        </div>
+        </GardenDetailCard>
 
-        <div className="ui-garden-inline-actions ui-garden-inline-actions--spacious">
+        <WrapActions spacious>
           {ownedSprinklerIds.length > 0 ? (
             ownedSprinklerIds.map((sprinklerId) => {
               const sprinklerDef = getItemDefSafe(sprinklerId);
               return (
-                <button
+                <ToneButton
                   key={sprinklerId}
                   className="ui-modal-btn-small ui-touch-target"
-                  style={{
-                    backgroundColor: "#1f3a4e",
-                    color: "#9ed3ff",
-                    border: "1px solid #3d5f79",
-                  }}
+                  toneClassName="ui-btn-tone--sprinkler-dim"
                   onClick={() => {
                     if (
                       isFieldCoveredBySprinklerNetwork(emptyRow, emptyCol, true)
@@ -792,7 +773,7 @@ function GardenEmptyTileDetailSection({
                   onMouseLeave={() => onSetSprinklerPreview(null)}
                 >
                   Place {sprinklerDef?.name ?? sprinklerId}
-                </button>
+                </ToneButton>
               );
             })
           ) : (
@@ -805,14 +786,10 @@ function GardenEmptyTileDetailSection({
             ownedHarvesterIds.map((harvesterId) => {
               const harvesterDef = getItemDefSafe(harvesterId);
               return (
-                <button
+                <ToneButton
                   key={harvesterId}
                   className="ui-modal-btn-small ui-touch-target"
-                  style={{
-                    backgroundColor: "#334155",
-                    color: "#e2e8f0",
-                    border: "1px solid #64748b",
-                  }}
+                  toneClassName="ui-btn-tone--harvester"
                   onClick={() => {
                     const nextState = placeHarvesterOnField(
                       state,
@@ -835,7 +812,7 @@ function GardenEmptyTileDetailSection({
                   }}
                 >
                   Place {harvesterDef?.name ?? harvesterId}
-                </button>
+                </ToneButton>
               );
             })
           ) : (
@@ -848,14 +825,10 @@ function GardenEmptyTileDetailSection({
             ownedPlanterIds.map((planterId) => {
               const planterDef = getItemDefSafe(planterId);
               return (
-                <button
+                <ToneButton
                   key={planterId}
                   className="ui-modal-btn-small ui-touch-target"
-                  style={{
-                    backgroundColor: "#1b4332",
-                    color: "#d8f3dc",
-                    border: "1px solid #2f9e44",
-                  }}
+                  toneClassName="ui-btn-tone--planter"
                   onClick={() => {
                     if (!state.garden.selectedPlanterSeedId) {
                       onOpenPlanterSeedSelection(
@@ -893,7 +866,7 @@ function GardenEmptyTileDetailSection({
                   }}
                 >
                   Place {planterDef?.name ?? planterId}
-                </button>
+                </ToneButton>
               );
             })
           ) : (
@@ -903,13 +876,9 @@ function GardenEmptyTileDetailSection({
           )}
 
           {fieldPlanterId && (
-            <button
+            <ToneButton
               className="ui-modal-btn-small ui-touch-target"
-              style={{
-                backgroundColor: "#31572c",
-                color: "#d8f3dc",
-                border: "1px solid #4f772d",
-              }}
+              toneClassName="ui-btn-tone--planter-seed"
               onClick={() =>
                 onOpenPlanterSeedSelection(
                   {
@@ -923,11 +892,11 @@ function GardenEmptyTileDetailSection({
               }
             >
               Set This Planter's Seed
-            </button>
+            </ToneButton>
           )}
-        </div>
+        </WrapActions>
 
-        <div className="ui-action-row-end">
+        <ActionRow>
           <button
             className="ui-modal-btn-secondary ui-touch-target"
             onClick={() => onSetEmptyMode("choice")}
@@ -935,11 +904,10 @@ function GardenEmptyTileDetailSection({
             Back
           </button>
           {(fieldSprinklerId || fieldHarvesterId || fieldPlanterId) && (
-            <button
+            <ToneButton
               className="ui-modal-btn-danger ui-touch-target"
-              style={{
-                border: "1px solid #f1998e",
-              }}
+              toneClassName="ui-btn-tone--danger-border"
+              useToneBase={false}
               onClick={() => {
                 if (fieldSprinklerId) {
                   onGardenAction({
@@ -963,7 +931,7 @@ function GardenEmptyTileDetailSection({
               }}
             >
               Remove Tool
-            </button>
+            </ToneButton>
           )}
           <button
             className="ui-modal-btn-secondary ui-touch-target"
@@ -971,52 +939,48 @@ function GardenEmptyTileDetailSection({
           >
             Close
           </button>
-        </div>
+        </ActionRow>
       </>
     );
   }
 
   return (
     <>
-      <h3 className="ui-section-title-16">
+      <SectionTitle>
         Field Options @ ({view.emptyRow}, {view.emptyCol})
-      </h3>
+      </SectionTitle>
 
-      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--automation">
+      <GardenDetailCard className="ui-garden-detail-card--automation">
         <div
           className="ui-garden-detail-meta"
           style={{ color: "#7ad9a0", fontWeight: "bold" }}
         >
           Do you want to plant a crop or place an automation tool?
         </div>
-      </div>
+      </GardenDetailCard>
 
-      <div className="ui-action-row-end">
+      <ActionRow>
         <button
           className="ui-modal-btn-secondary ui-touch-target"
           onClick={onClose}
         >
           Close
         </button>
-        <button
+        <ToneButton
           className="ui-modal-btn-primary ui-touch-target"
-          style={{
-            backgroundColor: "#2196F3",
-          }}
+          toneClassName="ui-btn-tone--primary-blue"
           onClick={() => onSetEmptyMode("automation")}
         >
           Automation
-        </button>
-        <button
+        </ToneButton>
+        <ToneButton
           className="ui-modal-btn-primary ui-touch-target"
-          style={{
-            backgroundColor: "#51cf66",
-          }}
+          toneClassName="ui-btn-tone--primary-green"
           onClick={() => onOpenPlantModal(view.emptyRow, view.emptyCol)}
         >
           Plant
-        </button>
-      </div>
+        </ToneButton>
+      </ActionRow>
     </>
   );
 }

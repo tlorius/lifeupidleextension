@@ -201,6 +201,26 @@ Top inline-style hotspots by occurrence:
   - Added reusable garden detail card/action/summary utilities in `src/index.css` (`.ui-garden-detail-*`, `.ui-garden-inline-actions*`, `.ui-garden-summary-row*`)
   - Migrated remaining static garden detail and harvest card shells in `src/components/GardenTileDetailModal.tsx` and `src/components/GardenHarvestModal.tsx` to shared garden detail utilities
   - Additional build validation passed after final garden shell cleanup (`npm run build`)
+  - Added configurable shared button tone utilities in `src/index.css` (`.ui-btn-tone` + `ui-btn-tone--*` variants)
+  - Replaced repeated static garden button color/border blocks in `src/components/GardenTileDetailModal.tsx` and `src/components/GardenHarvestModal.tsx` with shared tone classes
+  - Validation passed after configurable button extraction (`npm run test:integration`, `npm run build`)
+  - Added configurable non-button tile chip defaults in `src/index.css` (`.ui-tile-chip` + `ui-tile-chip--*` variants)
+  - Replaced repeated ADJ/HARV/PLAN chip inline styles in `src/components/GardenTiles.tsx` with shared tile chip classes
+  - Validation passed after garden tile chip extraction (`npm run test:integration`, `npm run build`)
+  - Added extracted shared ui component `src/components/ui/ToneButton.tsx` for configurable tone button composition
+  - Added extracted shared ui component `src/components/ui/TileChip.tsx` for reusable garden tile status chips
+  - Migrated tone-based garden actions in `src/components/GardenTileDetailModal.tsx` and confirm action in `src/components/GardenHarvestModal.tsx` to `ToneButton`
+  - Migrated garden crop tile ADJ/HARV/PLAN chip rendering in `src/components/GardenTiles.tsx` to `TileChip`
+  - Validation passed after shared ui component extraction (`npm run test:integration`, `npm run build`)
+  - Added extracted shared ui component `src/components/ui/ActionRow.tsx` for reusable end-aligned modal action rows
+  - Added extracted shared ui component `src/components/ui/GardenDetailCard.tsx` for reusable garden detail surface wrappers
+  - Migrated repeated garden detail wrappers and action rows in `src/components/GardenTileDetailModal.tsx` and `src/components/GardenHarvestModal.tsx` to `ActionRow` and `GardenDetailCard`
+  - Fixed a transient parse regression introduced during the wrapper migration and revalidated cleanly
+  - Validation passed after wrapper ui component extraction (`npm run test:integration`, `npm run build`)
+  - Added extracted shared ui component `src/components/ui/SectionTitle.tsx` for repeated section-level modal headings
+  - Added extracted shared ui component `src/components/ui/WrapActions.tsx` for reusable wrapped inline action groups
+  - Migrated repeated garden modal headings and inline action-list wrappers in `src/components/GardenTileDetailModal.tsx` and `src/components/GardenHarvestModal.tsx` to `SectionTitle` and `WrapActions`
+  - Validation passed after heading/action-list ui component extraction (`npm run test:integration`, `npm run build`)
 
 - Next in queue:
   - Spot-check key gameplay flows in UI (inventory actions, fight loop, garden modal interactions) for visual parity
@@ -211,12 +231,24 @@ Top inline-style hotspots by occurrence:
 
 Shared in `src/index.css` and used across refactored surfaces:
 
+Shared components in `src/components/ui`:
+
+- `ModalShell.tsx`
+- `ToneButton.tsx`
+- `TileChip.tsx`
+- `ActionRow.tsx`
+- `GardenDetailCard.tsx`
+- `SectionTitle.tsx`
+- `WrapActions.tsx`
+
 - Modal foundation:
   - `.ui-modal-overlay`, `.ui-modal-panel`, `.ui-modal-header`, `.ui-modal-title`, `.ui-modal-close`
   - `.ui-modal-btn-compact`, `.ui-modal-btn-secondary`, `.ui-modal-btn-primary`, `.ui-modal-btn-danger`
   - `.ui-modal-btn-small`, `.ui-modal-btn-small-danger`
+  - `.ui-btn-tone`, `.ui-btn-tone--*`
 - Core layout/notice utilities:
   - `.ui-screen-pad`, `.ui-notice-card`, `.ui-notice-card--warning`, `.ui-card`
+  - `.ui-tile-chip`, `.ui-tile-chip--*`
 - Detail/stat utilities:
   - `.ui-detail-section`, `.ui-detail-title`, `.ui-detail-divider-top`, `.ui-full-width-btn`, `.ui-touch-target`
   - `.ui-stats-modal-header`, `.ui-stats-heading`, `.ui-stats-grid`, `.ui-label-muted`, `.ui-text-meta`, `.ui-text-caption`

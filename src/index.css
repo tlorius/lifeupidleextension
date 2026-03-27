@@ -216,6 +216,88 @@ button:disabled {
   border: 1px solid #f1998e;
 }
 
+.ui-btn-tone {
+  background-color: var(--ui-btn-bg, #253649);
+  color: var(--ui-btn-color, #eaf2fb);
+  border: 1px solid var(--ui-btn-border, #3f546a);
+}
+
+.ui-btn-tone--sprinkler {
+  --ui-btn-bg: #e3f2fd;
+  --ui-btn-color: #0d47a1;
+  --ui-btn-border: #90caf9;
+}
+
+.ui-btn-tone--sprinkler-dim {
+  --ui-btn-bg: #1f3a4e;
+  --ui-btn-color: #9ed3ff;
+  --ui-btn-border: #3d5f79;
+}
+
+.ui-btn-tone--harvester {
+  --ui-btn-bg: #334155;
+  --ui-btn-color: #e2e8f0;
+  --ui-btn-border: #64748b;
+}
+
+.ui-btn-tone--planter {
+  --ui-btn-bg: #1b4332;
+  --ui-btn-color: #d8f3dc;
+  --ui-btn-border: #2f9e44;
+}
+
+.ui-btn-tone--planter-seed {
+  --ui-btn-bg: #31572c;
+  --ui-btn-color: #d8f3dc;
+  --ui-btn-border: #4f772d;
+}
+
+.ui-btn-tone--primary-blue {
+  --ui-btn-bg: #2196f3;
+  --ui-btn-color: #ffffff;
+  --ui-btn-border: #2196f3;
+}
+
+.ui-btn-tone--primary-green {
+  --ui-btn-bg: #51cf66;
+  --ui-btn-color: #ffffff;
+  --ui-btn-border: #51cf66;
+}
+
+.ui-btn-tone--primary-orange {
+  --ui-btn-bg: #ff9800;
+  --ui-btn-color: #ffffff;
+  --ui-btn-border: #ff9800;
+}
+
+.ui-btn-tone--danger-border {
+  border-color: #f1998e;
+}
+
+.ui-tile-chip {
+  font-size: 10px;
+  border-radius: 8px;
+  padding: 1px 4px;
+  font-weight: 700;
+  background-color: var(--ui-chip-bg, #334155);
+  color: var(--ui-chip-color, #e2e8f0);
+}
+
+.ui-tile-chip--adj {
+  --ui-chip-bg: #339af0;
+  --ui-chip-color: #ffffff;
+}
+
+.ui-tile-chip--harvester {
+  --ui-chip-bg: #334155;
+  --ui-chip-color: #e2e8f0;
+}
+
+.ui-tile-chip--planter {
+  --ui-chip-bg: #1b4332;
+  --ui-chip-color: #d8f3dc;
+}
+
 .ui-muted {
   color: #9eb0c2;
 }
