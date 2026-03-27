@@ -12,6 +12,7 @@ import {
   selectGardenEmptyTileAutomationView,
 } from "../game/selectors/garden";
 import type { GameState } from "../game/types";
+import { ModalShell } from "./ui/ModalShell";
 
 interface TileDetailModalStateLike {
   isOpen: boolean;
@@ -105,78 +106,58 @@ export function GardenTileDetailModal({
       : null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(6, 10, 14, 0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
+    <ModalShell
+      onClose={onClose}
+      overlayStyle={{ zIndex: 1000 }}
+      panelStyle={{
+        ["--modal-width" as string]: "500px",
+        ["--modal-width-mobile" as string]: isMobile ? "94vw" : "95vw",
+        ["--modal-max-height" as string]: "80vh",
+        ["--modal-max-height-mobile" as string]: isMobile ? "88vh" : "88vh",
+        ["--modal-padding" as string]: isMobile ? "12px" : "20px",
       }}
-      onClick={onClose}
     >
-      <div
-        style={{
-          backgroundColor: "#162433",
-          color: "#e5edf5",
-          borderRadius: 8,
-          padding: isMobile ? 12 : 20,
-          maxHeight: isMobile ? "88vh" : "80vh",
-          maxWidth: "500px",
-          width: isMobile ? "94vw" : "500px",
-          overflow: "auto",
-          border: "1px solid #35506a",
-          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-        }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        {tileDetailModal.type === "crop" && cropTileDetailView && (
-          <GardenCropTileDetailSection
-            state={state}
-            view={cropTileDetailView}
-            speedUpMinutes={speedUpMinutes}
-            speedUpGemCost={speedUpGemCost}
-            fieldCoverageText={fieldCoverageText}
-            isFieldCoveredBySprinklerNetwork={isFieldCoveredBySprinklerNetwork}
-            onClose={onClose}
-            onOpenPlanterSeedSelection={onOpenPlanterSeedSelection}
-            onSetSprinklerPreview={onSetSprinklerPreview}
-            onGardenAction={onGardenAction}
-          />
-        )}
+      {tileDetailModal.type === "crop" && cropTileDetailView && (
+        <GardenCropTileDetailSection
+          state={state}
+          view={cropTileDetailView}
+          speedUpMinutes={speedUpMinutes}
+          speedUpGemCost={speedUpGemCost}
+          fieldCoverageText={fieldCoverageText}
+          isFieldCoveredBySprinklerNetwork={isFieldCoveredBySprinklerNetwork}
+          onClose={onClose}
+          onOpenPlanterSeedSelection={onOpenPlanterSeedSelection}
+          onSetSprinklerPreview={onSetSprinklerPreview}
+          onGardenAction={onGardenAction}
+        />
+      )}
 
-        {tileDetailModal.type === "rock" && (
-          <GardenRockTileDetailSection
-            state={state}
-            row={tileDetailModal.row}
-            col={tileDetailModal.col}
-            onClose={onClose}
-            onOpenRockBreakModal={onOpenRockBreakModal}
-          />
-        )}
+      {tileDetailModal.type === "rock" && (
+        <GardenRockTileDetailSection
+          state={state}
+          row={tileDetailModal.row}
+          col={tileDetailModal.col}
+          onClose={onClose}
+          onOpenRockBreakModal={onOpenRockBreakModal}
+        />
+      )}
 
-        {tileDetailModal.type === "empty" && emptyTileAutomationView && (
-          <GardenEmptyTileDetailSection
-            state={state}
-            emptyMode={tileDetailModal.emptyMode}
-            view={emptyTileAutomationView}
-            fieldCoverageText={fieldCoverageText}
-            isFieldCoveredBySprinklerNetwork={isFieldCoveredBySprinklerNetwork}
-            onClose={onClose}
-            onSetEmptyMode={onSetEmptyMode}
-            onOpenPlantModal={onOpenPlantModal}
-            onOpenPlanterSeedSelection={onOpenPlanterSeedSelection}
-            onSetSprinklerPreview={onSetSprinklerPreview}
-            onGardenAction={onGardenAction}
-          />
-        )}
-      </div>
-    </div>
+      {tileDetailModal.type === "empty" && emptyTileAutomationView && (
+        <GardenEmptyTileDetailSection
+          state={state}
+          emptyMode={tileDetailModal.emptyMode}
+          view={emptyTileAutomationView}
+          fieldCoverageText={fieldCoverageText}
+          isFieldCoveredBySprinklerNetwork={isFieldCoveredBySprinklerNetwork}
+          onClose={onClose}
+          onSetEmptyMode={onSetEmptyMode}
+          onOpenPlantModal={onOpenPlantModal}
+          onOpenPlanterSeedSelection={onOpenPlanterSeedSelection}
+          onSetSprinklerPreview={onSetSprinklerPreview}
+          onGardenAction={onGardenAction}
+        />
+      )}
+    </ModalShell>
   );
 }
 
@@ -232,7 +213,7 @@ function GardenCropTileDetailSection({
 
   return (
     <>
-      <h3 style={{ margin: "0 0 16px 0" }}>{cropDef.name}</h3>
+      <h3 className="ui-section-title-16">{cropDef.name}</h3>
 
       <div style={{ marginBottom: 16 }}>
         <div
@@ -265,34 +246,16 @@ function GardenCropTileDetailSection({
 
       {!isReady && (
         <div
-          style={{
-            backgroundColor: "#2a1f13",
-            padding: 10,
-            borderRadius: 6,
-            marginBottom: 12,
-            fontSize: 12,
-            color: "#e8c08f",
-            border: "1px solid #5e452c",
-          }}
+          className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--warning"
+          style={{ fontSize: 12 }}
         >
           Time remaining: {Math.ceil(timeRemainingMinutes)} minutes
         </div>
       )}
 
-      <div
-        style={{
-          backgroundColor: "#12283a",
-          padding: 10,
-          borderRadius: 6,
-          marginBottom: 12,
-          fontSize: 11,
-          border: "1px solid #23445f",
-        }}
-      >
-        <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-          💧 Water Mechanics
-        </div>
-        <div style={{ lineHeight: "1.6", color: "#b8cadb" }}>
+      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--water">
+        <div className="ui-garden-detail-title">💧 Water Mechanics</div>
+        <div className="ui-garden-detail-copy">
           <div>Water Level: {cropInstance.waterLevel.toFixed(0)}%</div>
           <div>
             Sprinkler:{" "}
@@ -309,38 +272,21 @@ function GardenCropTileDetailSection({
         </div>
       </div>
 
-      <div
-        style={{
-          backgroundColor: "#10251d",
-          padding: 10,
-          borderRadius: 6,
-          marginBottom: 12,
-          fontSize: 11,
-          border: "1px solid #2a4a3d",
-        }}
-      >
-        <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-          Automation Tool Controls
-        </div>
+      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--compact ui-garden-detail-card--automation">
+        <div className="ui-garden-detail-title">Automation Tool Controls</div>
         <div style={{ marginBottom: 8, color: "#9eb0c2" }}>
           Manage sprinkler, harvester, and planter directly on this planted
           tile.
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <div
-            style={{
-              fontWeight: "bold",
-              marginBottom: 6,
-              color: "#9ed3ff",
-            }}
-          >
+          <div className="ui-garden-detail-title ui-garden-detail-title--water">
             Sprinkler
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div className="ui-garden-inline-actions">
             {cropInstance.hasSprinkler ? (
               <button
-                style={dangerSmallButtonStyle}
+                className="ui-modal-btn-small ui-modal-btn-small-danger ui-touch-target"
                 onClick={() =>
                   onGardenAction({
                     type: "garden/setCropSprinkler",
@@ -358,8 +304,8 @@ function GardenCropTileDetailSection({
                 return (
                   <button
                     key={sprinklerId}
+                    className="ui-modal-btn-small ui-touch-target"
                     style={{
-                      ...smallButtonBaseStyle,
                       backgroundColor: "#e3f2fd",
                       color: "#0d47a1",
                       border: "1px solid #90caf9",
@@ -415,19 +361,13 @@ function GardenCropTileDetailSection({
         </div>
 
         <div style={{ marginBottom: 10 }}>
-          <div
-            style={{
-              fontWeight: "bold",
-              marginBottom: 6,
-              color: "#d1d5db",
-            }}
-          >
+          <div className="ui-garden-detail-title ui-garden-detail-title--harvester">
             Harvester
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div className="ui-garden-inline-actions">
             {harvesterOnTile ? (
               <button
-                style={dangerSmallButtonStyle}
+                className="ui-modal-btn-small ui-modal-btn-small-danger ui-touch-target"
                 onClick={() =>
                   onGardenAction({
                     type: "garden/removeHarvester",
@@ -444,8 +384,8 @@ function GardenCropTileDetailSection({
                 return (
                   <button
                     key={harvesterId}
+                    className="ui-modal-btn-small ui-touch-target"
                     style={{
-                      ...smallButtonBaseStyle,
                       backgroundColor: "#334155",
                       color: "#e2e8f0",
                       border: "1px solid #64748b",
@@ -484,13 +424,7 @@ function GardenCropTileDetailSection({
         </div>
 
         <div>
-          <div
-            style={{
-              fontWeight: "bold",
-              marginBottom: 6,
-              color: "#b7efc5",
-            }}
-          >
+          <div className="ui-garden-detail-title ui-garden-detail-title--planter">
             Planter
           </div>
           {planterOnTile && (
@@ -499,11 +433,11 @@ function GardenCropTileDetailSection({
               {planterSeedForTilePresentation?.label ?? "None"}
             </div>
           )}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div className="ui-garden-inline-actions">
             {planterOnTile ? (
               <>
                 <button
-                  style={dangerSmallButtonStyle}
+                  className="ui-modal-btn-small ui-modal-btn-small-danger ui-touch-target"
                   onClick={() =>
                     onGardenAction({
                       type: "garden/removePlanter",
@@ -515,8 +449,8 @@ function GardenCropTileDetailSection({
                   Remove Planter
                 </button>
                 <button
+                  className="ui-modal-btn-small ui-touch-target"
                   style={{
-                    ...smallButtonBaseStyle,
                     backgroundColor: "#31572c",
                     color: "#d8f3dc",
                     border: "1px solid #4f772d",
@@ -539,8 +473,8 @@ function GardenCropTileDetailSection({
                 return (
                   <button
                     key={planterId}
+                    className="ui-modal-btn-small ui-touch-target"
                     style={{
-                      ...smallButtonBaseStyle,
                       backgroundColor: "#1b4332",
                       color: "#d8f3dc",
                       border: "1px solid #2f9e44",
@@ -595,18 +529,9 @@ function GardenCropTileDetailSection({
         </div>
       </div>
 
-      <div
-        style={{
-          backgroundColor: "#1b2d3f",
-          padding: 10,
-          borderRadius: 6,
-          marginBottom: 16,
-          fontSize: 11,
-          border: "1px solid #2f4459",
-        }}
-      >
-        <div style={{ fontWeight: "bold", marginBottom: 6 }}>📊 At Harvest</div>
-        <div style={{ lineHeight: "1.6", color: "#b8cadb" }}>
+      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--compact">
+        <div className="ui-garden-detail-title">📊 At Harvest</div>
+        <div className="ui-garden-detail-copy">
           <div>
             Yield: {yieldAtHarvest} {cropDef.category}
           </div>
@@ -618,14 +543,17 @@ function GardenCropTileDetailSection({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button style={secondaryButtonStyle} onClick={onClose}>
+      <div className="ui-action-row-end">
+        <button
+          className="ui-modal-btn-secondary ui-touch-target"
+          onClick={onClose}
+        >
           Close
         </button>
         {!isReady && (
           <button
+            className="ui-modal-btn-primary ui-touch-target"
             style={{
-              ...primaryActionButtonStyle,
               backgroundColor:
                 (state.resources.gems ?? 0) >= speedUpGemCost
                   ? "#9c36ff"
@@ -655,8 +583,8 @@ function GardenCropTileDetailSection({
         )}
         {isReady && (
           <button
+            className="ui-modal-btn-primary ui-touch-target"
             style={{
-              ...primaryActionButtonStyle,
               backgroundColor: "#51cf66",
             }}
             onClick={() => {
@@ -704,26 +632,12 @@ function GardenRockTileDetailSection({
 
   return (
     <>
-      <h3 style={{ margin: "0 0 16px 0" }}>
+      <h3 className="ui-section-title-16">
         {tier.charAt(0).toUpperCase() + tier.slice(1)} Rock
       </h3>
 
-      <div
-        style={{
-          backgroundColor: "#1b2d3f",
-          padding: 12,
-          borderRadius: 6,
-          marginBottom: 16,
-          border: "1px solid #2f4459",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 12,
-            color: "#9eb0c2",
-            lineHeight: "1.6",
-          }}
-        >
+      <div className="ui-card ui-garden-detail-card">
+        <div className="ui-garden-detail-meta">
           <div>
             Location: ({row}, {col})
           </div>
@@ -739,13 +653,16 @@ function GardenRockTileDetailSection({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button style={secondaryButtonStyle} onClick={onClose}>
+      <div className="ui-action-row-end">
+        <button
+          className="ui-modal-btn-secondary ui-touch-target"
+          onClick={onClose}
+        >
           Close
         </button>
         <button
+          className="ui-modal-btn-primary ui-touch-target"
           style={{
-            ...primaryActionButtonStyle,
             backgroundColor: "#FF9800",
           }}
           onClick={() => onOpenRockBreakModal(row, col, tier)}
@@ -805,65 +722,46 @@ function GardenEmptyTileDetailSection({
   if (emptyMode === "automation") {
     return (
       <>
-        <h3 style={{ margin: "0 0 16px 0" }}>
+        <h3 className="ui-section-title-16">
           Automation Tools @ ({emptyRow}, {emptyCol})
         </h3>
 
-        <div
-          style={{
-            backgroundColor: "#12283a",
-            padding: 12,
-            borderRadius: 6,
-            marginBottom: 16,
-            border: "1px solid #23445f",
-          }}
-        >
+        <div className="ui-card ui-garden-detail-card ui-garden-detail-card--water">
           <div
-            style={{
-              fontSize: 12,
-              color: "#8bc5ff",
-              fontWeight: "bold",
-              marginBottom: 6,
-            }}
+            className="ui-garden-detail-meta ui-garden-detail-copy--accent"
+            style={{ fontWeight: "bold", marginBottom: 6 }}
           >
             {installedToolLabel}
           </div>
-          <div style={{ fontSize: 11, color: "#b8cadb" }}>
+          <div className="ui-garden-detail-copy">
             Place a sprinkler, harvester, or planter. Only one automation tool
             can exist on a tile.
           </div>
           {fieldPlanterId && (
-            <div style={{ marginTop: 6, fontSize: 11, color: "#b8cadb" }}>
+            <div className="ui-garden-detail-copy" style={{ marginTop: 6 }}>
               Planter seed: {selectedSeedForTilePresentation?.icon}{" "}
               {selectedSeedForTilePresentation?.label ?? "None"}
             </div>
           )}
-          <div style={{ marginTop: 6, fontSize: 11, color: "#b8cadb" }}>
+          <div className="ui-garden-detail-copy" style={{ marginTop: 6 }}>
             Coverage tiers: common=self, rare=up/down/left/right (1), epic=rare
             + diagonals (1), legendary=epic pattern (2), unique=epic pattern
             (3).
           </div>
-          <div style={{ marginTop: 6, fontSize: 11, color: "#b8cadb" }}>
+          <div className="ui-garden-detail-copy" style={{ marginTop: 6 }}>
             Coverage: {fieldCoverageText(emptyRow, emptyCol)}
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
+        <div className="ui-garden-inline-actions ui-garden-inline-actions--spacious">
           {ownedSprinklerIds.length > 0 ? (
             ownedSprinklerIds.map((sprinklerId) => {
               const sprinklerDef = getItemDefSafe(sprinklerId);
               return (
                 <button
                   key={sprinklerId}
+                  className="ui-modal-btn-small ui-touch-target"
                   style={{
-                    ...smallButtonBaseStyle,
                     backgroundColor: "#1f3a4e",
                     color: "#9ed3ff",
                     border: "1px solid #3d5f79",
@@ -909,8 +807,8 @@ function GardenEmptyTileDetailSection({
               return (
                 <button
                   key={harvesterId}
+                  className="ui-modal-btn-small ui-touch-target"
                   style={{
-                    ...smallButtonBaseStyle,
                     backgroundColor: "#334155",
                     color: "#e2e8f0",
                     border: "1px solid #64748b",
@@ -952,8 +850,8 @@ function GardenEmptyTileDetailSection({
               return (
                 <button
                   key={planterId}
+                  className="ui-modal-btn-small ui-touch-target"
                   style={{
-                    ...smallButtonBaseStyle,
                     backgroundColor: "#1b4332",
                     color: "#d8f3dc",
                     border: "1px solid #2f9e44",
@@ -1006,8 +904,8 @@ function GardenEmptyTileDetailSection({
 
           {fieldPlanterId && (
             <button
+              className="ui-modal-btn-small ui-touch-target"
               style={{
-                ...smallButtonBaseStyle,
                 backgroundColor: "#31572c",
                 color: "#d8f3dc",
                 border: "1px solid #4f772d",
@@ -1029,17 +927,17 @@ function GardenEmptyTileDetailSection({
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div className="ui-action-row-end">
           <button
-            style={secondaryButtonStyle}
+            className="ui-modal-btn-secondary ui-touch-target"
             onClick={() => onSetEmptyMode("choice")}
           >
             Back
           </button>
           {(fieldSprinklerId || fieldHarvesterId || fieldPlanterId) && (
             <button
+              className="ui-modal-btn-danger ui-touch-target"
               style={{
-                ...dangerButtonStyle,
                 border: "1px solid #f1998e",
               }}
               onClick={() => {
@@ -1067,7 +965,10 @@ function GardenEmptyTileDetailSection({
               Remove Tool
             </button>
           )}
-          <button style={secondaryButtonStyle} onClick={onClose}>
+          <button
+            className="ui-modal-btn-secondary ui-touch-target"
+            onClick={onClose}
+          >
             Close
           </button>
         </div>
@@ -1077,31 +978,29 @@ function GardenEmptyTileDetailSection({
 
   return (
     <>
-      <h3 style={{ margin: "0 0 16px 0" }}>
+      <h3 className="ui-section-title-16">
         Field Options @ ({view.emptyRow}, {view.emptyCol})
       </h3>
 
-      <div
-        style={{
-          backgroundColor: "#10251d",
-          padding: 12,
-          borderRadius: 6,
-          marginBottom: 16,
-          border: "1px solid #2a4a3d",
-        }}
-      >
-        <div style={{ fontSize: 12, color: "#7ad9a0", fontWeight: "bold" }}>
+      <div className="ui-card ui-garden-detail-card ui-garden-detail-card--automation">
+        <div
+          className="ui-garden-detail-meta"
+          style={{ color: "#7ad9a0", fontWeight: "bold" }}
+        >
           Do you want to plant a crop or place an automation tool?
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button style={secondaryButtonStyle} onClick={onClose}>
+      <div className="ui-action-row-end">
+        <button
+          className="ui-modal-btn-secondary ui-touch-target"
+          onClick={onClose}
+        >
           Close
         </button>
         <button
+          className="ui-modal-btn-primary ui-touch-target"
           style={{
-            ...primaryActionButtonStyle,
             backgroundColor: "#2196F3",
           }}
           onClick={() => onSetEmptyMode("automation")}
@@ -1109,8 +1008,8 @@ function GardenEmptyTileDetailSection({
           Automation
         </button>
         <button
+          className="ui-modal-btn-primary ui-touch-target"
           style={{
-            ...primaryActionButtonStyle,
             backgroundColor: "#51cf66",
           }}
           onClick={() => onOpenPlantModal(view.emptyRow, view.emptyCol)}
@@ -1121,46 +1020,3 @@ function GardenEmptyTileDetailSection({
     </>
   );
 }
-
-const smallButtonBaseStyle = {
-  padding: "6px 10px",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontWeight: "bold",
-  fontSize: 11,
-} as const;
-
-const dangerSmallButtonStyle = {
-  ...smallButtonBaseStyle,
-  backgroundColor: "#ffebe8",
-  color: "#c62828",
-  border: "1px solid #f1998e",
-} as const;
-
-const secondaryButtonStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#253649",
-  border: "1px solid #3f546a",
-  color: "#eaf2fb",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontWeight: "bold",
-} as const;
-
-const primaryActionButtonStyle = {
-  padding: "10px 20px",
-  color: "white",
-  border: "none",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontWeight: "bold",
-} as const;
-
-const dangerButtonStyle = {
-  padding: "10px 20px",
-  backgroundColor: "#ffebe8",
-  color: "#c62828",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontWeight: "bold",
-} as const;

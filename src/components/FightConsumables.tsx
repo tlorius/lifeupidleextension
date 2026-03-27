@@ -2,6 +2,7 @@ import type {
   FightConsumableModalViewModel,
   FightConsumablesPanelViewModel,
 } from "../game/selectors/fight";
+import { ModalShell } from "./ui/ModalShell";
 
 interface FightConsumablesPanelProps {
   panel: FightConsumablesPanelViewModel;
@@ -150,130 +151,96 @@ export function FightConsumableModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 40,
-        background: "rgba(6, 10, 16, 0.72)",
-        display: "grid",
-        placeItems: "center",
-        padding: 16,
+    <ModalShell
+      onClose={onClose}
+      overlayStyle={{ zIndex: 40, background: "rgba(6, 10, 16, 0.72)" }}
+      panelStyle={{
+        ["--modal-width" as string]: "460px",
+        ["--modal-max-height" as string]: "80vh",
+        ["--modal-padding" as string]: "12px",
       }}
     >
-      <div
-        onClick={(event) => event.stopPropagation()}
-        style={{
-          width: "min(460px, 100%)",
-          maxHeight: "80vh",
-          overflowY: "auto",
-          borderRadius: 12,
-          border: "1px solid #3b5670",
-          background: "linear-gradient(170deg, #111b27 0%, #1b2b3c 100%)",
-          padding: 12,
-          boxShadow: "0 16px 44px rgba(0, 0, 0, 0.45)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 10,
-          }}
+      <div className="ui-modal-header" style={{ marginBottom: 10 }}>
+        <div style={{ fontWeight: 700 }}>Select Slot Potions</div>
+        <button
+          onClick={onClose}
+          className="ui-modal-close ui-modal-btn-compact"
         >
-          <div style={{ fontWeight: 700 }}>Select Slot Potions</div>
-          <button
-            onClick={onClose}
-            style={{
-              borderRadius: 6,
-              border: "1px solid rgba(130, 170, 204, 0.4)",
-              background: "rgba(20, 35, 50, 0.65)",
-              color: "#d8ecff",
-              padding: "4px 8px",
-              cursor: "pointer",
-            }}
-          >
-            Close
-          </button>
-        </div>
+          Close
+        </button>
+      </div>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          {modal.slotTabs.map((slot) => (
-            <button
-              key={`modal-slot-${slot.slotIndex}`}
-              onClick={() => onSelectSlot(slot.slotIndex)}
-              style={{
-                borderRadius: 8,
-                border: slot.isSelected
-                  ? "1px solid #9ad0ff"
-                  : "1px solid rgba(125, 153, 179, 0.4)",
-                background: slot.isSelected
-                  ? "rgba(72, 120, 168, 0.4)"
-                  : "rgba(16, 28, 40, 0.7)",
-                color: "#e2f2ff",
-                padding: "6px 10px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {slot.label}
-            </button>
-          ))}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        {modal.slotTabs.map((slot) => (
           <button
-            onClick={onClearSelectedSlot}
+            key={`modal-slot-${slot.slotIndex}`}
+            onClick={() => onSelectSlot(slot.slotIndex)}
             style={{
-              marginLeft: "auto",
               borderRadius: 8,
-              border: "1px solid rgba(207, 126, 126, 0.45)",
-              background: "rgba(58, 18, 18, 0.55)",
-              color: "#ffc7c7",
+              border: slot.isSelected
+                ? "1px solid #9ad0ff"
+                : "1px solid rgba(125, 153, 179, 0.4)",
+              background: slot.isSelected
+                ? "rgba(72, 120, 168, 0.4)"
+                : "rgba(16, 28, 40, 0.7)",
+              color: "#e2f2ff",
               padding: "6px 10px",
               fontSize: 12,
               cursor: "pointer",
             }}
           >
-            Clear Slot
+            {slot.label}
           </button>
-        </div>
-
-        <div style={{ display: "grid", gap: 8 }}>
-          {modal.isEmpty && (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              No potions in inventory.
-            </div>
-          )}
-          {modal.options.map((potion) => (
-            <button
-              key={potion.itemId}
-              onClick={() => onEquipConsumable(potion.itemId)}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "auto 1fr auto",
-                gap: 10,
-                alignItems: "center",
-                borderRadius: 8,
-                border: "1px solid rgba(124, 156, 183, 0.35)",
-                background: "rgba(16, 28, 40, 0.7)",
-                padding: "8px 10px",
-                color: "#ecf7ff",
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              <span style={{ fontSize: 18 }}>{potion.icon}</span>
-              <span style={{ fontSize: 12, color: potion.rarityTint }}>
-                {potion.name}
-              </span>
-              <span style={{ fontSize: 11, opacity: 0.75 }}>
-                {potion.quantityLabel}
-              </span>
-            </button>
-          ))}
-        </div>
+        ))}
+        <button
+          className="ui-modal-btn-compact"
+          onClick={onClearSelectedSlot}
+          style={{
+            marginLeft: "auto",
+            borderRadius: 8,
+            border: "1px solid rgba(207, 126, 126, 0.45)",
+            background: "rgba(58, 18, 18, 0.55)",
+            color: "#ffc7c7",
+          }}
+        >
+          Clear Slot
+        </button>
       </div>
-    </div>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {modal.isEmpty && (
+          <div style={{ fontSize: 12, opacity: 0.7 }}>
+            No potions in inventory.
+          </div>
+        )}
+        {modal.options.map((potion) => (
+          <button
+            key={potion.itemId}
+            onClick={() => onEquipConsumable(potion.itemId)}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "auto 1fr auto",
+              gap: 10,
+              alignItems: "center",
+              borderRadius: 8,
+              border: "1px solid rgba(124, 156, 183, 0.35)",
+              background: "rgba(16, 28, 40, 0.7)",
+              padding: "8px 10px",
+              color: "#ecf7ff",
+              textAlign: "left",
+              cursor: "pointer",
+            }}
+          >
+            <span style={{ fontSize: 18 }}>{potion.icon}</span>
+            <span style={{ fontSize: 12, color: potion.rarityTint }}>
+              {potion.name}
+            </span>
+            <span style={{ fontSize: 11, opacity: 0.75 }}>
+              {potion.quantityLabel}
+            </span>
+          </button>
+        ))}
+      </div>
+    </ModalShell>
   );
 }

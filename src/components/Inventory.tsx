@@ -173,37 +173,18 @@ export function Inventory() {
       <h2>Inventory</h2>
 
       {/* Filter Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          marginBottom: 16,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="ui-filter-row">
         {itemTypes.map((type) => (
           <button
             key={type}
-            className={filter === type ? "btn-selected" : ""}
-            style={{
-              padding: "8px 12px",
-              fontSize: "12px",
-              borderRadius: 4,
-              transition: "all 0.2s",
-            }}
+            className={`${filter === type ? "btn-selected" : ""} ui-filter-btn`}
             onClick={() => setFilter(type)}
           >
             {type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
         ))}
         <button
-          className={isMassSelectMode ? "btn-selected" : ""}
-          style={{
-            padding: "8px 12px",
-            fontSize: "12px",
-            borderRadius: 4,
-            transition: "all 0.2s",
-          }}
+          className={`${isMassSelectMode ? "btn-selected" : ""} ui-filter-btn`}
           onClick={() => setIsMassSelectMode((prev) => !prev)}
         >
           {isMassSelectMode ? "Exit Mass Select" : "Mass Select"}
@@ -212,36 +193,19 @@ export function Inventory() {
 
       {/* Inventory Items */}
       {isEmpty ? (
-        <p style={{ color: "#9eb0c2" }}>{emptyMessage}</p>
+        <p className="ui-empty-message">{emptyMessage}</p>
       ) : (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className="ui-list-stack">
           {isMassSelectMode && (
-            <div
-              style={{
-                border: "1px solid #345068",
-                borderRadius: 8,
-                backgroundColor: "#142332",
-                padding: 10,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
+            <div className="ui-mass-toolbar">
               <label
+                className="ui-mass-toolbar-label"
                 style={{
                   cursor:
                     selectableVisibleUids.length > 0
                       ? "pointer"
                       : "not-allowed",
                   opacity: selectableVisibleUids.length > 0 ? 1 : 0.6,
-                  userSelect: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 13,
-                  color: "#dce6f0",
                 }}
               >
                 <input
@@ -254,18 +218,11 @@ export function Inventory() {
                 Select all non-equipped (visible)
               </label>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#9eb0c2" }}>
-                  {selectedSellSummary}
-                </span>
+              <div className="ui-mass-toolbar-actions">
+                <span className="ui-summary-muted">{selectedSellSummary}</span>
                 <button
-                  className="btn-danger"
+                  className="btn-danger ui-btn-compact-danger ui-touch-target"
                   style={{
-                    padding: "10px 12px",
-                    fontSize: 13,
-                    borderRadius: 6,
-                    minHeight: 40,
-                    minWidth: 130,
                     opacity: selectedSellCount > 0 ? 1 : 0.6,
                     cursor: selectedSellCount > 0 ? "pointer" : "not-allowed",
                   }}
@@ -297,17 +254,10 @@ export function Inventory() {
             return (
               <div
                 key={item.uid}
+                className="ui-inventory-card"
                 style={{
                   border: equipped ? "1px solid #2c8f84" : "1px solid #2f4459",
-                  borderRadius: 8,
-                  padding: 10,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
                   backgroundColor: equipped ? "#182f3a" : "#172533",
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 10,
                 }}
                 onClick={() => setSelectedItemUid(item.uid)}
                 onMouseEnter={(e) => {
@@ -349,15 +299,8 @@ export function Inventory() {
 
                 {/* Item Icon */}
                 <div
+                  className="ui-item-icon"
                   style={{
-                    width: 28,
-                    minWidth: 28,
-                    height: 28,
-                    fontSize: 20,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
                     filter: `drop-shadow(0 0 4px ${rarityColors[def?.rarity || "common"]}80)`,
                   }}
                 >
@@ -365,41 +308,25 @@ export function Inventory() {
                 </div>
 
                 {/* Item Details */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: 8,
-                      marginBottom: 6,
-                    }}
-                  >
+                <div className="ui-item-content">
+                  <div className="ui-item-header-row">
                     <div>
                       <strong
                         style={{ color: rarityColors[def?.rarity || "common"] }}
                       >
                         {def?.name}
                       </strong>
-                      <div
-                        style={{ fontSize: 11, color: "#9eb0c2", marginTop: 3 }}
-                      >
+                      <div className="ui-item-meta">
                         Lvl {item.level} • {def?.rarity}
                       </div>
                       {def?.setId && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "#7bd7c6",
-                            marginTop: 3,
-                          }}
-                        >
+                        <div className="ui-item-set-meta">
                           Set:{" "}
                           {uniqueSetDefinitions[def.setId]?.name ?? def.setId}
                         </div>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: "#8fa3b7" }}>
+                    <div className="ui-item-total">
                       {item.isGroupedSeed
                         ? `x${formatCompactNumber(item.quantity, { minCompactValue: 1000 })}`
                         : `Total ${formatCompactNumber(totalStats, { minCompactValue: 1000 })}`}
@@ -408,37 +335,14 @@ export function Inventory() {
 
                   {/* Stats Display */}
                   {item.isGroupedSeed && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "#9eb0c2",
-                        marginBottom: 6,
-                      }}
-                    >
+                    <div className="ui-grouped-seed-note">
                       Grouped seed stack from all matching seed entries.
                     </div>
                   )}
                   {Object.keys(itemStats).length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 6,
-                        fontSize: 11,
-                        marginBottom: 6,
-                      }}
-                    >
+                    <div className="ui-item-stat-chip-row">
                       {Object.entries(itemStats).map(([key, value]) => (
-                        <div
-                          key={key}
-                          style={{
-                            color: "#dce6f0",
-                            backgroundColor: "#223447",
-                            border: "1px solid #345068",
-                            borderRadius: 999,
-                            padding: "2px 8px",
-                          }}
-                        >
+                        <div key={key} className="ui-item-stat-chip">
                           <span style={{ color: "#9eb0c2" }}>{key}:</span>{" "}
                           <strong>
                             {formatCompactNumber(value, {
@@ -450,15 +354,13 @@ export function Inventory() {
                     </div>
                   )}
 
-                  <div style={{ fontSize: 11, color: "#8ea3b8" }}>
+                  <div className="ui-item-hint">
                     {item.isGroupedSeed
                       ? "Click to view one seed entry"
                       : "Click to view details"}
                   </div>
                   {!entrySelectable && (
-                    <div
-                      style={{ fontSize: 11, color: "#b9c7d6", marginTop: 6 }}
-                    >
+                    <div className="ui-item-warning">
                       Equipped items cannot be selected for mass sell.
                     </div>
                   )}
@@ -466,21 +368,7 @@ export function Inventory() {
 
                 {/* Equipped Badge */}
                 {equipped && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 6,
-                      right: 8,
-                      backgroundColor: "#2c8f84",
-                      color: "white",
-                      fontSize: "10px",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    ✓ EQUIPPED
-                  </div>
+                  <div className="ui-equipped-badge">✓ EQUIPPED</div>
                 )}
               </div>
             );
@@ -498,19 +386,11 @@ export function Inventory() {
 
       {potionToast && (
         <div
+          className="ui-toast-fixed"
           style={{
-            position: "fixed",
-            right: 16,
-            bottom: 16,
-            zIndex: 1600,
-            maxWidth: "min(380px, calc(100vw - 32px))",
-            padding: "10px 12px",
-            borderRadius: 8,
             border: activeToastStyle.border,
             backgroundColor: activeToastStyle.background,
             color: activeToastStyle.color,
-            fontSize: 12,
-            boxShadow: "0 10px 20px rgba(0, 0, 0, 0.35)",
           }}
           role="status"
           aria-live="polite"

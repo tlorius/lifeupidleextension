@@ -607,59 +607,30 @@ export function Fight() {
   }, [combatEvents]);
 
   return (
-    <div style={{ padding: 16, color: "#e8f0f8" }}>
+    <div className="ui-fight-screen">
       {/* Player Header - Compact */}
-      <div
-        style={{
-          borderRadius: 12,
-          border: "1px solid #30465b",
-          background: "linear-gradient(150deg, #15202b 0%, #263748 100%)",
-          padding: 12,
-          marginBottom: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 8,
-            gap: 10,
-          }}
-        >
+      <div className="ui-fight-player-card">
+        <div className="ui-fight-row ui-fight-row-with-bottom">
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>
+            <div className="ui-fight-level-label">
               Level {state.playerProgress.level || 1}
             </div>
           </div>
           <button
             onClick={() => setIsPlayerStatsExpanded(!isPlayerStatsExpanded)}
-            style={{
-              padding: "4px 12px",
-              fontSize: 12,
-              borderRadius: 6,
-              border: "1px solid rgba(130, 167, 201, 0.35)",
-              background: "rgba(20, 35, 50, 0.7)",
-              color: "#a8c8ff",
-              cursor: "pointer",
-              fontWeight: 600,
-            }}
+            className="ui-fight-stats-toggle ui-touch-target"
           >
             {isPlayerStatsExpanded ? "Hide" : "Stats"}
           </button>
         </div>
 
         {/* HP Bar - Always Visible */}
-        <div style={{ fontSize: 11, marginBottom: 4, opacity: 0.85 }}>
+        <div className="ui-fight-micro-label ui-fight-micro-label--below">
           HP: {Math.round(combat.playerCurrentHp)} / {playerMaxHp}
         </div>
         <div
+          className="ui-fight-bar-shell ui-fight-player-hp-shell"
           style={{
-            height: 12,
-            borderRadius: 999,
-            backgroundColor: "rgba(8, 13, 19, 0.6)",
-            overflow: "hidden",
-            border: "1px solid rgba(130, 167, 201, 0.3)",
             marginBottom: isPlayerStatsExpanded ? 10 : 0,
           }}
         >
@@ -675,21 +646,15 @@ export function Fight() {
         </div>
 
         {/* XP Progress Bar - Always Visible */}
-        <div
-          style={{ fontSize: 11, marginTop: 8, marginBottom: 4, opacity: 0.85 }}
-        >
+        <div className="ui-fight-micro-label ui-fight-micro-label--above">
           XP: {formatCompactNumber(state.playerProgress?.xp ?? 0)} /{" "}
           {Number.isFinite(xpForNextLevel)
             ? formatCompactNumber(xpForNextLevel)
             : "MAX"}
         </div>
         <div
+          className="ui-fight-bar-shell ui-fight-player-xp-shell"
           style={{
-            height: 10,
-            borderRadius: 999,
-            backgroundColor: "rgba(8, 13, 19, 0.6)",
-            overflow: "hidden",
-            border: "1px solid rgba(167, 130, 201, 0.35)",
             marginBottom: isPlayerStatsExpanded ? 10 : 0,
           }}
         >
@@ -706,33 +671,21 @@ export function Fight() {
 
         {/* Expandable Stats */}
         {isPlayerStatsExpanded && (
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: "1px solid rgba(109, 144, 173, 0.2)",
-              fontSize: 12,
-              opacity: 0.92,
-              lineHeight: 1.6,
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "8px 12px",
-            }}
-          >
+          <div className="ui-fight-expanded-grid">
             <div>ATK: {Math.round(totalStats.attack ?? 0)}</div>
             <div>DEF: {Math.round(totalStats.defense ?? 0)}</div>
             <div>AGI: {(totalStats.agility ?? 0).toFixed(2)}</div>
             <div>APS: {attacksPerSecond.toFixed(2)}</div>
             <div>Crit: {critChance.toFixed(1)}%</div>
             <div>Lvl: {combat.currentLevel}</div>
-            <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
+            <div className="ui-fight-grid-full-note">
               Mana: {formatCompactNumber(playerMana)} / 100 • Regen:{" "}
               {formatCompactNumber(manaRegenPerSecond, {
                 smallValueDecimals: 1,
               })}
               /s
             </div>
-            <div style={{ gridColumn: "1 / -1", fontSize: 11 }}>
+            <div className="ui-fight-grid-full-note">
               Checkpoint: Lv {checkpointLevel}
             </div>
           </div>
@@ -740,32 +693,12 @@ export function Fight() {
       </div>
 
       {/* Fight Arena */}
-      <div
-        style={{
-          borderRadius: 14,
-          border: "1px solid #32485d",
-          background:
-            "radial-gradient(circle at 50% 18%, rgba(64, 98, 130, 0.4) 0%, rgba(22, 31, 41, 0.95) 55%)",
-          padding: 16,
-          marginBottom: 14,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-            marginBottom: 10,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>{combatTitle}</h2>
+      <div className="ui-fight-arena">
+        <div className="ui-fight-arena-header">
+          <h2 className="ui-fight-title">{combatTitle}</h2>
           <span
+            className="ui-fight-kind-badge"
             style={{
-              fontSize: 12,
-              padding: "3px 10px",
-              borderRadius: 999,
               backgroundColor:
                 combat.enemy.kind === "boss"
                   ? "rgba(235, 97, 79, 0.35)"
@@ -776,24 +709,14 @@ export function Fight() {
           </span>
         </div>
 
-        <div style={{ fontSize: 13, marginBottom: 6 }}>
+        <div className="ui-fight-enemy-hp">
           HP:{" "}
           {formatCombatNumber(
             Math.round((visualEnemyHpPercent / 100) * combat.enemy.maxHp),
           )}{" "}
           / {formatCombatNumber(combat.enemy.maxHp)}
         </div>
-        <div
-          style={{
-            position: "relative",
-            height: 10,
-            borderRadius: 999,
-            backgroundColor: "rgba(10, 15, 20, 0.62)",
-            overflow: "hidden",
-            border: "1px solid rgba(155, 130, 130, 0.34)",
-            marginBottom: 14,
-          }}
-        >
+        <div className="ui-fight-enemy-hp-shell">
           {/* 5-second damage trail — white bar behind the red HP bar */}
           <div
             style={{
@@ -819,56 +742,15 @@ export function Fight() {
           />
         </div>
 
-        <button
-          onClick={combatClickAttack}
-          style={{
-            width: "100%",
-            minHeight: 180,
-            borderRadius: 12,
-            border: "1px solid #46617a",
-            background:
-              "linear-gradient(180deg, rgba(46, 67, 86, 0.85) 0%, rgba(27, 41, 53, 0.9) 100%)",
-            color: "#f3f8ff",
-            fontSize: 16,
-            fontWeight: 600,
-            position: "relative",
-            overflow: "hidden",
-            cursor: "pointer",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 14,
-              right: 14,
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 12,
-              opacity: 0.92,
-              letterSpacing: 0.2,
-            }}
-          >
+        <button onClick={combatClickAttack} className="ui-fight-attack-btn">
+          <div className="ui-fight-attack-top-labels">
             <span>Player</span>
             <span>Tap / Click To Strike</span>
             <span>Enemy</span>
           </div>
 
-          <div
-            style={{
-              position: "absolute",
-              bottom: 12,
-              left: 0,
-              right: 0,
-              display: "flex",
-              justifyContent: "center",
-              gap: 38,
-              alignItems: "flex-end",
-              padding: "0 10px",
-              pointerEvents: "none",
-            }}
-          >
-            <div style={{ display: "grid", justifyItems: "center", gap: 4 }}>
+          <div className="ui-fight-sprite-row">
+            <div className="ui-fight-sprite-stack">
               <img
                 src={playerPixel}
                 alt="Player pixel art"
@@ -898,7 +780,7 @@ export function Fight() {
               )}
             </div>
 
-            <div style={{ display: "grid", justifyItems: "center", gap: 4 }}>
+            <div className="ui-fight-sprite-stack">
               <img
                 src={enemySprite}
                 alt={enemyAlt}
@@ -967,31 +849,13 @@ export function Fight() {
       />
 
       {toasts.length > 0 && (
-        <div
-          style={{
-            position: "fixed",
-            right: 18,
-            bottom: 20,
-            display: "grid",
-            gap: 8,
-            zIndex: 30,
-            width: "min(320px, calc(100vw - 36px))",
-          }}
-        >
+        <div className="ui-fight-toast-stack">
           {toasts.map((toast) => (
             <div
               key={toast.id}
+              className="ui-fight-toast"
               style={{
-                borderRadius: 10,
-                border: "1px solid rgba(137, 172, 206, 0.45)",
-                background:
-                  "linear-gradient(150deg, rgba(12,22,31,0.93) 0%, rgba(22,37,52,0.9) 100%)",
                 color: toast.color,
-                padding: "8px 10px",
-                fontSize: 12,
-                fontWeight: 700,
-                boxShadow: "0 8px 28px rgba(0,0,0,0.38)",
-                animation: "fightToastIn 220ms ease-out",
               }}
             >
               {toast.text}

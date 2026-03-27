@@ -1,3 +1,5 @@
+import { ModalShell } from "./ui/ModalShell";
+
 interface GardenPlantModalSeedEntry {
   seedId: string;
   icon: string;
@@ -46,244 +48,141 @@ export function GardenPlantModal({
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(6, 10, 14, 0.72)",
+    <ModalShell
+      onClose={onClose}
+      overlayStyle={{ zIndex: 1000 }}
+      panelStyle={{
+        ["--modal-width" as string]: "500px",
+        ["--modal-width-mobile" as string]: isMobile ? "94vw" : "95vw",
+        ["--modal-max-height" as string]: "80vh",
+        ["--modal-max-height-mobile" as string]: isMobile ? "88vh" : "88vh",
+        ["--modal-padding" as string]: isMobile ? "12px" : "16px",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
+        flexDirection: "column",
       }}
-      onClick={onClose}
     >
-      <div
-        style={{
-          backgroundColor: "#162433",
-          color: "#e5edf5",
-          borderRadius: 8,
-          padding: isMobile ? 12 : 16,
-          maxHeight: isMobile ? "88vh" : "80vh",
-          maxWidth: "500px",
-          width: isMobile ? "94vw" : "500px",
-          border: "1px solid #35506a",
-          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 style={{ margin: "0 0 16px 0" }}>
-          Plant Seed at ({row}, {col})
-        </h3>
+      <h3 className="ui-plant-header">
+        Plant Seed at ({row}, {col})
+      </h3>
 
-        {seedEntries.length === 0 ? (
-          <p style={{ color: "#9eb0c2", marginBottom: 16 }}>
-            You don't have any seeds yet.
-          </p>
-        ) : (
-          <>
-            <div
-              style={{
-                marginBottom: 16,
-                overflowY: "auto",
-                maxHeight: "50vh",
-              }}
-            >
-              <div
-                style={{
-                  marginBottom: 12,
-                  fontSize: 11,
-                  color: "#b8cadb",
-                  lineHeight: 1.5,
-                }}
-              >
-                Automation inventory: sprinkler {ownedSprinklers}, harvester{" "}
-                {ownedHarvesters}, planter {ownedPlanters}
-              </div>
-              {ownedSprinklers === 0 &&
-                ownedHarvesters === 0 &&
-                ownedPlanters === 0 && (
+      {seedEntries.length === 0 ? (
+        <p style={{ color: "#9eb0c2", marginBottom: 16 }}>
+          You don't have any seeds yet.
+        </p>
+      ) : (
+        <>
+          <div className="ui-plant-scroll">
+            <div className="ui-plant-automation-note">
+              Automation inventory: sprinkler {ownedSprinklers}, harvester{" "}
+              {ownedHarvesters}, planter {ownedPlanters}
+            </div>
+            {ownedSprinklers === 0 &&
+              ownedHarvesters === 0 &&
+              ownedPlanters === 0 && (
+                <div className="ui-plant-automation-empty">
+                  Acquire a sprinkler, planter, or harvester to use automation
+                  on empty fields.
+                </div>
+              )}
+            <div className="ui-plant-seed-title">Available Seeds:</div>
+            <div className="ui-plant-seed-list">
+              {seedEntries.map((seed) => {
+                const isSelected = selectedSeedId === seed.seedId;
+
+                return (
                   <div
+                    key={seed.seedId}
+                    className="ui-plant-seed-option"
                     style={{
-                      marginBottom: 12,
-                      fontSize: 11,
-                      color: "#9eb0c2",
+                      backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
+                      border: isSelected
+                        ? "2px solid #2f9e44"
+                        : "1px solid #34516a",
                     }}
+                    onClick={() => onSelectSeed(seed.seedId)}
                   >
-                    Acquire a sprinkler, planter, or harvester to use automation
-                    on empty fields.
-                  </div>
-                )}
-              <div
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: 8,
-                  position: "sticky",
-                  top: 0,
-                  backgroundColor: "#162433",
-                  paddingBottom: 8,
-                  color: "#e5edf5",
-                }}
-              >
-                Available Seeds:
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
-                {seedEntries.map((seed) => {
-                  const isSelected = selectedSeedId === seed.seedId;
-
-                  return (
-                    <div
-                      key={seed.seedId}
-                      style={{
-                        padding: 8,
-                        backgroundColor: isSelected ? "#1d6a3a" : "#1b2d3f",
-                        border: isSelected
-                          ? "2px solid #2f9e44"
-                          : "1px solid #34516a",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                      onClick={() => onSelectSeed(seed.seedId)}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          fontWeight: "bold",
-                          color: "#e5edf5",
-                        }}
-                      >
-                        <span>{seed.icon}</span>
-                        <span>{seed.label}</span>
-                      </div>
-                      {seed.isPlantable && (
-                        <div
+                    <div className="ui-plant-seed-option-head">
+                      <span>{seed.icon}</span>
+                      <span>{seed.label}</span>
+                    </div>
+                    {seed.isPlantable && (
+                      <div className="ui-plant-seed-badge-row">
+                        <span
+                          className="ui-plant-seed-badge"
                           style={{
-                            display: "flex",
-                            gap: 6,
-                            flexWrap: "wrap",
-                            marginTop: 6,
+                            backgroundColor: isSelected
+                              ? "rgba(255,255,255,0.25)"
+                              : "#e9f7ef",
+                            color: isSelected ? "white" : "#2b8a3e",
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: 10,
-                              padding: "2px 6px",
-                              borderRadius: 999,
-                              backgroundColor: isSelected
-                                ? "rgba(255,255,255,0.25)"
-                                : "#e9f7ef",
-                              color: isSelected ? "white" : "#2b8a3e",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {seed.isTree ? "Tree" : "Field"}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              padding: "2px 6px",
-                              borderRadius: 999,
-                              backgroundColor: isSelected
-                                ? "rgba(255,255,255,0.25)"
-                                : "#fff3bf",
-                              color: isSelected ? "white" : "#8a5d00",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            {seed.isPerennial ? "Repeatable" : "One-time"}
-                          </span>
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: isSelected
-                            ? "rgba(229,237,245,0.95)"
-                            : "#9eb0c2",
-                          marginTop: 4,
-                        }}
-                      >
-                        <div>
-                          {!seed.isPlantable && (
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: isSelected ? "#ffe3e3" : "#c92a2a",
-                                marginTop: 4,
-                              }}
-                            >
-                              This seed is not plantable in the garden yet.
-                            </div>
-                          )}
-                          Growth: {seed.growthTimeMinutes ?? "-"}m | Yield:{" "}
-                          {seed.baseYield ?? "-"} {seed.category ?? "crop"} +{" "}
-                          {seed.baseGold ?? 0} gold
-                        </div>
-                        <div>Available: x{seed.count}</div>
+                          {seed.isTree ? "Tree" : "Field"}
+                        </span>
+                        <span
+                          className="ui-plant-seed-badge"
+                          style={{
+                            backgroundColor: isSelected
+                              ? "rgba(255,255,255,0.25)"
+                              : "#fff3bf",
+                            color: isSelected ? "white" : "#8a5d00",
+                          }}
+                        >
+                          {seed.isPerennial ? "Repeatable" : "One-time"}
+                        </span>
                       </div>
+                    )}
+                    <div
+                      className="ui-plant-seed-meta"
+                      style={{
+                        color: isSelected
+                          ? "rgba(229,237,245,0.95)"
+                          : "#9eb0c2",
+                      }}
+                    >
+                      <div>
+                        {!seed.isPlantable && (
+                          <div
+                            className="ui-plant-seed-unplantable"
+                            style={{
+                              color: isSelected ? "#ffe3e3" : "#c92a2a",
+                            }}
+                          >
+                            This seed is not plantable in the garden yet.
+                          </div>
+                        )}
+                        Growth: {seed.growthTimeMinutes ?? "-"}m | Yield:{" "}
+                        {seed.baseYield ?? "-"} {seed.category ?? "crop"} +{" "}
+                        {seed.baseGold ?? 0} gold
+                      </div>
+                      <div>Available: x{seed.count}</div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
 
-            <div
+          <div className="ui-plant-actions">
+            <button className="ui-plant-cancel-btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              className="ui-plant-confirm-btn"
               style={{
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-                marginTop: "auto",
-                paddingTop: 16,
+                backgroundColor:
+                  selectedSeedId === null ? "#2c3e50" : "#1f7f43",
+                color: selectedSeedId === null ? "#7f94a8" : "white",
+                border: selectedSeedId === null ? "1px solid #3f546a" : "none",
+                cursor: selectedSeedId === null ? "not-allowed" : "pointer",
               }}
+              disabled={selectedSeedId === null}
+              onClick={onConfirmPlant}
             >
-              <button
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor: "#253649",
-                  border: "1px solid #3f546a",
-                  color: "#eaf2fb",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                style={{
-                  padding: "8px 16px",
-                  backgroundColor:
-                    selectedSeedId === null ? "#2c3e50" : "#1f7f43",
-                  color: selectedSeedId === null ? "#7f94a8" : "white",
-                  border:
-                    selectedSeedId === null ? "1px solid #3f546a" : "none",
-                  borderRadius: 4,
-                  cursor: selectedSeedId === null ? "not-allowed" : "pointer",
-                  fontWeight: "bold",
-                }}
-                disabled={selectedSeedId === null}
-                onClick={onConfirmPlant}
-              >
-                Plant
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+              Plant
+            </button>
+          </div>
+        </>
+      )}
+    </ModalShell>
   );
 }

@@ -1,3 +1,5 @@
+import { ModalShell } from "./ui/ModalShell";
+
 interface ToolWheelToolEntry {
   key: string;
   equipValue: string;
@@ -65,277 +67,131 @@ export function GardenToolWheelModal({
   ];
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(6, 10, 14, 0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
+    <ModalShell
+      onClose={onClose}
+      overlayStyle={{ zIndex: 1000 }}
+      panelStyle={{
+        ["--modal-width" as string]: "560px",
+        ["--modal-width-mobile" as string]: isMobile ? "94vw" : "95vw",
+        ["--modal-max-height" as string]: "80vh",
+        ["--modal-max-height-mobile" as string]: isMobile ? "88vh" : "88vh",
+        ["--modal-padding" as string]: isMobile ? "10px" : "12px",
       }}
-      onClick={onClose}
     >
-      <div
-        style={{
-          padding: isMobile ? 10 : 12,
-          backgroundColor: "#16212d",
-          borderRadius: 8,
-          border: "1px solid #2a3a4c",
-          width: isMobile ? "94vw" : "560px",
-          maxWidth: "560px",
-          maxHeight: isMobile ? "88vh" : "80vh",
-          overflow: "auto",
-          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            fontWeight: "bold",
-            marginBottom: 8,
-            color: "#e5edf5",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span>Available Tools</span>
-          <button
-            style={{
-              padding: "4px 8px",
-              backgroundColor: "#253649",
-              border: "1px solid #3f546a",
-              color: "#eaf2fb",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12,
-            }}
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
+      <div className="ui-modal-header" style={{ marginBottom: 8 }}>
+        <span>Available Tools</span>
+        <button className="ui-modal-close" onClick={onClose}>
+          Close
+        </button>
+      </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 6,
-            marginBottom: 8,
-            flexWrap: "wrap",
-          }}
+      <div className="ui-toolwheel-filter-row">
+        <button
+          className={`${toolTypeFilter === null ? "btn-selected" : ""} ui-toolwheel-filter-btn ui-touch-target`}
+          onClick={() => onToolTypeFilterChange(null)}
         >
+          All
+        </button>
+        {filterTypes.map((type) => (
           <button
-            className={toolTypeFilter === null ? "btn-selected" : ""}
-            style={{
-              padding: "4px 8px",
-              fontSize: 11,
-              border: "1px solid #3f546a",
-              borderRadius: 3,
-              backgroundColor: "#1b2a39",
-              color: "#e5edf5",
-            }}
-            onClick={() => onToolTypeFilterChange(null)}
+            key={type}
+            className={`${toolTypeFilter === type ? "btn-selected" : ""} ui-toolwheel-filter-btn ui-toolwheel-filter-type ui-touch-target`}
+            onClick={() => onToolTypeFilterChange(type)}
           >
-            All
+            {type}
           </button>
-          {filterTypes.map((type) => (
+        ))}
+      </div>
+
+      <div className="ui-toolwheel-list">
+        {filteredTools.length === 0 ? (
+          <div className="ui-toolwheel-empty">
+            {toolTypeFilter === "harvester"
+              ? "Acquire a harvester to use this function."
+              : toolTypeFilter === "planter"
+                ? "Acquire a planter to use this function."
+                : toolTypeFilter === "sprinkler"
+                  ? "Acquire a sprinkler to use this function."
+                  : "No tools in inventory yet."}
+          </div>
+        ) : (
+          filteredTools.map((tool) => (
             <button
-              key={type}
-              className={toolTypeFilter === type ? "btn-selected" : ""}
+              key={tool.key}
+              className="ui-toolwheel-tool-btn ui-touch-target"
               style={{
-                padding: "4px 8px",
-                fontSize: 11,
-                border: "1px solid #3f546a",
-                borderRadius: 3,
-                textTransform: "capitalize",
-                backgroundColor: "#1b2a39",
-                color: "#e5edf5",
+                padding: isMobile ? 12 : 10,
+                backgroundColor: tool.isEquipped ? "#1f7f43" : "#1b2d3f",
+                color: tool.isEquipped ? "white" : "#e5edf5",
+                fontSize: isMobile ? 12 : 11,
+                fontWeight: tool.isEquipped ? "bold" : "normal",
               }}
-              onClick={() => onToolTypeFilterChange(type)}
+              onClick={() => onEquipTool(tool.equipValue)}
+              title={tool.description}
             >
-              {type}
+              <div className="ui-toolwheel-tool-name">
+                {tool.icon} {tool.name}
+              </div>
+              <div className="ui-toolwheel-tool-level">Level {tool.level}</div>
+              <div className="ui-toolwheel-tool-desc">{tool.description}</div>
             </button>
-          ))}
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-          {filteredTools.length === 0 ? (
-            <div
-              style={{
-                padding: 10,
-                border: "1px solid #34516a",
-                borderRadius: 4,
-                fontSize: 11,
-                color: "#9eb0c2",
-                backgroundColor: "#1b2d3f",
-              }}
-            >
-              {toolTypeFilter === "harvester"
-                ? "Acquire a harvester to use this function."
-                : toolTypeFilter === "planter"
-                  ? "Acquire a planter to use this function."
-                  : toolTypeFilter === "sprinkler"
-                    ? "Acquire a sprinkler to use this function."
-                    : "No tools in inventory yet."}
-            </div>
-          ) : (
-            filteredTools.map((tool) => (
-              <button
-                key={tool.key}
-                style={{
-                  padding: isMobile ? 12 : 10,
-                  backgroundColor: tool.isEquipped ? "#1f7f43" : "#1b2d3f",
-                  color: tool.isEquipped ? "white" : "#e5edf5",
-                  border: "1px solid #34516a",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontSize: isMobile ? 12 : 11,
-                  fontWeight: tool.isEquipped ? "bold" : "normal",
-                  textAlign: "left",
-                }}
-                onClick={() => onEquipTool(tool.equipValue)}
-                title={tool.description}
-              >
-                <div style={{ fontWeight: "bold" }}>
-                  {tool.icon} {tool.name}
-                </div>
-                <div style={{ fontSize: 10, opacity: 0.92, marginTop: 2 }}>
-                  Level {tool.level}
-                </div>
-                <div
-                  style={{
-                    fontSize: 9,
-                    opacity: 0.78,
-                    marginTop: 4,
-                    whiteSpace: "normal",
-                  }}
-                >
-                  {tool.description}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-
-        {isSeedBagToolEquipped && (
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: "1px solid #2a3a4c",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: "bold",
-                color: "#e5edf5",
-                marginBottom: 8,
-              }}
-            >
-              Seed Bag Tool: Select Seed
-            </div>
-            {seedBag.length === 0 ? (
-              <div style={{ fontSize: 11, color: "#9eb0c2" }}>
-                No seeds available.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {seedBag.map((seed) => (
-                  <button
-                    key={seed.seedId}
-                    className={
-                      activeSeedBagSeedId === seed.seedId ? "btn-selected" : ""
-                    }
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: 11,
-                      border: "1px solid #3f546a",
-                      borderRadius: 3,
-                      backgroundColor: "#1b2a39",
-                      color: "#e5edf5",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                    onClick={() => onSelectSeedBagSeed(seed.seedId)}
-                    title={seed.label}
-                  >
-                    <span>{seed.icon}</span>
-                    <span>
-                      {seed.label} x{seed.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {isPlanterToolEquipped && (
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: "1px solid #2a3a4c",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: "bold",
-                color: "#e5edf5",
-                marginBottom: 8,
-              }}
-            >
-              Planter Tool: Select Seed
-            </div>
-            {seedBag.length === 0 ? (
-              <div style={{ fontSize: 11, color: "#9eb0c2" }}>
-                No seeds available.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {seedBag.map((seed) => (
-                  <button
-                    key={`planter-${seed.seedId}`}
-                    className={
-                      selectedPlanterSeedId === seed.seedId
-                        ? "btn-selected"
-                        : ""
-                    }
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: 11,
-                      border: "1px solid #3f546a",
-                      borderRadius: 3,
-                      backgroundColor: "#1b2a39",
-                      color: "#e5edf5",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                    onClick={() => onSelectPlanterSeed(seed.seedId)}
-                    title={seed.label}
-                  >
-                    <span>{seed.icon}</span>
-                    <span>
-                      {seed.label} x{seed.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          ))
         )}
       </div>
-    </div>
+
+      {isSeedBagToolEquipped && (
+        <div className="ui-toolwheel-seed-section">
+          <div className="ui-toolwheel-seed-title">
+            Seed Bag Tool: Select Seed
+          </div>
+          {seedBag.length === 0 ? (
+            <div className="ui-toolwheel-seed-empty">No seeds available.</div>
+          ) : (
+            <div className="ui-toolwheel-seed-list">
+              {seedBag.map((seed) => (
+                <button
+                  key={seed.seedId}
+                  className={`${activeSeedBagSeedId === seed.seedId ? "btn-selected" : ""} ui-toolwheel-seed-btn ui-touch-target`}
+                  onClick={() => onSelectSeedBagSeed(seed.seedId)}
+                  title={seed.label}
+                >
+                  <span>{seed.icon}</span>
+                  <span>
+                    {seed.label} x{seed.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isPlanterToolEquipped && (
+        <div className="ui-toolwheel-seed-section">
+          <div className="ui-toolwheel-seed-title">
+            Planter Tool: Select Seed
+          </div>
+          {seedBag.length === 0 ? (
+            <div className="ui-toolwheel-seed-empty">No seeds available.</div>
+          ) : (
+            <div className="ui-toolwheel-seed-list">
+              {seedBag.map((seed) => (
+                <button
+                  key={`planter-${seed.seedId}`}
+                  className={`${selectedPlanterSeedId === seed.seedId ? "btn-selected" : ""} ui-toolwheel-seed-btn ui-touch-target`}
+                  onClick={() => onSelectPlanterSeed(seed.seedId)}
+                  title={seed.label}
+                >
+                  <span>{seed.icon}</span>
+                  <span>
+                    {seed.label} x{seed.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </ModalShell>
   );
 }

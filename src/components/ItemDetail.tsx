@@ -12,6 +12,7 @@ import type { Equipment, Stats } from "../game/types";
 import { formatCompactNumber } from "../game/numberFormat";
 import type { ItemInstance } from "../game/types";
 import { reduceGameAction } from "../game/actions";
+import { ModalShell } from "./ui/ModalShell";
 
 export type PotionToastTone = "positive" | "mixed" | "negative" | "neutral";
 
@@ -36,33 +37,19 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
 
   if (!def) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          backgroundColor: "rgba(6, 10, 14, 0.72)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
+      <ModalShell
+        onClose={onClose}
+        panelStyle={{
+          ["--modal-width" as string]: "400px",
+          ["--modal-width-mobile" as string]: "92vw",
+          ["--modal-padding" as string]: "20px",
         }}
-        onClick={onClose}
       >
-        <div
-          style={{
-            backgroundColor: "#162433",
-            padding: 20,
-            borderRadius: 10,
-            border: "1px solid #35506a",
-            maxWidth: 400,
-            width: "90%",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div>
           <p>Unknown item</p>
           <button onClick={onClose}>Close</button>
         </div>
-      </div>
+      </ModalShell>
     );
   }
 
@@ -253,38 +240,17 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(6, 10, 14, 0.72)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 1000,
+    <ModalShell
+      onClose={onClose}
+      panelStyle={{
+        ["--modal-width" as string]: "400px",
+        ["--modal-width-mobile" as string]: "92vw",
+        ["--modal-max-height" as string]: "90vh",
+        ["--modal-padding" as string]: "20px",
       }}
-      onClick={onClose}
     >
-      <div
-        style={{
-          backgroundColor: "#162433",
-          padding: 20,
-          borderRadius: 10,
-          border: "1px solid #35506a",
-          maxWidth: 400,
-          width: "90%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            marginBottom: 16,
-            paddingBottom: 12,
-            borderBottom: "1px solid #2e4256",
-          }}
-        >
+      <div>
+        <div className="ui-detail-section">
           <h2 style={{ margin: "0 0 8px 0", color: rarityColor }}>
             {def.name}
           </h2>
@@ -294,14 +260,8 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
         </div>
 
         {Object.keys(stats).length > 0 && (
-          <div
-            style={{
-              marginBottom: 16,
-              paddingBottom: 12,
-              borderBottom: "1px solid #2e4256",
-            }}
-          >
-            <h3 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Stats</h3>
+          <div className="ui-detail-section">
+            <h3 className="ui-detail-title">Stats</h3>
             {Object.entries(stats).map(([key, value]) => (
               <div key={key} style={{ fontSize: 13, marginBottom: 4 }}>
                 <strong>{key}:</strong>{" "}
@@ -314,14 +274,8 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
         )}
 
         {def.setId && (
-          <div
-            style={{
-              marginBottom: 16,
-              paddingBottom: 12,
-              borderBottom: "1px solid #2e4256",
-            }}
-          >
-            <h3 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Set</h3>
+          <div className="ui-detail-section">
+            <h3 className="ui-detail-title">Set</h3>
             <div style={{ fontSize: 13, color: "#9fe6da", marginBottom: 6 }}>
               {setDef?.name ?? def.setId}
             </div>
@@ -384,16 +338,8 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
         )}
 
         {isEquipableType && comparableSlots.length > 0 && (
-          <div
-            style={{
-              marginBottom: 16,
-              paddingBottom: 12,
-              borderBottom: "1px solid #2e4256",
-            }}
-          >
-            <h3 style={{ margin: "0 0 8px 0", fontSize: 14 }}>
-              Comparison vs Equipped
-            </h3>
+          <div className="ui-detail-section">
+            <h3 className="ui-detail-title">Comparison vs Equipped</h3>
 
             {comparableSlots.map((slot) => {
               const equippedUid = state.equipment[slot];
@@ -413,29 +359,13 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
               ) as (keyof Stats)[];
 
               return (
-                <div
-                  key={slot}
-                  style={{
-                    marginBottom: 10,
-                    padding: 10,
-                    border: "1px solid #345068",
-                    borderRadius: 6,
-                    backgroundColor: "#1e2e3f",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "bold",
-                      marginBottom: 6,
-                      color: "#dce6f0",
-                    }}
-                  >
+                <div key={slot} className="ui-compare-card">
+                  <div className="ui-compare-slot-title">
                     {slotLabel[slot]}: {equippedDef?.name ?? "(empty)"}
                   </div>
 
                   {equippedDef && statKeys.length > 0 ? (
-                    <div style={{ display: "grid", gap: 4 }}>
+                    <div className="ui-compare-grid">
                       {statKeys.map((statKey) => {
                         const selectedHasStat =
                           stats[statKey] !== undefined &&
@@ -450,13 +380,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                         return (
                           <div
                             key={`${slot}-${String(statKey)}`}
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "88px 1fr 1fr",
-                              alignItems: "center",
-                              columnGap: 8,
-                              fontSize: 12,
-                            }}
+                            className="ui-compare-row"
                           >
                             <span style={{ color: "#9eb0c2" }}>{statKey}</span>
 
@@ -502,27 +426,11 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
           </div>
         )}
 
-        <div
-          style={{
-            marginBottom: 16,
-            paddingBottom: 12,
-            borderBottom: "1px solid #2e4256",
-          }}
-        >
-          <h3 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Actions</h3>
+        <div className="ui-detail-section">
+          <h3 className="ui-detail-title">Actions</h3>
 
           {isPotion && (
-            <div
-              style={{
-                marginBottom: 10,
-                padding: 8,
-                borderRadius: 6,
-                border: "1px solid #35506a",
-                backgroundColor: "#1d3042",
-                color: "#c7d3df",
-                fontSize: 12,
-              }}
-            >
+            <div className="ui-effect-card">
               {def.id === "health_potion" && "Use: Restore 50 mana."}
               {def.id === "mana_potion" &&
                 "Use: +25% gold income for 10 minutes."}
@@ -545,14 +453,8 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
 
           {isPotion && (
             <button
-              className="btn-primary"
-              style={{
-                padding: "10px 12px",
-                fontSize: "14px",
-                width: "100%",
-                marginBottom: 8,
-                borderRadius: 4,
-              }}
+              className="btn-primary ui-full-width-btn ui-touch-target"
+              style={{ marginBottom: 8 }}
               onClick={() => {
                 const projectedState = reduceGameAction(state, {
                   type: "inventory/usePotion",
@@ -595,7 +497,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                 >
                   Both accessory slots are filled. Choose a slot to replace:
                 </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <div className="ui-detail-option-row">
                   {(["accessory1", "accessory2"] as const).map((slot) => {
                     const equippedUid = state.equipment[slot];
                     const equippedItem = equippedUid
@@ -608,9 +510,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                     return (
                       <button
                         key={slot}
-                        className={
-                          accessoryTargetSlot === slot ? "btn-selected" : ""
-                        }
+                        className={`${accessoryTargetSlot === slot ? "btn-selected" : ""} ui-touch-target`}
                         style={{ flex: 1, fontSize: 12 }}
                         onClick={() => setAccessoryTargetSlot(slot)}
                       >
@@ -620,13 +520,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
                   })}
                 </div>
                 <button
-                  className="btn-primary"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    width: "100%",
-                    borderRadius: 4,
-                  }}
+                  className="btn-primary ui-full-width-btn ui-touch-target"
                   onClick={() => {
                     equipItem(item.uid, accessoryTargetSlot);
                   }}
@@ -636,13 +530,9 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
               </div>
             ) : (
               <button
-                className={!equipped && isEquipableType ? "btn-primary" : ""}
+                className={`${!equipped && isEquipableType ? "btn-primary" : ""} ui-full-width-btn ui-touch-target`}
                 style={{
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  width: "100%",
                   marginBottom: 8,
-                  borderRadius: 4,
                   cursor:
                     !equipped && isEquipableType ? "pointer" : "not-allowed",
                   opacity: !equipped && isEquipableType ? 1 : 0.6,
@@ -660,13 +550,9 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
 
           {/* Upgrade Button */}
           <button
-            className={canAffordUpgrade ? "btn-primary" : ""}
+            className={`${canAffordUpgrade ? "btn-primary" : ""} ui-full-width-btn ui-touch-target`}
             style={{
-              padding: "10px 12px",
-              fontSize: "14px",
-              width: "100%",
               marginBottom: 8,
-              borderRadius: 4,
               cursor: canAffordUpgrade ? "pointer" : "not-allowed",
               opacity: canUpgradeItem ? 1 : 0.65,
             }}
@@ -684,13 +570,7 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
 
           {/* Sell Button */}
           <button
-            className="btn-danger"
-            style={{
-              padding: "10px 12px",
-              fontSize: "14px",
-              width: "100%",
-              borderRadius: 4,
-            }}
+            className="btn-danger ui-full-width-btn ui-touch-target"
             onClick={() => {
               sellItem(item.uid);
               onClose();
@@ -700,18 +580,10 @@ export function ItemDetail({ item, onClose, onPotionUsed }: ItemDetailProps) {
           </button>
         </div>
 
-        <button
-          style={{
-            padding: "10px 12px",
-            fontSize: "14px",
-            width: "100%",
-            borderRadius: 4,
-          }}
-          onClick={onClose}
-        >
+        <button className="ui-full-width-btn ui-touch-target" onClick={onClose}>
           Close
         </button>
       </div>
-    </div>
+    </ModalShell>
   );
 }

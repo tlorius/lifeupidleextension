@@ -165,6 +165,26 @@ git push
 
 ---
 
+## 5.5 Copilot Refactor Guidance Files
+
+This repo includes project-specific Copilot customization files to keep generated code aligned with the refactor architecture.
+
+- Workspace baseline instructions: `copilot-instructions.md`
+- Implementation workflow skill: `.github/skills/refactor-implementation/SKILL.md`
+- Testing workflow skill: `.github/skills/refactor-testing/SKILL.md`
+
+When using AI-assisted edits for game logic, selectors, migrations, or tests, follow these files first before introducing new patterns.
+
+Quick routing:
+
+| If your task is...                                            | Use this file first                               |
+| ------------------------------------------------------------- | ------------------------------------------------- |
+| General project-wide implementation alignment                 | `copilot-instructions.md`                         |
+| Add/refactor actions, selectors, migrations, or feature logic | `.github/skills/refactor-implementation/SKILL.md` |
+| Add unit/integration/determinism/migration tests              | `.github/skills/refactor-testing/SKILL.md`        |
+
+---
+
 ## 6. Understanding the Codebase
 
 ### The Game State
