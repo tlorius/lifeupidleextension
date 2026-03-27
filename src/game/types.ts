@@ -1,4 +1,4 @@
-import type { CharacterState } from "./classes/types";
+import type { CharacterState, ClassId } from "./classes/types";
 
 export interface Meta {
   version: number;
@@ -242,7 +242,7 @@ export interface CombatState {
   spellCooldowns?: Record<string, number>;
   consumableCooldowns?: Record<string, number>;
   spellSynergyBuff?: {
-    sourceClassId?: string;
+    sourceClassId?: ClassId;
     nextClassSpellMultiplier?: number;
   };
 }
