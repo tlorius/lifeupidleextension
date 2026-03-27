@@ -181,4 +181,43 @@ describe("garden action handler", () => {
     });
     expect(unequipped.equipment.tool).toBeNull();
   });
+
+  it("produces identical state for identical deterministic action sequences", () => {
+    const base = createDefaultState();
+
+    const sequence = [
+      { type: "garden/selectPlanterSeed", seedId: "seed_corn" } as const,
+      {
+        type: "garden/assignPlanterTileSeed",
+        row: 1,
+        col: 2,
+        seedId: "seed_wheat",
+      } as const,
+      {
+        type: "garden/startSeedMaker",
+        seedId: "seed_carrot",
+      } as const,
+      {
+        type: "garden/selectSeedMakerRecipe",
+        seedId: "seed_corn",
+      } as const,
+      { type: "garden/stopSeedMaker" } as const,
+      {
+        type: "garden/equipTool",
+        toolUid: "deterministic_tool_uid",
+      } as const,
+      { type: "garden/unequipTool" } as const,
+    ];
+
+    const runSequence = () =>
+      sequence.reduce(
+        (next, action) => applyGardenAction(next, action),
+        structuredClone(base),
+      );
+
+    const first = runSequence();
+    const second = runSequence();
+
+    expect(first).toEqual(second);
+  });
 });

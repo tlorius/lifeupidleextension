@@ -20,28 +20,77 @@ export type InventoryAction =
   | { type: "inventory/sellSelectedItems"; itemUids: string[] }
   | { type: "inventory/addDebugItems" };
 
+type InventoryEquipItemAction = Extract<
+  InventoryAction,
+  { type: "inventory/equipItem" }
+>;
+type InventoryUpgradeItemAction = Extract<
+  InventoryAction,
+  { type: "inventory/upgradeItem" }
+>;
+type InventorySellItemAction = Extract<
+  InventoryAction,
+  { type: "inventory/sellItem" }
+>;
+type InventoryUsePotionAction = Extract<
+  InventoryAction,
+  { type: "inventory/usePotion" }
+>;
+
+function applyEquipItemAction(
+  state: GameState,
+  action: InventoryEquipItemAction,
+): GameState {
+  return equipItem(state, action.itemUid, action.slot);
+}
+
+function applyUpgradeItemAction(
+  state: GameState,
+  action: InventoryUpgradeItemAction,
+): GameState {
+  return upgradeItem(state, action.itemUid);
+}
+
+function applySellItemAction(
+  state: GameState,
+  action: InventorySellItemAction,
+): GameState {
+  return sellItem(state, action.itemUid);
+}
+
+function applyUsePotionAction(
+  state: GameState,
+  action: InventoryUsePotionAction,
+): GameState {
+  return usePotion(state, action.itemUid);
+}
+
+function applyAddDebugItemsAction(state: GameState): GameState {
+  return addDebugItems(state);
+}
+
 export function reduceInventoryAction(
   state: GameState,
   action: InventoryAction,
 ): GameState {
   switch (action.type) {
     case "inventory/equipItem":
-      return equipItem(state, action.itemUid, action.slot);
+      return applyEquipItemAction(state, action);
 
     case "inventory/upgradeItem":
-      return upgradeItem(state, action.itemUid);
+      return applyUpgradeItemAction(state, action);
 
     case "inventory/sellItem":
-      return sellItem(state, action.itemUid);
+      return applySellItemAction(state, action);
 
     case "inventory/usePotion":
-      return usePotion(state, action.itemUid);
+      return applyUsePotionAction(state, action);
 
     case "inventory/sellSelectedItems":
       return sellSelectedItems(state, action.itemUids);
 
     case "inventory/addDebugItems":
-      return addDebugItems(state);
+      return applyAddDebugItemsAction(state);
   }
 }
 

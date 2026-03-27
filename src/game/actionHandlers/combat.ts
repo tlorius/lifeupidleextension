@@ -16,28 +16,52 @@ export interface CombatActionResult {
   combatEvents: CombatEvent[];
 }
 
+type CombatConsumableAction = Extract<
+  CombatAction,
+  { type: "combat/useConsumable" }
+>;
+type CombatCastSpellAction = Extract<
+  CombatAction,
+  { type: "combat/castSpell" }
+>;
+
+function applyCombatClickAttackAction(state: GameState): CombatActionResult {
+  return toCombatActionResult(performClickAttack(state.combat, state), state);
+}
+
+function applyCombatConsumableAction(
+  state: GameState,
+  action: CombatConsumableAction,
+): CombatActionResult {
+  return toCombatActionResult(
+    useCombatConsumable(state.combat, state, action.itemUid),
+    state,
+  );
+}
+
+function applyCombatCastSpellAction(
+  state: GameState,
+  action: CombatCastSpellAction,
+): CombatActionResult {
+  return toCombatActionResult(
+    castCombatSpell(state.combat, state, action.spellId),
+    state,
+  );
+}
+
 export function applyCombatAction(
   state: GameState,
   action: CombatAction,
 ): CombatActionResult {
   switch (action.type) {
     case "combat/clickAttack":
-      return toCombatActionResult(
-        performClickAttack(state.combat, state),
-        state,
-      );
+      return applyCombatClickAttackAction(state);
 
     case "combat/useConsumable":
-      return toCombatActionResult(
-        useCombatConsumable(state.combat, state, action.itemUid),
-        state,
-      );
+      return applyCombatConsumableAction(state, action);
 
     case "combat/castSpell":
-      return toCombatActionResult(
-        castCombatSpell(state.combat, state, action.spellId),
-        state,
-      );
+      return applyCombatCastSpellAction(state, action);
   }
 }
 

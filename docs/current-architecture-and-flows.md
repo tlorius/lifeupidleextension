@@ -1,7 +1,9 @@
 # Current Architecture, Use Cases, and Runtime Flows
 
-Date: 2026-03-24
-Purpose: persistent source of truth for current game behavior before refactor work.
+Date: 2026-03-24 (Updated 2026-03-27)
+Purpose: persistent source of truth for current game behavior and architecture.
+
+**Note:** This document reflects the architecture **after** 18 coordinated refactoring phases (completed 2026-03-27). For context on how this architecture was built, see [REFACTOR-HISTORY.md](REFACTOR-HISTORY.md). For detailed historical information on specific architectural decisions, see `archive/refactor-phase-*.md`.
 
 ## 1. System Overview
 

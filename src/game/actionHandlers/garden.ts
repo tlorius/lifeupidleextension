@@ -139,6 +139,25 @@ export interface SeedBagPlantResult {
   lackedSeeds: boolean;
 }
 
+type StartSeedMakerAction = Extract<
+  GardenAction,
+  { type: "garden/startSeedMaker" }
+>;
+type SelectSeedMakerRecipeAction = Extract<
+  GardenAction,
+  { type: "garden/selectSeedMakerRecipe" }
+>;
+type SelectPlanterSeedAction = Extract<
+  GardenAction,
+  { type: "garden/selectPlanterSeed" }
+>;
+type AssignPlanterTileSeedAction = Extract<
+  GardenAction,
+  { type: "garden/assignPlanterTileSeed" }
+>;
+type PlantCropAction = Extract<GardenAction, { type: "garden/plantCrop" }>;
+type EquipToolAction = Extract<GardenAction, { type: "garden/equipTool" }>;
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -280,6 +299,128 @@ function consumeOneSeedFromInventory(
   }
 
   return { inventory: nextInventory, consumed: true };
+}
+
+function applySeedMakerStart(
+  state: GameState,
+  action: StartSeedMakerAction,
+): GameState {
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      automationTimers: {
+        ...(state.garden.automationTimers ?? {}),
+        seedMakerRemainderMs: 0,
+      },
+      seedMaker: {
+        ...(state.garden.seedMaker ?? {}),
+        isRunning: true,
+        selectedSeedId: action.seedId,
+      },
+    },
+  };
+}
+
+function applySeedMakerStop(state: GameState): GameState {
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      automationTimers: {
+        ...(state.garden.automationTimers ?? {}),
+        seedMakerRemainderMs: 0,
+      },
+      seedMaker: {
+        ...(state.garden.seedMaker ?? {}),
+        isRunning: false,
+      },
+    },
+  };
+}
+
+function applySeedMakerRecipeSelect(
+  state: GameState,
+  action: SelectSeedMakerRecipeAction,
+): GameState {
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      seedMaker: {
+        ...(state.garden.seedMaker ?? {}),
+        selectedSeedId: action.seedId,
+      },
+    },
+  };
+}
+
+function applyPlanterSeedSelect(
+  state: GameState,
+  action: SelectPlanterSeedAction,
+): GameState {
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      selectedPlanterSeedId: action.seedId,
+    },
+  };
+}
+
+function applyPlanterTileSeedAssign(
+  state: GameState,
+  action: AssignPlanterTileSeedAction,
+): GameState {
+  const key = `${action.row},${action.col}`;
+  return {
+    ...state,
+    garden: {
+      ...state.garden,
+      planterSeedSelections: {
+        ...(state.garden.planterSeedSelections ?? {}),
+        [key]: action.seedId,
+      },
+    },
+  };
+}
+
+function applyPlantCropAction(
+  state: GameState,
+  action: PlantCropAction,
+): GameState {
+  let next = plantCrop(state, action.cropId, action.row, action.col);
+  if (!action.consumeSeedId) return next;
+
+  next = {
+    ...next,
+    inventory: next.inventory.map((item) =>
+      item.itemId === action.consumeSeedId
+        ? { ...item, quantity: item.quantity - 1 }
+        : item,
+    ),
+  };
+  return next;
+}
+
+function applyToolEquip(state: GameState, action: EquipToolAction): GameState {
+  return {
+    ...state,
+    equipment: {
+      ...state.equipment,
+      tool: action.toolUid,
+    },
+  };
+}
+
+function applyToolUnequip(state: GameState): GameState {
+  return {
+    ...state,
+    equipment: {
+      ...state.equipment,
+      tool: null,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -443,87 +584,22 @@ export function applyGardenAction(
     }
 
     case "garden/startSeedMaker":
-      return {
-        ...state,
-        garden: {
-          ...state.garden,
-          automationTimers: {
-            ...(state.garden.automationTimers ?? {}),
-            seedMakerRemainderMs: 0,
-          },
-          seedMaker: {
-            ...(state.garden.seedMaker ?? {}),
-            isRunning: true,
-            selectedSeedId: action.seedId,
-          },
-        },
-      };
+      return applySeedMakerStart(state, action);
 
     case "garden/stopSeedMaker":
-      return {
-        ...state,
-        garden: {
-          ...state.garden,
-          automationTimers: {
-            ...(state.garden.automationTimers ?? {}),
-            seedMakerRemainderMs: 0,
-          },
-          seedMaker: {
-            ...(state.garden.seedMaker ?? {}),
-            isRunning: false,
-          },
-        },
-      };
+      return applySeedMakerStop(state);
 
     case "garden/selectSeedMakerRecipe":
-      return {
-        ...state,
-        garden: {
-          ...state.garden,
-          seedMaker: {
-            ...(state.garden.seedMaker ?? {}),
-            selectedSeedId: action.seedId,
-          },
-        },
-      };
+      return applySeedMakerRecipeSelect(state, action);
 
     case "garden/selectPlanterSeed":
-      return {
-        ...state,
-        garden: {
-          ...state.garden,
-          selectedPlanterSeedId: action.seedId,
-        },
-      };
+      return applyPlanterSeedSelect(state, action);
 
-    case "garden/assignPlanterTileSeed": {
-      const key = `${action.row},${action.col}`;
-      return {
-        ...state,
-        garden: {
-          ...state.garden,
-          planterSeedSelections: {
-            ...(state.garden.planterSeedSelections ?? {}),
-            [key]: action.seedId,
-          },
-        },
-      };
-    }
+    case "garden/assignPlanterTileSeed":
+      return applyPlanterTileSeedAssign(state, action);
 
-    case "garden/plantCrop": {
-      let next = plantCrop(state, action.cropId, action.row, action.col);
-      if (action.consumeSeedId) {
-        next = {
-          ...next,
-          inventory: next.inventory.map((item) =>
-            item.itemId === action.consumeSeedId
-              ? { ...item, quantity: item.quantity - 1 }
-              : item,
-          ),
-        };
-      }
-      return next;
-    }
+    case "garden/plantCrop":
+      return applyPlantCropAction(state, action);
 
     case "garden/harvestCrop":
       return harvestCrop(state, action.cropId, action.cropIndex);
@@ -631,21 +707,9 @@ export function applyGardenAction(
       ).nextState;
 
     case "garden/equipTool":
-      return {
-        ...state,
-        equipment: {
-          ...state.equipment,
-          tool: action.toolUid,
-        },
-      };
+      return applyToolEquip(state, action);
 
     case "garden/unequipTool":
-      return {
-        ...state,
-        equipment: {
-          ...state.equipment,
-          tool: null,
-        },
-      };
+      return applyToolUnequip(state);
   }
 }

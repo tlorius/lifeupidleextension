@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultState } from "../state";
-import { reduceInventoryAction } from "./inventory";
+import { reduceInventoryAction, type InventoryAction } from "./inventory";
 
 describe("inventory action handler", () => {
   it("keeps equipped items when selling a selected batch", () => {
@@ -39,5 +39,31 @@ describe("inventory action handler", () => {
     });
 
     expect(next).toBe(state);
+  });
+
+  it("produces identical inventory state for identical sell action sequences", () => {
+    const base = createDefaultState();
+    const seeded = reduceInventoryAction(base, {
+      type: "inventory/addDebugItems",
+    });
+
+    const weapon = seeded.inventory.find((entry) => entry.itemId === "sword_1");
+    if (!weapon) return;
+
+    const sequence: InventoryAction[] = [
+      { type: "inventory/equipItem", itemUid: weapon.uid },
+      { type: "inventory/sellSelectedItems", itemUids: [] },
+    ];
+
+    const runSequence = () =>
+      sequence.reduce(
+        (next, action) => reduceInventoryAction(next, action),
+        structuredClone(seeded),
+      );
+
+    const first = runSequence();
+    const second = runSequence();
+
+    expect(first).toEqual(second);
   });
 });

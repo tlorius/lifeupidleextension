@@ -29,4 +29,26 @@ describe("upgrade action handler", () => {
 
     expect(next).toBe(state);
   });
+
+  it("produces identical state for identical upgrade purchase sequences", () => {
+    const base = createDefaultState();
+    base.resources.gold = 5000;
+
+    const sequence = [
+      { type: "upgrade/buy" as const, upgradeId: "attack_i" },
+      { type: "upgrade/buy" as const, upgradeId: "defense_i" },
+      { type: "upgrade/buy" as const, upgradeId: "attack_i" },
+    ];
+
+    const runSequence = () =>
+      sequence.reduce(
+        (next, action) => reduceUpgradeAction(next, action),
+        structuredClone(base),
+      );
+
+    const first = runSequence();
+    const second = runSequence();
+
+    expect(first).toEqual(second);
+  });
 });

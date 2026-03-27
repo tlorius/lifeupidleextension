@@ -46,4 +46,27 @@ describe("combat action handler", () => {
     expect(next.state).toBe(state);
     expect(next.combatEvents).toEqual([]);
   });
+
+  it("produces identical results for identical combat action sequences", () => {
+    const base = createDefaultState();
+
+    const sequence = [
+      { type: "combat/clickAttack" } as const,
+      { type: "combat/clickAttack" } as const,
+      { type: "combat/clickAttack" } as const,
+    ];
+
+    const runSequence = () => {
+      let state = structuredClone(base);
+      for (const action of sequence) {
+        state = applyCombatAction(state, action).state;
+      }
+      return state;
+    };
+
+    const first = runSequence();
+    const second = runSequence();
+
+    expect(first).toEqual(second);
+  });
 });
