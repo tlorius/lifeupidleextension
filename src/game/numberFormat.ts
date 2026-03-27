@@ -126,7 +126,16 @@ export function formatCompactNumber(
  * Examples: 1000 → "1'000", 1234567 → "1'234'567", 999 → "999"
  */
 export function formatCombatNumber(value: number): string {
-  return Math.round(value)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  const rounded = Math.round(value);
+  if (!Number.isFinite(rounded)) {
+    return rounded > 0 ? "Infinity" : "-Infinity";
+  }
+
+  // Use locale grouping to avoid scientific notation for very large values.
+  return rounded
+    .toLocaleString("en-US", {
+      useGrouping: true,
+      maximumFractionDigits: 0,
+    })
+    .replace(/,/g, "'");
 }

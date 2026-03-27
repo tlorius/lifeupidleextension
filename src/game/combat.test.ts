@@ -126,6 +126,22 @@ describe("combat engine", () => {
     );
   });
 
+  it("keeps full large click damage values in playerHit event payload", () => {
+    const state = createDefaultState();
+    state.stats.attack = 1_234_567_890;
+    state.stats.critChance = 0;
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 50_000_000_000;
+
+    const expectedHit = calculatePlayerHit(state, () => 0.5, "click");
+    const result = performClickAttack(runtime, state, () => 0.5);
+    const eventHit = result.events.find((event) => event.type === "playerHit");
+
+    expect(expectedHit.damage).toBeGreaterThan(1_000_000_000);
+    expect(eventHit?.value).toBe(expectedHit.damage);
+  });
+
   it("casts arcane bolt, spends mana, and starts spell cooldown", () => {
     const state = createDefaultState();
     state.playerProgress.level = 8;

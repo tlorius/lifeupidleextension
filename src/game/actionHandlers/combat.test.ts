@@ -72,4 +72,19 @@ describe("combat action handler", () => {
 
     expect(first).toEqual(second);
   });
+
+  it("preserves full playerHit value for very large click damage", () => {
+    const state = createDefaultState();
+    state.stats.attack = 1_234_567_890;
+    state.stats.critChance = 0;
+    state.combat.enemy.currentHp = 50_000_000_000;
+
+    const next = applyCombatAction(state, { type: "combat/clickAttack" });
+    const playerHit = next.combatEvents.find(
+      (event) => event.type === "playerHit",
+    );
+
+    expect(playerHit).toBeTruthy();
+    expect(playerHit?.value ?? 0).toBeGreaterThan(1_000_000_000);
+  });
 });

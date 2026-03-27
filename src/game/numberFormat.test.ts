@@ -36,6 +36,10 @@ describe("formatCombatNumber", () => {
     expect(formatCombatNumber(1000000000)).toBe("1'000'000'000");
   });
 
+  it("formats very large values without scientific notation", () => {
+    expect(formatCombatNumber(1e24)).toBe("1'000'000'000'000'000'000'000'000");
+  });
+
   it("rounds to nearest integer before formatting", () => {
     expect(formatCombatNumber(1000.7)).toBe("1'001");
   });

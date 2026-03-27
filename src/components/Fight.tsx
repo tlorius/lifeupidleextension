@@ -62,18 +62,18 @@ const PLAYER_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
   { minDamage: 0, desktopSize: 16, mobileSize: 13 },
   { minDamage: 1_000, desktopSize: 18, mobileSize: 14 },
   { minDamage: 100_000, desktopSize: 20, mobileSize: 17 },
-  { minDamage: 1_000_000, desktopSize: 24, mobileSize: 20 },
+  { minDamage: 1_000_000, desktopSize: 26, mobileSize: 22 },
   { minDamage: 100_000_000, desktopSize: 30, mobileSize: 24 },
-  { minDamage: 1_000_000_000, desktopSize: 36, mobileSize: 29 },
+  { minDamage: 1_000_000_000, desktopSize: 56, mobileSize: 45 },
 ];
 
 const ENEMY_DAMAGE_FONT_BRACKETS: DamageFontBracket[] = [
   { minDamage: 0, desktopSize: 14, mobileSize: 12 },
   { minDamage: 1_000, desktopSize: 16, mobileSize: 13 },
   { minDamage: 100_000, desktopSize: 19, mobileSize: 16 },
-  { minDamage: 1_000_000, desktopSize: 23, mobileSize: 19 },
+  { minDamage: 1_000_000, desktopSize: 25, mobileSize: 21 },
   { minDamage: 100_000_000, desktopSize: 28, mobileSize: 23 },
-  { minDamage: 1_000_000_000, desktopSize: 33, mobileSize: 27 },
+  { minDamage: 1_000_000_000, desktopSize: 52, mobileSize: 42 },
 ];
 
 const DAMAGE_TEXT_FIT_CONFIG: DamageTextFitConfig = {
