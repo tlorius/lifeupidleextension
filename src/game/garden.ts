@@ -531,23 +531,52 @@ type SprinklerCoverageProfile = {
   diagonalRange: number;
 };
 
+function normalizeAutomationToolId(toolId: string): string {
+  return toolId
+    .replace(/_variant\d+/g, "")
+    .replace(/_\d+$/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .toLowerCase();
+}
+
+function getAutomationToolRangeSize(toolId: string): number {
+  const normalized = normalizeAutomationToolId(toolId);
+  const toolDef =
+    (toolDefinitions[toolId] as
+      | { stats?: { waterRange?: number } }
+      | undefined) ??
+    (toolDefinitions[normalized] as
+      | { stats?: { waterRange?: number } }
+      | undefined);
+
+  const configuredWaterRange = toolDef?.stats?.waterRange;
+  if (
+    typeof configuredWaterRange === "number" &&
+    Number.isFinite(configuredWaterRange) &&
+    configuredWaterRange > 0
+  ) {
+    return configuredWaterRange;
+  }
+
+  // Fallback for any ids not explicitly authored in TOOL_CONFIG.
+  if (normalized.includes("unique")) return 7;
+  if (normalized.includes("legendary")) return 5;
+  if (normalized.includes("epic")) return 3;
+  if (normalized.includes("rare")) return 3;
+  return 1;
+}
+
+function getAutomationToolRadius(toolId: string): number {
+  const rangeSize = getAutomationToolRangeSize(toolId);
+  return Math.max(0, Math.floor((rangeSize - 1) / 2));
+}
+
 export function getSprinklerCoverageProfile(
   toolId: string,
 ): SprinklerCoverageProfile {
-  if (toolId.includes("unique")) {
-    return { crossRange: 3, diagonalRange: 3 };
-  }
-  if (toolId.includes("legendary")) {
-    return { crossRange: 2, diagonalRange: 2 };
-  }
-  if (toolId.includes("epic")) {
-    return { crossRange: 1, diagonalRange: 1 };
-  }
-  if (toolId.includes("rare")) {
-    return { crossRange: 1, diagonalRange: 0 };
-  }
-  // Common: only itself
-  return { crossRange: 0, diagonalRange: 0 };
+  const radius = getAutomationToolRadius(toolId);
+  return { crossRange: radius, diagonalRange: radius };
 }
 
 export function sprinklerCoversField(
@@ -559,22 +588,10 @@ export function sprinklerCoversField(
   const dc = targetPos.col - sprinklerPos.col;
   const absDr = Math.abs(dr);
   const absDc = Math.abs(dc);
+  const radius = getAutomationToolRadius(sprinklerId);
 
-  // A sprinkler always covers its own tile.
-  if (absDr === 0 && absDc === 0) return true;
-
-  const { crossRange, diagonalRange } =
-    getSprinklerCoverageProfile(sprinklerId);
-
-  // Cross coverage: up/down/left/right out to crossRange.
-  const onCross = (dr === 0 || dc === 0) && absDr + absDc <= crossRange;
-  if (onCross) return true;
-
-  // Diagonal coverage: diagonal rays out to diagonalRange.
-  const onDiagonal = absDr === absDc && absDr <= diagonalRange;
-  if (onDiagonal) return true;
-
-  return false;
+  // Coverage is square-shaped and driven by tool-defined range size.
+  return Math.max(absDr, absDc) <= radius;
 }
 
 function applySprinklerMapUpdate(
@@ -899,23 +916,11 @@ function getToolCoverageTiles(
   center: FieldPosition,
   toolId: string,
 ): FieldPosition[] {
-  const { crossRange, diagonalRange } = getSprinklerCoverageProfile(toolId);
-  const maxRange = Math.max(crossRange, diagonalRange);
+  const maxRange = getAutomationToolRadius(toolId);
   const tiles: FieldPosition[] = [];
 
   for (let dr = -maxRange; dr <= maxRange; dr++) {
     for (let dc = -maxRange; dc <= maxRange; dc++) {
-      const absDr = Math.abs(dr);
-      const absDc = Math.abs(dc);
-      if (absDr === 0 && absDc === 0) {
-        tiles.push({ row: center.row, col: center.col });
-        continue;
-      }
-
-      const onCross = (dr === 0 || dc === 0) && absDr + absDc <= crossRange;
-      const onDiagonal = absDr === absDc && absDr <= diagonalRange;
-      if (!onCross && !onDiagonal) continue;
-
       tiles.push({ row: center.row + dr, col: center.col + dc });
     }
   }
@@ -1006,7 +1011,7 @@ function applyPlanterCycle(state: GameState): void {
         if (hasCropAtExactPosition(state, tile.row, tile.col)) continue;
         const consumed = consumeOneSeedFromInventory(state, selectedSeedId);
         if (!consumed) {
-          return;
+          break;
         }
 
         const next = plantCrop(state, cropId, tile.row, tile.col);

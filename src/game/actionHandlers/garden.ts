@@ -20,6 +20,7 @@ import {
   getCropDef,
   getGrowthProgress,
 } from "../garden";
+import { TOOL_CONFIG } from "../gameConfig";
 import { resolveGardenCropIdFromSeed } from "../selectors/garden";
 import type { GameState, FieldPosition } from "../types";
 
@@ -172,25 +173,44 @@ function normalizeToolId(toolId: string | null | undefined): string {
     .toLowerCase();
 }
 
+function getToolRangeSize(toolId: string): number {
+  const normalized = normalizeToolId(toolId);
+  const toolDef =
+    (TOOL_CONFIG[toolId as keyof typeof TOOL_CONFIG] as
+      | { stats?: { waterRange?: number; harvestRange?: number } }
+      | undefined) ??
+    (TOOL_CONFIG[normalized as keyof typeof TOOL_CONFIG] as
+      | { stats?: { waterRange?: number; harvestRange?: number } }
+      | undefined);
+
+  const configuredRange =
+    toolDef?.stats?.harvestRange && toolDef.stats.harvestRange > 0
+      ? toolDef.stats.harvestRange
+      : toolDef?.stats?.waterRange;
+
+  if (
+    typeof configuredRange === "number" &&
+    Number.isFinite(configuredRange) &&
+    configuredRange > 0
+  ) {
+    return configuredRange;
+  }
+
+  // Fallback for ids without authored ranges.
+  if (normalized.includes("unique")) return 7;
+  if (normalized.includes("legendary")) return 5;
+  if (normalized.includes("epic")) return 3;
+  if (normalized.includes("rare")) return 3;
+  return 1;
+}
+
 function getToolCoverageTiles(
   centerRow: number,
   centerCol: number,
   toolId: string,
 ): FieldPosition[] {
-  const normalized = normalizeToolId(toolId);
-  const isRare = normalized.includes("rare");
-  const isEpic = normalized.includes("epic");
-  const isLegendary = normalized.includes("legendary");
-  const isUnique = normalized.includes("unique");
-
-  let squareRadius = 0;
-  if (isUnique) {
-    squareRadius = 3;
-  } else if (isLegendary) {
-    squareRadius = 2;
-  } else if (isEpic) {
-    squareRadius = 1;
-  }
+  const rangeSize = getToolRangeSize(toolId);
+  const squareRadius = Math.max(0, Math.floor((rangeSize - 1) / 2));
 
   const tilesWithDistance: Array<{
     row: number;
@@ -201,26 +221,12 @@ function getToolCoverageTiles(
 
   for (let dr = -squareRadius; dr <= squareRadius; dr++) {
     for (let dc = -squareRadius; dc <= squareRadius; dc++) {
-      const absDr = Math.abs(dr);
-      const absDc = Math.abs(dc);
-
-      if (isRare) {
-        const isCross = absDr + absDc <= 1;
-        if (!isCross) continue;
-      }
-
-      if (squareRadius === 0 && !isRare) {
-        if (absDr !== 0 || absDc !== 0) continue;
-      }
-
-      if (squareRadius > 0 || isRare || (absDr === 0 && absDc === 0)) {
-        tilesWithDistance.push({
-          row: centerRow + dr,
-          col: centerCol + dc,
-          dr,
-          dc,
-        });
-      }
+      tilesWithDistance.push({
+        row: centerRow + dr,
+        col: centerCol + dc,
+        dr,
+        dc,
+      });
     }
   }
 
