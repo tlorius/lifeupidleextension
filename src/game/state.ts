@@ -44,6 +44,8 @@ export function createDefaultState(): GameState {
       enemyAttackRemainderMs: 0,
       spellCooldowns: {},
       consumableCooldowns: {},
+      fightMode: "progression",
+      farmingTargetLevel: 1,
     },
     temporaryEffects: {
       goldIncomeBoostPercent: 0,

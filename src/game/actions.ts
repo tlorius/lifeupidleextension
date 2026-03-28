@@ -156,6 +156,7 @@ export function applyGameAction(
     case "combat/clickAttack":
     case "combat/useConsumable":
     case "combat/castSpell":
+    case "combat/setFightMode":
       return applyCombatAction(state, action);
 
     case "inventory/equipItem":

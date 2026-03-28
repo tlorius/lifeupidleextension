@@ -2,6 +2,7 @@ import {
   COMBAT_CHASE_DROP_CONFIG,
   COMBAT_LOOT_TABLES,
   COMBAT_RUBY_DROP_CONFIG,
+  getEffectiveDropRateMultiplier,
   getRubyDropChanceForLevel,
   type CombatLootEntry,
 } from "./combatConfig";
@@ -78,6 +79,7 @@ function applyLootDrops(state: GameState, drops: CombatLootDrop[]): GameState {
 export function resolveBossLootDrops(
   enemy: CombatEnemyInstance,
   rng: CombatRng = Math.random,
+  dropRateMultiplier: number = 1,
 ): CombatLootDrop[] {
   if (enemy.kind !== "boss") return [];
 
@@ -105,7 +107,11 @@ export function resolveBossLootDrops(
         });
       }
 
-      const weightedRolls = Math.max(1, Math.floor(table.weightedRolls ?? 1));
+      const baseRolls = Math.max(1, Math.floor(table.weightedRolls ?? 1));
+      const weightedRolls = Math.max(
+        1,
+        Math.round(baseRolls * dropRateMultiplier),
+      );
       for (let rollIndex = 0; rollIndex < weightedRolls; rollIndex += 1) {
         const weightedEntry = pickWeightedEntry(table.weighted, rng);
         if (!weightedEntry) continue;
@@ -123,7 +129,7 @@ export function resolveBossLootDrops(
 
   if (
     enemy.level >= COMBAT_CHASE_DROP_CONFIG.unlocksAtLevel &&
-    rng() < COMBAT_CHASE_DROP_CONFIG.chance
+    rng() < COMBAT_CHASE_DROP_CONFIG.chance * dropRateMultiplier
   ) {
     const chaseTable = COMBAT_LOOT_TABLES[COMBAT_CHASE_DROP_CONFIG.lootTableId];
     const chaseEntry = chaseTable
@@ -213,7 +219,14 @@ export function applyEnemyReward(
     });
   }
 
-  const lootDrops = resolveBossLootDrops(runtime.enemy, rng);
+  const lootDrops = resolveBossLootDrops(
+    runtime.enemy,
+    rng,
+    getEffectiveDropRateMultiplier(
+      runtime.fightMode ?? "progression",
+      runtime.enemy.level,
+    ),
+  );
   if (lootDrops.length > 0) {
     nextState = applyLootDrops(nextState, lootDrops);
     for (const drop of lootDrops) {
@@ -226,9 +239,12 @@ export function applyEnemyReward(
     }
   }
 
-  const nextLevel = runtime.currentLevel + 1;
+  const isFarming = runtime.fightMode === "farming";
+  const nextLevel = isFarming
+    ? Math.max(1, runtime.farmingTargetLevel ?? runtime.currentLevel)
+    : runtime.currentLevel + 1;
   const checkpointLevel =
-    runtime.enemy.kind === "boss"
+    !isFarming && runtime.enemy.kind === "boss"
       ? Math.max(runtime.lastBossCheckpointLevel, nextLevel)
       : runtime.lastBossCheckpointLevel;
   const maxHp = options.getPlayerMaxHp(nextState);
@@ -236,7 +252,9 @@ export function applyEnemyReward(
   const nextRuntime: CombatRuntimeState = {
     ...runtime,
     currentLevel: nextLevel,
-    highestLevelReached: Math.max(runtime.highestLevelReached, nextLevel),
+    highestLevelReached: isFarming
+      ? runtime.highestLevelReached
+      : Math.max(runtime.highestLevelReached, nextLevel),
     lastBossCheckpointLevel: checkpointLevel,
     playerCurrentHp: Math.min(maxHp, runtime.playerCurrentHp + hpDelta),
     enemy: options.createEnemyInstance(nextLevel),

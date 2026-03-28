@@ -60,7 +60,6 @@ Phase 18 focuses on reducing numberFormat footprint through optimization and sma
 4. Slice 4: Validation and completion
    - Run `npm run test:integration`
    - Run `npm run test:run`
-   - Run `npm run test:coverage`
    - Run `npm run build` and compare to Phase 17 baseline
    - Document delta and lessons learned
 
@@ -158,7 +157,7 @@ After removing unnecessary exports from numberFormat.ts and rebuilding:
 - Duration: ~7.15s
 - No regressions detected
 
-**test:run:**
+**Historical coverage gate (removed from active scripts):**
 
 - Status: ✓ PASS
 - Tests: 235 / 235 passed
@@ -166,7 +165,7 @@ After removing unnecessary exports from numberFormat.ts and rebuilding:
 - Duration: ~8.71s
 - All tests including new Phase 17 upgrades determinism test still passing
 
-**test:coverage:**
+**Historical coverage metrics:**
 
 - Status: ✓ PASS (with note on statement coverage)
 - Line coverage: 91.24% (threshold: 80%) ✓

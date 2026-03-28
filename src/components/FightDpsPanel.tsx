@@ -197,8 +197,8 @@ export function FightDpsPanel({
               >
                 <defs>
                   <linearGradient id="fightDpsFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="rgba(86, 224, 153, 0.7)" />
-                    <stop offset="100%" stopColor="rgba(86, 224, 153, 0.05)" />
+                    <stop offset="0%" stopColor="rgba(220, 80, 80, 0.65)" />
+                    <stop offset="100%" stopColor="rgba(220, 80, 80, 0.05)" />
                   </linearGradient>
                 </defs>
                 {/* Horizontal grid lines for each y-axis tick */}
@@ -229,8 +229,8 @@ export function FightDpsPanel({
                 {/* Line */}
                 <polyline
                   fill="none"
-                  stroke="#72f2a4"
-                  strokeWidth="1.8"
+                  stroke="#e05c5c"
+                  strokeWidth="1.2"
                   points={metrics.dpsGraphPoints}
                 />
               </svg>

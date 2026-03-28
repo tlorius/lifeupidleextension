@@ -22,6 +22,8 @@ interface OfflineSimulationDeps {
   ) => { runtime: CombatRuntimeState; state: GameState; events: any[] };
 }
 
+const MAX_OFFLINE_COMBAT_STEPS = 25_000;
+
 export function resolveOfflineCombatExpected(
   runtime: CombatRuntimeState,
   state: GameState,
@@ -46,8 +48,27 @@ export function resolveOfflineCombatExpected(
   let levelsCleared = 0;
   let defeatedByEnemy = false;
   let itemsGained = 0;
+  let steps = 0;
 
-  while (remainingMs > 0) {
+  while (remainingMs > 0 && steps < MAX_OFFLINE_COMBAT_STEPS) {
+    steps += 1;
+
+    // Recover from a saved defeated-enemy state so offline initialization can
+    // advance instead of spinning on a zero-time kill forever.
+    if (
+      !Number.isFinite(nextRuntime.enemy.currentHp) ||
+      nextRuntime.enemy.currentHp <= 0
+    ) {
+      const rewarded = deps.applyEnemyReward(nextRuntime, nextState, rng);
+      nextRuntime = rewarded.runtime;
+      nextState = rewarded.state;
+      levelsCleared += 1;
+      itemsGained += rewarded.events
+        .filter((event) => event.type === "lootGranted")
+        .reduce((sum, event) => sum + Math.max(0, event.quantity ?? 0), 0);
+      continue;
+    }
+
     const playerDps = deps.getExpectedPlayerDps(nextState);
     const enemyDps = deps.getExpectedEnemyDps(nextRuntime, nextState);
 
@@ -63,7 +84,13 @@ export function resolveOfflineCombatExpected(
         : (nextRuntime.playerCurrentHp / enemyDps) * 1000;
 
     if (timeToDieMs <= timeToKillMs) {
-      const resetLevel = Math.max(1, nextRuntime.lastBossCheckpointLevel || 1);
+      const resetLevel =
+        nextRuntime.fightMode === "farming"
+          ? Math.max(
+              1,
+              nextRuntime.farmingTargetLevel ?? nextRuntime.currentLevel,
+            )
+          : Math.max(1, nextRuntime.lastBossCheckpointLevel || 1);
       nextRuntime = {
         ...nextRuntime,
         currentLevel: resetLevel,

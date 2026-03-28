@@ -6,6 +6,7 @@ import {
   getGeneralCombatSpellPath,
 } from "../game/combat";
 import { getSpellSlotsForLevel } from "../game/classes";
+import { SpellIconTile } from "./SpellIcon";
 import { ModalShell } from "./ui/ModalShell";
 
 interface SpellSelectModalProps {
@@ -82,7 +83,19 @@ export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
                     </div>
                     <div className="ui-spell-slot-value">
                       {selectedSpell ? (
-                        <span style={{ color: "#a8d5ff" }}>
+                        <span
+                          style={{
+                            color: "#a8d5ff",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <SpellIconTile
+                            spellId={selectedSpell.id}
+                            tileSize={26}
+                            size={13}
+                          />
                           {selectedSpell.name}
                         </span>
                       ) : (
@@ -132,7 +145,19 @@ export function SpellSelectModal({ isOpen, onClose }: SpellSelectModalProps) {
                           }}
                         >
                           <div className="ui-spell-option-head">
-                            <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <SpellIconTile
+                                spellId={spell.id}
+                                tileSize={30}
+                                size={15}
+                                dimmed={isAlreadySlotted && !isSelected}
+                              />
                               <strong>{spell.name}</strong>
                               {isAlreadySlotted && !isSelected && (
                                 <span

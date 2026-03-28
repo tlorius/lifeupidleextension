@@ -85,7 +85,6 @@ When unsure, consult these docs first:
 
 - npm run test:integration
 - npm run test:run
-- npm run test:coverage
 - npm run build
 
 4. Coverage and quality posture

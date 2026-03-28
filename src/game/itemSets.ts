@@ -8,6 +8,7 @@ export interface UniqueSetDefinition {
   classId: ClassId;
   twoPiece: Partial<Stats>;
   fourPiece: Partial<Stats>;
+  fourPieceSetStatBonusPercent?: number;
   fivePiece: Partial<Stats>;
   fivePieceSpellBonus?: {
     spellId: string;
@@ -26,12 +27,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       goldIncome: 3200,
       energyRegeneration: 520,
     },
-    fourPiece: {
-      attack: 18500,
-      intelligence: 9200,
-      goldIncome: 14000,
-      hp: 42000,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 68000,
       intelligence: 26000,
@@ -48,12 +45,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       energyRegeneration: 3600,
       attack: 2200,
     },
-    fourPiece: {
-      attack: 17000,
-      intelligence: 32000,
-      energyRegeneration: 13500,
-      critChance: 140,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 62000,
       intelligence: 90000,
@@ -71,12 +64,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       goldIncome: 2800,
       hp: 18000,
     },
-    fourPiece: {
-      attack: 14000,
-      plantGrowth: 18000,
-      wateringDuration: 14000,
-      petStrength: 8200,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 54000,
       plantGrowth: 54000,
@@ -93,12 +82,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       agility: 2600,
       petStrength: 6800,
     },
-    fourPiece: {
-      attack: 24000,
-      hp: 62000,
-      petStrength: 30000,
-      critChance: 120,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 84000,
       hp: 220000,
@@ -115,12 +100,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       attack: 7600,
       agility: 2200,
     },
-    fourPiece: {
-      critChance: 260,
-      attack: 34000,
-      agility: 12000,
-      hp: 68000,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       critChance: 420,
       attack: 120000,
@@ -137,11 +118,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       attack: 6200,
       critChance: 90,
     },
-    fourPiece: {
-      agility: 26000,
-      attack: 30000,
-      critChance: 240,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       agility: 92000,
       attack: 100000,
@@ -158,12 +136,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       hp: 42000,
       critChance: 160,
     },
-    fourPiece: {
-      attack: 52000,
-      hp: 180000,
-      defense: 22000,
-      agility: 14000,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 210000,
       hp: 620000,
@@ -185,12 +159,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       intelligence: 18000,
       energyRegeneration: 6200,
     },
-    fourPiece: {
-      attack: 38000,
-      intelligence: 90000,
-      energyRegeneration: 36000,
-      critChance: 210,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 160000,
       intelligence: 340000,
@@ -213,12 +183,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       plantGrowth: 7200,
       wateringDuration: 6200,
     },
-    fourPiece: {
-      attack: 32000,
-      hp: 240000,
-      plantGrowth: 42000,
-      wateringDuration: 32000,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 140000,
       hp: 820000,
@@ -240,12 +206,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       agility: 9000,
       critChance: 180,
     },
-    fourPiece: {
-      attack: 46000,
-      agility: 52000,
-      critChance: 360,
-      hp: 120000,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 180000,
       agility: 220000,
@@ -267,12 +229,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       goldIncome: 11000,
       energyRegeneration: 4200,
     },
-    fourPiece: {
-      attack: 30000,
-      goldIncome: 72000,
-      energyRegeneration: 22000,
-      hp: 130000,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 130000,
       goldIncome: 280000,
@@ -294,12 +252,8 @@ export const uniqueSetDefinitions: Record<string, UniqueSetDefinition> = {
       petStrength: 11000,
       agility: 5200,
     },
-    fourPiece: {
-      attack: 42000,
-      petStrength: 62000,
-      hp: 210000,
-      critChance: 240,
-    },
+    fourPiece: {},
+    fourPieceSetStatBonusPercent: 100,
     fivePiece: {
       attack: 170000,
       petStrength: 260000,

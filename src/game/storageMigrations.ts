@@ -115,7 +115,10 @@ export function migrateState(loaded: unknown): GameState {
 
   let migrated = runVersionMigrations(merged, loadedVersion);
 
-  if (typeof migrated.meta.lastUpdate !== "number") {
+  if (
+    typeof migrated.meta.lastUpdate !== "number" ||
+    !Number.isFinite(migrated.meta.lastUpdate)
+  ) {
     migrated.meta.lastUpdate = Date.now();
   }
 

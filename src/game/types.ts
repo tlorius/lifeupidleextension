@@ -245,6 +245,8 @@ export interface CombatState {
     sourceClassId?: ClassId;
     nextClassSpellMultiplier?: number;
   };
+  fightMode?: "progression" | "farming";
+  farmingTargetLevel?: number;
 }
 
 export interface GameState {

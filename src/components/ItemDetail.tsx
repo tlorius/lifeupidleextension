@@ -131,6 +131,7 @@ export function ItemDetail({
 
   const formatStatLabel = (stat: string): string =>
     stat.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+  const fourPieceEntries = setDef ? Object.entries(setDef.fourPiece) : [];
 
   const renderDotIndicator = (
     selectedValue: number,
@@ -326,7 +327,13 @@ export function ItemDetail({
                     4-piece {fourPieceActive ? "(active)" : "(inactive)"}
                   </strong>
                   <div style={{ marginTop: 4 }}>
-                    {Object.entries(setDef.fourPiece).map(([key, value]) => (
+                    {(setDef.fourPieceSetStatBonusPercent ?? 0) > 0 ? (
+                      <div style={{ fontSize: 12 }}>
+                        +{setDef.fourPieceSetStatBonusPercent}% to all equipped
+                        set item stats
+                      </div>
+                    ) : null}
+                    {fourPieceEntries.map(([key, value]) => (
                       <div key={`four-${key}`} style={{ fontSize: 12 }}>
                         +
                         {formatCompactNumber(value ?? 0, {

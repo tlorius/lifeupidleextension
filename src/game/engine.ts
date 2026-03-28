@@ -581,6 +581,14 @@ export function getEquipmentStats(state: GameState): Partial<Stats> {
     const def = getItemDefSafe(item.itemId);
     if (!def || !def.stats) continue;
 
+    let bonusMultiplier = 1;
+    if (def.rarity === "unique" && def.setId) {
+      const setDef = uniqueSetDefinitions[def.setId];
+      if (setDef && hasSetPieceThreshold(state, setDef, 4)) {
+        bonusMultiplier += (setDef.fourPieceSetStatBonusPercent ?? 0) / 100;
+      }
+    }
+
     // Calculate stat values for this item
     for (const [key, value] of Object.entries(def.stats)) {
       if (value !== undefined && typeof value === "number") {
@@ -588,6 +596,7 @@ export function getEquipmentStats(state: GameState): Partial<Stats> {
           value,
           item.level,
           def.rarity || "common",
+          bonusMultiplier,
         );
         stats[key as keyof Stats] = (stats[key as keyof Stats] ?? 0) + stat;
       }

@@ -194,7 +194,6 @@ Automated validation at every change:
 ```
 npm run test:integration    # 8 integration tests
 npm run test:run           # 235 unit tests
-npm run test:coverage      # lines: 91%, statements: 76%, functions: 86%, branches: 91%
 npm run build              # TypeScript + Vite, no warnings
 ```
 

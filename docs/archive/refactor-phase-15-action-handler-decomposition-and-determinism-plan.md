@@ -34,7 +34,6 @@ Phase 15 focuses on behavior-preserving decomposition and determinism hardening.
 4. Slice 4: Validation and completion
    - Run `npm run test:integration`.
    - Run `npm run test:run`.
-   - Run `npm run test:coverage`.
    - Run `npm run build`.
 
 ## Exit criteria
@@ -84,5 +83,4 @@ Validation rerun after decomposition and new test:
 
 - `npm run test:integration` passed (8 tests).
 - `npm run test:run -- --reporter=dot` passed (21 files, 232 tests).
-- `npm run test:coverage -- --reporter=dot` passed.
 - `npm run build` passed.

@@ -62,6 +62,10 @@ export function useGameActions() {
       dispatch({ type: "combat/useConsumable", itemUid }),
     combatCastSpell: (spellId: string) =>
       dispatch({ type: "combat/castSpell", spellId }),
+    combatSetFightMode: (
+      mode: "progression" | "farming",
+      targetLevel?: number,
+    ) => dispatch({ type: "combat/setFightMode", mode, targetLevel }),
 
     tickSpeedMultiplier,
     setTickSpeedMultiplier: (multiplier: 1 | 10 | 100) =>

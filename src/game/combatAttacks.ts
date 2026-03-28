@@ -180,7 +180,10 @@ function resolvePlayerDefeat(
   getPlayerMaxHp: (state: GameState) => number,
   createEnemyInstance: (level: number) => any,
 ): CombatTickResult {
-  const resetLevel = Math.max(1, runtime.lastBossCheckpointLevel || 1);
+  const resetLevel =
+    runtime.fightMode === "farming"
+      ? Math.max(1, runtime.farmingTargetLevel ?? runtime.currentLevel)
+      : Math.max(1, runtime.lastBossCheckpointLevel || 1);
   return {
     runtime: {
       ...runtime,

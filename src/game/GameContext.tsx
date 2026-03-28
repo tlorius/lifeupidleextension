@@ -41,6 +41,8 @@ type InitializationResult = {
   idleFightReview: IdleFightReview | null;
 };
 
+const MAX_OFFLINE_CATCHUP_MS = 1000 * 60 * 60 * 24 * 14;
+
 function initializeGameState(): InitializationResult {
   let initialState = load() ?? createDefaultState();
   const dailyCheckIn = applyIdlerDailyCheckIn(initialState);
@@ -50,7 +52,10 @@ function initializeGameState(): InitializationResult {
     typeof initialState.meta.lastUpdate === "number"
       ? initialState.meta.lastUpdate
       : now;
-  const delta = Math.max(0, now - lastUpdate);
+  const rawDelta = now - lastUpdate;
+  const delta = Number.isFinite(rawDelta)
+    ? Math.max(0, Math.min(rawDelta, MAX_OFFLINE_CATCHUP_MS))
+    : 0;
   const beforeGold = initialState.resources.gold;
   const beforeGems = initialState.resources.gems ?? 0;
   const beforePlayerLevel = initialState.playerProgress.level;

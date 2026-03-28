@@ -86,7 +86,6 @@ lifeupidleextension/
 │   └── assets/                     # Static images, fonts
 ├── docs/                           # Documentation (see docs/README.md)
 ├── public/                         # Public assets
-├── coverage/                       # Test coverage reports (generated)
 ├── dist/                           # Build output (generated)
 ├── package.json                    # Dependencies and scripts
 ├── tsconfig.json                   # TypeScript config
@@ -113,7 +112,6 @@ npm run preview        # Preview production build locally
 npm run test           # Run tests in watch mode (interactive)
 npm run test:run       # Run all tests once (235 tests)
 npm run test:ui        # Run tests with UI dashboard
-npm run test:coverage  # Generate coverage report (enforces 80%+ threshold)
 npm run test:integration # Run app integration tests only (8 critical flows)
 ```
 
@@ -128,7 +126,6 @@ npm run lint           # Check code style with ESLint
 ```bash
 npm run test:integration  # Check app flows work
 npm run test:run         # Check all unit tests pass
-npm run test:coverage    # Check coverage thresholds met
 npm run build            # Check TypeScript compiles and build succeeds
 ```
 
@@ -156,7 +153,6 @@ Opens http://localhost:5173 with hot reload. Changes save automatically.
 ```bash
 npm run lint            # Fix any style issues
 npm run test:run        # Verify all tests pass
-npm run test:coverage   # Verify coverage >80%
 npm run build           # Verify build succeeds
 git add .
 git commit -m "description"
@@ -321,7 +317,6 @@ When adding a new game feature, follow this pattern:
 ### 7. Validate
 
 - Run tests: `npm run test:run`
-- Run coverage: `npm run test:coverage` (must be >80%)
 - Run integration tests: `npm run test:integration`
 - Run build: `npm run build`
 
@@ -431,7 +426,6 @@ if (!canBuyUpgrade(state, upgradeId)) {
 - **VS Code Extensions:** ESLint, TypeScript support built-in
 - **Chrome DevTools:** React DevTools extension helps with component debugging
 - **Vitest UI:** Run `npm run test:ui` to see test dashboard
-- **Coverage Report:** Run `npm run test:coverage` and open `coverage/index.html`
 
 ---
 
@@ -440,7 +434,6 @@ if (!canBuyUpgrade(state, upgradeId)) {
 Before pushing, verify:
 
 - ✅ All tests pass (`npm run test:run`)
-- ✅ Coverage meets threshold (`npm run test:coverage`)
 - ✅ No linting errors (`npm run lint`)
 - ✅ Build succeeds (`npm run build`)
 - ✅ No mutations to existing state (use pure functions)

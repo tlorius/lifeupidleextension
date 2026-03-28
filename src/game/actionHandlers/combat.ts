@@ -1,5 +1,6 @@
 import {
   castCombatSpell,
+  createEnemyInstance,
   performClickAttack,
   useCombatConsumable,
   type CombatEvent,
@@ -9,7 +10,12 @@ import type { GameState } from "../types";
 export type CombatAction =
   | { type: "combat/clickAttack" }
   | { type: "combat/useConsumable"; itemUid: string }
-  | { type: "combat/castSpell"; spellId: string };
+  | { type: "combat/castSpell"; spellId: string }
+  | {
+      type: "combat/setFightMode";
+      mode: "progression" | "farming";
+      targetLevel?: number;
+    };
 
 export interface CombatActionResult {
   state: GameState;
@@ -62,7 +68,59 @@ export function applyCombatAction(
 
     case "combat/castSpell":
       return applyCombatCastSpellAction(state, action);
+
+    case "combat/setFightMode":
+      return applySetFightModeAction(state, action);
   }
+}
+
+type CombatSetFightModeAction = Extract<
+  CombatAction,
+  { type: "combat/setFightMode" }
+>;
+
+function applySetFightModeAction(
+  state: GameState,
+  action: CombatSetFightModeAction,
+): CombatActionResult {
+  if (action.mode === "farming") {
+    const targetLevel = Math.max(
+      1,
+      action.targetLevel ?? state.combat.currentLevel,
+    );
+    return {
+      state: {
+        ...state,
+        combat: {
+          ...state.combat,
+          fightMode: "farming",
+          farmingTargetLevel: targetLevel,
+          currentLevel: targetLevel,
+          enemy: createEnemyInstance(targetLevel),
+          playerAttackRemainderMs: 0,
+          enemyAttackRemainderMs: 0,
+        },
+      },
+      combatEvents: [],
+    };
+  }
+
+  // Switching back to progression — resume from the highest level reached
+  const progressionLevel = Math.max(1, state.combat.highestLevelReached || 1);
+  return {
+    state: {
+      ...state,
+      combat: {
+        ...state.combat,
+        fightMode: "progression",
+        currentLevel: progressionLevel,
+        enemy: createEnemyInstance(progressionLevel),
+        playerAttackRemainderMs: 0,
+        enemyAttackRemainderMs: 0,
+      },
+    },
+    combatEvents: [],
+  };
 }
 
 function toCombatActionResult(

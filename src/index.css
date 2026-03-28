@@ -545,6 +545,37 @@ button:disabled {
   margin-bottom: 4px;
 }
 
+.ui-skill-spell-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.ui-skill-spell-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(109, 144, 173, 0.18);
+  background: rgba(14, 24, 36, 0.42);
+}
+
+.ui-skill-spell-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #def0ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-skill-spell-meta {
+  font-size: 10px;
+  color: #8fb1ca;
+  margin-top: 2px;
+}
+
 .ui-skill-points-row {
   display: flex;
   justify-content: space-between;
@@ -1017,44 +1048,79 @@ button:disabled {
   margin-bottom: 8px;
 }
 
-.ui-fight-spells-list {
+.ui-fight-spell-slot-row {
   display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(60px, 60px);
   gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
 }
 
-.ui-fight-spell-action-btn {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-  padding: 10px 12px;
-  border-radius: 8px;
+.ui-fight-spell-slot-shell {
+  min-width: 0;
+}
+
+.ui-fight-spell-slot-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
   border: 1px solid rgba(109, 144, 173, 0.35);
-  background: rgba(24, 32, 48, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease;
 }
 
-.ui-fight-spell-name {
-  font-weight: 600;
-  font-size: 12px;
-  margin-bottom: 3px;
+.ui-fight-spell-slot-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(173, 205, 255, 0.55);
 }
 
-.ui-fight-spell-desc {
+.ui-fight-spell-slot-placeholder {
+  font-size: 10px;
+  font-weight: 700;
+  color: #71879d;
+}
+
+.ui-fight-spell-slot-label {
   font-size: 10px;
   opacity: 0.75;
-  line-height: 1.4;
+  margin-top: 5px;
+  text-align: center;
+  color: #c4d9ec;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.ui-fight-spell-meta {
-  font-size: 10px;
-  opacity: 0.6;
-  margin-top: 3px;
-}
-
-.ui-fight-spell-cast-label {
-  font-size: 11px;
+.ui-fight-spell-cooldown-badge,
+.ui-fight-spell-state-badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 9px;
   font-weight: 700;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.ui-fight-spell-cooldown-badge {
+  background: rgba(138, 74, 74, 0.92);
+  color: #ffe2e2;
+}
+
+.ui-fight-spell-state-badge {
+  background: rgba(70, 82, 102, 0.92);
+  color: #dce8f7;
 }
 
 .ui-fight-spells-path {
@@ -1080,6 +1146,48 @@ button:disabled {
   gap: 8px;
   align-items: center;
   font-size: 11px;
+}
+
+.ui-fight-spell-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ui-fight-spell-detail-card {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(109, 144, 173, 0.2);
+  background: rgba(12, 20, 30, 0.52);
+}
+
+.ui-fight-spell-detail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8eabc1;
+  margin-bottom: 4px;
+}
+
+.ui-fight-spell-detail-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e8f4ff;
+}
+
+.ui-fight-spell-detail-notes {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.ui-fight-spell-detail-note {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(18, 28, 40, 0.58);
+  color: #c9dcec;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .ui-mastery-note {
@@ -1454,6 +1562,14 @@ button:disabled {
   display: flex;
   gap: 6px;
   margin-bottom: 16px;
+
+  .ui-skill-spell-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-fight-spell-detail-grid {
+    grid-template-columns: 1fr;
+  }
   flex-wrap: wrap;
 }
 

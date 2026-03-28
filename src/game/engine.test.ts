@@ -7,6 +7,7 @@ import {
   calculateUpgradeCost,
   calculateItemStat,
   equipItem,
+  getEquipmentStats,
   getGoldIncome,
   getManaRegenPerSecond,
   getPetStats,
@@ -438,6 +439,61 @@ describe("engine", () => {
     const petStats = getPetStats(state);
 
     expect(petStats.goldIncome).toBeCloseTo(30, 8);
+  });
+
+  it("doubles equipped unique set item stats at the four-piece threshold", () => {
+    const state = makeState();
+    state.character.activeClassId = "idler";
+    state.inventory = [
+      { uid: "w", itemId: "soul_edge", quantity: 1, level: 1 },
+      { uid: "a", itemId: "void_armor", quantity: 1, level: 1 },
+      { uid: "x1", itemId: "chaos_emerald", quantity: 1, level: 1 },
+      { uid: "x2", itemId: "voidborn_core", quantity: 1, level: 1 },
+    ];
+    state.equipment.weapon = "w";
+    state.equipment.armor = "a";
+    state.equipment.accessory1 = "x1";
+    state.equipment.accessory2 = "x2";
+
+    const inactiveClassState = makeState();
+    inactiveClassState.character.activeClassId = "archer";
+    inactiveClassState.inventory = structuredClone(state.inventory);
+    inactiveClassState.equipment = structuredClone(state.equipment);
+
+    const baseStats = getEquipmentStats(inactiveClassState);
+    const boostedStats = getEquipmentStats(state);
+
+    expect(boostedStats.attack).toBeCloseTo((baseStats.attack ?? 0) * 2, 8);
+    expect(boostedStats.intelligence).toBeCloseTo(
+      (baseStats.intelligence ?? 0) * 2,
+      8,
+    );
+    expect(boostedStats.hp).toBeCloseTo((baseStats.hp ?? 0) * 2, 8);
+  });
+
+  it("does not boost set item stats before the four-piece threshold", () => {
+    const state = makeState();
+    state.character.activeClassId = "idler";
+    state.inventory = [
+      { uid: "w", itemId: "soul_edge", quantity: 1, level: 1 },
+      { uid: "a", itemId: "void_armor", quantity: 1, level: 1 },
+      { uid: "x1", itemId: "chaos_emerald", quantity: 1, level: 1 },
+    ];
+    state.equipment.weapon = "w";
+    state.equipment.armor = "a";
+    state.equipment.accessory1 = "x1";
+
+    const activeStats = getEquipmentStats(state);
+
+    state.character.activeClassId = "archer";
+    const inactiveStats = getEquipmentStats(state);
+
+    expect(activeStats.attack).toBeCloseTo(inactiveStats.attack ?? 0, 8);
+    expect(activeStats.intelligence).toBeCloseTo(
+      inactiveStats.intelligence ?? 0,
+      8,
+    );
+    expect(activeStats.hp).toBeCloseTo(inactiveStats.hp ?? 0, 8);
   });
 
   it("aggregates total stats from base, equipment and upgrade bonuses", () => {

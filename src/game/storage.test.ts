@@ -129,6 +129,24 @@ describe("storage", () => {
     expect(loaded?.meta.lastUpdate).toBe(now);
   });
 
+  it("sets lastUpdate to now when migrated save has non-finite timestamp", () => {
+    const now = 1_700_000_123_456;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+
+    localStorage.setItem(
+      "idle_save",
+      JSON.stringify({
+        meta: {
+          version: 0,
+          lastUpdate: Number.NEGATIVE_INFINITY,
+        },
+      }),
+    );
+
+    const loaded = load();
+    expect(loaded?.meta.lastUpdate).toBe(now);
+  });
+
   it("returns null and logs when saved JSON is malformed", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     localStorage.setItem("idle_save", "{not-valid-json");
