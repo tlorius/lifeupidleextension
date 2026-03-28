@@ -4,6 +4,7 @@ import { ResourcesDisplay } from "./components/ResourcesDisplay";
 import { TokenRewardModal } from "./components/TokenRewardModal";
 import { IdleEarningsModal } from "./components/IdleEarningsModal";
 import { useGame } from "./game/GameContext";
+import { createSignedMockPlaytimeToken } from "./game/tokenRewards";
 
 const Inventory = lazy(() =>
   import("./components/Inventory").then((module) => ({
@@ -90,6 +91,25 @@ function App() {
               {" / "}
               <span>{formatPlaytime(capPlaytimeMs)}</span>
             </div>
+            {import.meta.env.DEV ? (
+              <button
+                style={{ marginTop: 12 }}
+                onClick={() => {
+                  const token = createSignedMockPlaytimeToken({
+                    units: 1,
+                    expiresAt: Date.now() + 1000 * 60 * 60,
+                    nonce: `dev-gate-${Date.now()}`,
+                  });
+                  const params = new URLSearchParams(window.location.search);
+                  params.set("playtimeToken", token);
+                  const nextSearch = params.toString();
+                  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+                  window.location.assign(nextUrl);
+                }}
+              >
+                Generate Fresh Signed Playtime Token (DEV)
+              </button>
+            ) : null}
           </div>
         </div>
       ) : (

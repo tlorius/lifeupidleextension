@@ -25,13 +25,66 @@ export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
     useState<string>("5");
   const [playtimeTokenUnitMinutesInput, setPlaytimeTokenUnitMinutesInput] =
     useState<string>("5");
+  const [lastCopiedPlaytimeToken, setLastCopiedPlaytimeToken] = useState<
+    string | null
+  >(null);
+  const [playtimeTokenGeneratedAtMs, setPlaytimeTokenGeneratedAtMs] =
+    useState<number>(() => Date.now());
 
   const sampleSignedPlaytimeToken = createSignedMockPlaytimeToken({
     units: 1,
-    expiresAt: Date.now() + 1000 * 60 * 60,
-    nonce: "sample",
+    expiresAt: playtimeTokenGeneratedAtMs + 1000 * 60 * 60,
+    nonce: `sample-${playtimeTokenGeneratedAtMs}`,
   });
   const sampleSignedPlaytimeUrl = `${window.location.origin}${window.location.pathname}?playtimeToken=${encodeURIComponent(sampleSignedPlaytimeToken)}`;
+
+  const makePlaytimeUrl = (token: string): string =>
+    `${window.location.origin}${window.location.pathname}?playtimeToken=${encodeURIComponent(token)}`;
+
+  const aliasPlaytimeTokens: Array<{ label: string; token: string }> = [
+    { label: "5m (1 unit)", token: "play-5m=1u" },
+    { label: "15m (3 units)", token: "play-15m=3u" },
+    { label: "30m (6 units)", token: "play-30m=6u" },
+    { label: "60m (12 units)", token: "play-60m=12u" },
+  ];
+
+  const signedPlaytimeTokens: Array<{ label: string; token: string }> = [
+    {
+      label: "Signed 5m (1 unit)",
+      token: createSignedMockPlaytimeToken({
+        units: 1,
+        expiresAt: playtimeTokenGeneratedAtMs + 1000 * 60 * 60,
+        nonce: `signed-1-${playtimeTokenGeneratedAtMs}`,
+      }),
+    },
+    {
+      label: "Signed 15m (3 units)",
+      token: createSignedMockPlaytimeToken({
+        units: 3,
+        expiresAt: playtimeTokenGeneratedAtMs + 1000 * 60 * 60,
+        nonce: `signed-3-${playtimeTokenGeneratedAtMs}`,
+      }),
+    },
+    {
+      label: "Signed 30m (6 units)",
+      token: createSignedMockPlaytimeToken({
+        units: 6,
+        expiresAt: playtimeTokenGeneratedAtMs + 1000 * 60 * 60,
+        nonce: `signed-6-${playtimeTokenGeneratedAtMs}`,
+      }),
+    },
+  ];
+
+  const copyText = async (text: string, label: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setLastCopiedPlaytimeToken(label);
+      }
+    } catch {
+      setLastCopiedPlaytimeToken(null);
+    }
+  };
 
   const tickSpeedOptions: Array<1 | 10 | 100> = [1, 10, 100];
   return (
@@ -107,6 +160,19 @@ export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
         >
           Apply Playtime Config
         </button>
+        <button
+          style={{ marginTop: 8, width: "100%" }}
+          onClick={() => {
+            setPlaytimeTokenGeneratedAtMs(Date.now());
+            setLastCopiedPlaytimeToken(null);
+          }}
+        >
+          Generate Fresh Signed Tokens
+        </button>
+        <div style={{ marginTop: 6, fontSize: 11, color: "#9bb1c6" }}>
+          Generated at:{" "}
+          {new Date(playtimeTokenGeneratedAtMs).toLocaleTimeString()}
+        </div>
         <div style={{ marginTop: 10, fontSize: 11, color: "#9bb1c6" }}>
           Sample signed playtime token URL:
         </div>
@@ -126,6 +192,88 @@ export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
             fontSize: 11,
           }}
         />
+
+        <div style={{ marginTop: 10, fontSize: 11, color: "#9bb1c6" }}>
+          Valid mock alias tokens
+        </div>
+        <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+          {aliasPlaytimeTokens.map((entry) => {
+            const url = makePlaytimeUrl(entry.token);
+            return (
+              <div
+                key={entry.token}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  gap: 6,
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontSize: 11, color: "#d2e2f0" }}>
+                  {entry.label}: {entry.token}
+                </div>
+                <button
+                  type="button"
+                  className="ui-modal-btn-compact"
+                  onClick={() => copyText(entry.token, `${entry.label} token`)}
+                >
+                  Copy token
+                </button>
+                <button
+                  type="button"
+                  className="ui-modal-btn-compact"
+                  onClick={() => copyText(url, `${entry.label} URL`)}
+                >
+                  Copy URL
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 11, color: "#9bb1c6" }}>
+          Valid signed mock tokens
+        </div>
+        <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+          {signedPlaytimeTokens.map((entry) => {
+            const url = makePlaytimeUrl(entry.token);
+            return (
+              <div
+                key={entry.label}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  gap: 6,
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ fontSize: 11, color: "#d2e2f0" }}>
+                  {entry.label}
+                </div>
+                <button
+                  type="button"
+                  className="ui-modal-btn-compact"
+                  onClick={() => copyText(entry.token, `${entry.label} token`)}
+                >
+                  Copy token
+                </button>
+                <button
+                  type="button"
+                  className="ui-modal-btn-compact"
+                  onClick={() => copyText(url, `${entry.label} URL`)}
+                >
+                  Copy URL
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {lastCopiedPlaytimeToken ? (
+          <div style={{ marginTop: 8, fontSize: 11, color: "#98d7ac" }}>
+            Copied: {lastCopiedPlaytimeToken}
+          </div>
+        ) : null}
       </div>
 
       <button
