@@ -101,12 +101,66 @@ describe("tokenRewards", () => {
     await expect(resolveTokenRewards("unknown-token")).resolves.toEqual([]);
   });
 
+  it("resolves new farming and progression bundle rewards", async () => {
+    await expect(resolveTokenRewards("seed-bundle-rare")).resolves.toEqual([
+      { itemId: "rose_seed_rare", quantity: 35 },
+      { itemId: "starlime_seed_rare", quantity: 35 },
+      { itemId: "coralfern_seed_rare", quantity: 35 },
+      { itemId: "cabbage_seed_rare", quantity: 35 },
+      { itemId: "berry_seed_rare", quantity: 35 },
+      { itemId: "corn_seed_rare", quantity: 35 },
+    ]);
+    await expect(resolveTokenRewards("farm-automation-epic")).resolves.toEqual([
+      { itemId: "wateringcan_epic", quantity: 1 },
+      { itemId: "sprinkler_epic", quantity: 1 },
+      { itemId: "harvester_epic", quantity: 1 },
+      { itemId: "planter_epic", quantity: 1 },
+      { itemId: "seedbag_epic", quantity: 1 },
+    ]);
+    await expect(resolveTokenRewards("progression-late")).resolves.toEqual([
+      { itemId: "immortal_brew", quantity: 2 },
+      { itemId: "sunlance", quantity: 1 },
+      { itemId: "runesteel_plate", quantity: 1 },
+      { itemId: "storm_griffin", quantity: 1 },
+    ]);
+  });
+
+  it("resolves ruby reward packs with expected quantities", async () => {
+    await expect(resolveTokenRewards("ruby-pack-1")).resolves.toEqual([
+      { itemId: "ruby_currency", quantity: 1 },
+    ]);
+    await expect(resolveTokenRewards("ruby-pack-5")).resolves.toEqual([
+      { itemId: "ruby_currency", quantity: 5 },
+    ]);
+    await expect(resolveTokenRewards("ruby-pack-10")).resolves.toEqual([
+      { itemId: "ruby_currency", quantity: 10 },
+    ]);
+  });
+
   it("resolves configured reward token display names", () => {
     expect(resolveRewardTokenDisplayName("starter-pack")).toBe("Starter Pack");
     expect(resolveRewardTokenDisplayName("harvest-surge")).toBe(
       "Harvest Surge",
     );
+    expect(resolveRewardTokenDisplayName("farm-automation-legendary")).toBe(
+      "Farm Automation Bundle: Legendary",
+    );
+    expect(resolveRewardTokenDisplayName("ruby-pack-10")).toBe(
+      "Ruby Pack (10)",
+    );
     expect(resolveRewardTokenDisplayName("unknown-token")).toBeNull();
+  });
+
+  it("applies ruby token rewards directly to ruby resource", () => {
+    const state = structuredClone(defaultState);
+    state.resources.ruby = 2;
+
+    const next = applyTokenRewards(state, [
+      { itemId: "ruby_currency", quantity: 5 },
+    ]);
+
+    expect(next.resources.ruby).toBe(7);
+    expect(next.inventory).toHaveLength(0);
   });
 
   it("resolves simple mock playtime aliases", async () => {

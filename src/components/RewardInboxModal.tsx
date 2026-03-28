@@ -1,5 +1,6 @@
 import { useGame } from "../game/GameContext";
 import { getItemDefSafe } from "../game/items";
+import { resolveRewardTokenDisplayName } from "../game/tokenRewards";
 import { ModalShell } from "./ui/ModalShell";
 
 interface RewardInboxModalProps {
@@ -46,6 +47,10 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
               0,
             );
             const receivedLabel = new Date(bundle.receivedAt).toLocaleString();
+            const displayName =
+              bundle.sourceLabel ??
+              resolveRewardTokenDisplayName(bundle.sourceToken) ??
+              bundle.sourceToken;
 
             return (
               <div
@@ -63,9 +68,7 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
                   }}
                 >
                   <div>
-                    <strong style={{ color: "#e8f4ff" }}>
-                      {bundle.sourceLabel ?? bundle.sourceToken}
-                    </strong>
+                    <strong style={{ color: "#e8f4ff" }}>{displayName}</strong>
                     <div style={{ fontSize: 11, color: "#8fa8be" }}>
                       Token: {bundle.sourceToken} | Received: {receivedLabel}
                     </div>
@@ -91,6 +94,10 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
                 >
                   {bundle.rewards.map((reward, index) => {
                     const itemDef = getItemDefSafe(reward.itemId);
+                    const rewardLabel =
+                      reward.itemId === "ruby_currency"
+                        ? "Ruby"
+                        : (itemDef?.name ?? reward.itemId);
                     return (
                       <div
                         key={`${bundle.id}-${reward.itemId}-${index}`}
@@ -102,7 +109,7 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
                         }}
                       >
                         <div style={{ color: "#ddecfb", fontWeight: 600 }}>
-                          {itemDef?.name ?? reward.itemId}
+                          {rewardLabel}
                         </div>
                         <div style={{ color: "#9bb3c8", fontSize: 11 }}>
                           Qty: {reward.quantity}
