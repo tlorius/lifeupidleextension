@@ -229,26 +229,6 @@ describe("actions reducer", () => {
     expect(next.resources.gold).toBeGreaterThanOrEqual(seeded.resources.gold);
   });
 
-  it("dismantles unique item through reducer action for ruby", () => {
-    const seeded = reduceGameAction(createDefaultState(), {
-      type: "inventory/addDebugItems",
-    });
-    const uniqueItem = seeded.inventory.find(
-      (entry) => entry.itemId === "soul_edge",
-    );
-    expect(uniqueItem).toBeTruthy();
-
-    const next = reduceGameAction(seeded, {
-      type: "inventory/sellItem",
-      itemUid: uniqueItem!.uid,
-    });
-
-    expect(next.inventory.some((entry) => entry.uid === uniqueItem!.uid)).toBe(
-      false,
-    );
-    expect(next.resources.ruby).toBeGreaterThan(seeded.resources.ruby ?? 0);
-  });
-
   it("sells selected non-equipped items in batch", () => {
     const seeded = reduceGameAction(createDefaultState(), {
       type: "inventory/addDebugItems",

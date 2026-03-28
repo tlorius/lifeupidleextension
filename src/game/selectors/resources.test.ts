@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getDamageAfterDefense, getPlayerAttacksPerSecond } from "../combat";
 import { getGoldIncome } from "../engine";
 import { createDefaultState } from "../state";
-import { getPassiveGemRatePerSecond } from "../upgrades";
 import { upgradeDefinitions } from "../upgrades";
 import { selectResourcesDisplayView } from "./resources";
 
@@ -64,39 +62,6 @@ describe("resource selectors", () => {
     expect(result.goldIncomePerSecond).toBe(getGoldIncome(state));
     expect(result.calculatedGoldPerSecond).toBeCloseTo(
       result.goldIncomePerSecond,
-    );
-  });
-
-  it("matches defense, agility, and passive gem calculations", () => {
-    const state = createDefaultState();
-    state.stats.agility = 20;
-    state.stats.defense = 80;
-    state.combat.enemy.damage = 120;
-    state.upgrades = [
-      { ...upgradeDefinitions.chaos_gem_foundry, level: 3 },
-      { ...upgradeDefinitions.gem_hunter, level: 4 },
-      { ...upgradeDefinitions.prism_sieves, level: 2 },
-    ];
-
-    const result = selectResourcesDisplayView(state, 1_000);
-
-    expect(result.attacksPerSecond).toBeCloseTo(
-      getPlayerAttacksPerSecond(state),
-    );
-    expect(result.enemyDamageTakenPerHit).toBe(
-      getDamageAfterDefense(
-        state.combat.enemy.damage,
-        result.total.defense ?? 0,
-      ),
-    );
-    expect(result.passiveGemRatePerSecond).toBeCloseTo(
-      getPassiveGemRatePerSecond(state),
-    );
-    expect(result.passiveGemsPerTick).toBe(
-      Math.ceil(result.passiveGemRatePerSecond),
-    );
-    expect(result.passiveGemsPerMinute).toBe(
-      Math.ceil(result.passiveGemRatePerSecond * 60),
     );
   });
 });

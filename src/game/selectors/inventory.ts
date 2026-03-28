@@ -1,4 +1,4 @@
-import { calculateItemStat, getSellRewardsForDefinition } from "../engine";
+import { calculateItemStat } from "../engine";
 import { getItemDefSafe } from "../items";
 import { formatCompactNumber } from "../numberFormat";
 import type {
@@ -36,7 +36,6 @@ export interface InventoryViewModel {
   emptyMessage: string;
   selectedSellCount: number;
   selectedSellTotalGold: number;
-  selectedSellTotalRuby: number;
   selectedSellSummary: string;
   selectedUniqueItemNames: string[];
   sellConfirmationMessage: string;
@@ -132,20 +131,9 @@ export function selectInventoryView(
 
   const {
     selectedSellTotalGold,
-    selectedSellTotalRuby,
     selectedUniqueItemNames,
     sellConfirmationMessage,
   } = buildSellSelectionSummary(inventoryByUid, selectedSellUids);
-
-  const summaryParts: string[] = [
-    `${selectedSellCount} selected`,
-    `+${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })}🪙`,
-  ];
-  if (selectedSellTotalRuby > 0) {
-    summaryParts.push(
-      `+${formatCompactNumber(selectedSellTotalRuby, { minCompactValue: 1000 })}♦️`,
-    );
-  }
 
   return {
     displayInventory,
@@ -158,8 +146,7 @@ export function selectInventoryView(
     emptyMessage: getInventoryEmptyMessage(filter),
     selectedSellCount,
     selectedSellTotalGold,
-    selectedSellTotalRuby,
-    selectedSellSummary: summaryParts.join(" • "),
+    selectedSellSummary: `${selectedSellCount} selected • +${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })}🪙`,
     selectedUniqueItemNames,
     sellConfirmationMessage,
   };
@@ -170,7 +157,6 @@ function buildSellSelectionSummary(
   selectedSellUids: string[],
 ): {
   selectedSellTotalGold: number;
-  selectedSellTotalRuby: number;
   selectedUniqueItemNames: string[];
   sellConfirmationMessage: string;
 } {
@@ -182,15 +168,9 @@ function buildSellSelectionSummary(
     .map((item) => getItemDefSafe(item.itemId))
     .filter((def): def is ItemDefinition => def !== null);
 
-  const selectedSellTotals = selectedDefinitions.reduce(
-    (sum, def) => {
-      const rewards = getSellRewardsForDefinition(def);
-      return {
-        gold: sum.gold + rewards.gold,
-        ruby: sum.ruby + rewards.ruby,
-      };
-    },
-    { gold: 0, ruby: 0 },
+  const selectedSellTotalGold = selectedDefinitions.reduce(
+    (sum, def) => sum + (def.sellPrice ?? 0),
+    0,
   );
 
   const selectedUniqueItemNames = Array.from(
@@ -203,14 +183,12 @@ function buildSellSelectionSummary(
 
   const sellConfirmationMessage = buildSellConfirmationMessage(
     selectedSellUids.length,
-    selectedSellTotals.gold,
-    selectedSellTotals.ruby,
+    selectedSellTotalGold,
     selectedUniqueItemNames,
   );
 
   return {
-    selectedSellTotalGold: selectedSellTotals.gold,
-    selectedSellTotalRuby: selectedSellTotals.ruby,
+    selectedSellTotalGold,
     selectedUniqueItemNames,
     sellConfirmationMessage,
   };
@@ -219,18 +197,9 @@ function buildSellSelectionSummary(
 function buildSellConfirmationMessage(
   selectedSellCount: number,
   selectedSellTotalGold: number,
-  selectedSellTotalRuby: number,
   selectedUniqueItemNames: string[],
 ): string {
-  const rewardSegments = [
-    `${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold`,
-  ];
-  if (selectedSellTotalRuby > 0) {
-    rewardSegments.push(
-      `${formatCompactNumber(selectedSellTotalRuby, { minCompactValue: 1000 })} ruby`,
-    );
-  }
-  const baseMessage = `Sell ${selectedSellCount} selected item(s) for ${rewardSegments.join(" + ")}?`;
+  const baseMessage = `Sell ${selectedSellCount} selected item(s) for ${formatCompactNumber(selectedSellTotalGold, { minCompactValue: 1000 })} gold?`;
   if (selectedUniqueItemNames.length === 0) {
     return baseMessage;
   }
