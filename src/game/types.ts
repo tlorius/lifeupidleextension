@@ -212,6 +212,7 @@ export interface PlaytimeState {
 export interface RewardInboxBundle {
   id: number;
   sourceToken: string;
+  sourceLabel?: string;
   rewards: Array<{
     itemId: string;
     quantity: number;

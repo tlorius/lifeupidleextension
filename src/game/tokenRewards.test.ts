@@ -7,6 +7,7 @@ import {
   extractRewardToken,
   normalizeTokenRewards,
   removePlaytimeTokenFromUrl,
+  resolveRewardTokenDisplayName,
   resolveTokenRewards,
   resolvePlaytimeToken,
   removeRewardTokenFromUrl,
@@ -98,6 +99,14 @@ describe("tokenRewards", () => {
 
   it("returns empty rewards for unknown token", async () => {
     await expect(resolveTokenRewards("unknown-token")).resolves.toEqual([]);
+  });
+
+  it("resolves configured reward token display names", () => {
+    expect(resolveRewardTokenDisplayName("starter-pack")).toBe("Starter Pack");
+    expect(resolveRewardTokenDisplayName("harvest-surge")).toBe(
+      "Harvest Surge",
+    );
+    expect(resolveRewardTokenDisplayName("unknown-token")).toBeNull();
   });
 
   it("resolves simple mock playtime aliases", async () => {

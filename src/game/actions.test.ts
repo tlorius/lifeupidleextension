@@ -318,7 +318,7 @@ describe("actions reducer", () => {
     expect(next.playtime.remainingMs).toBeLessThanOrEqual(next.playtime.capMs);
   });
 
-  it("adds playtime token units and clamps to cap", () => {
+  it("adds playtime token units and stacks playtime", () => {
     const state = createDefaultState();
     state.playtime.remainingMs = 0;
     state.playtime.capMs = 10 * 60 * 1000;
@@ -329,7 +329,7 @@ describe("actions reducer", () => {
       units: 3,
     });
 
-    expect(next.playtime.remainingMs).toBe(state.playtime.capMs);
+    expect(next.playtime.remainingMs).toBe(15 * 60 * 1000);
   });
 
   it("consumes playtime in ms and floors at zero", () => {
@@ -360,16 +360,14 @@ describe("actions reducer", () => {
     const redeemed = reduceGameAction(enqueued, {
       type: "rewards/redeemInboxBundle",
       bundleId,
-      redeemedAt: Date.now(),
     });
 
     expect(
       redeemed.inventory.some((item) => item.itemId === "health_potion"),
     ).toBe(true);
     expect(
-      redeemed.rewardInbox.bundles.find((bundle) => bundle.id === bundleId)
-        ?.redeemedAt,
-    ).toBeTruthy();
+      redeemed.rewardInbox.bundles.find((bundle) => bundle.id === bundleId),
+    ).toBeUndefined();
   });
 
   it("routes garden sprinkler actions through reducer", () => {

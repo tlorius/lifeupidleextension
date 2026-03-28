@@ -29,6 +29,66 @@ export interface GrantedTokenRewardItem extends NormalizedTokenRewardItem {
   level: number;
 }
 
+interface MockRewardTokenDefinition {
+  displayName: string;
+  rewards: TokenRewardItem[];
+}
+
+const MOCK_REWARD_TOKEN_DEFINITIONS: Record<string, MockRewardTokenDefinition> =
+  {
+    "starter-pack": {
+      displayName: "Starter Pack",
+      rewards: [
+        { itemId: "health_potion", quantity: 3 },
+        { itemId: "mana_potion", quantity: 2 },
+        { itemId: "ring_1", quantity: 1 },
+      ],
+    },
+    "gardener-kit": {
+      displayName: "Gardener Kit",
+      rewards: [
+        { itemId: "sunflower_seed_common", quantity: 20 },
+        { itemId: "carrot_seed_common", quantity: 20 },
+        { itemId: "wateringcan_common", quantity: 1 },
+      ],
+    },
+    "legendary-bundle": {
+      displayName: "Legendary Bundle",
+      rewards: [
+        { itemId: "excalibur", quantity: 1 },
+        { itemId: "excalibur_armor", quantity: 1 },
+        { itemId: "infinity_gem", quantity: 1 },
+      ],
+    },
+    "pet-lover": {
+      displayName: "Pet Lover",
+      rewards: [
+        { itemId: "wolf_pup", quantity: 1 },
+        { itemId: "fire_fox", quantity: 1 },
+        { itemId: "ice_dragon", quantity: 1 },
+      ],
+    },
+    "alchemy-cache": {
+      displayName: "Alchemy Cache",
+      rewards: [
+        { itemId: "health_potion", quantity: 5 },
+        { itemId: "mana_potion", quantity: 3 },
+        { itemId: "elixir", quantity: 1 },
+        { itemId: "fortitude_brew", quantity: 1 },
+      ],
+    },
+    "harvest-surge": {
+      displayName: "Harvest Surge",
+      rewards: [
+        { itemId: "sunflower_seed_common", quantity: 50 },
+        { itemId: "carrot_seed_common", quantity: 50 },
+        { itemId: "apple_seed_common", quantity: 30 },
+        { itemId: "mint_seed_common", quantity: 30 },
+        { itemId: "wateringcan_rare", quantity: 1 },
+      ],
+    },
+  };
+
 export function extractRewardToken(search: string): string | null {
   const params = new URLSearchParams(search);
   return params.get("token") ?? params.get("rewardToken");
@@ -71,6 +131,11 @@ export async function resolveTokenRewards(
   // return Array.isArray(json) ? json : [];
 
   return mockResolveTokenRewards(token);
+}
+
+export function resolveRewardTokenDisplayName(token: string): string | null {
+  const normalized = token.trim().toLowerCase();
+  return MOCK_REWARD_TOKEN_DEFINITIONS[normalized]?.displayName ?? null;
 }
 
 function mockVerifyPlaytimeToken(token: string): PlaytimeTokenResolveResult {
@@ -211,59 +276,7 @@ function decodeBase64Url(input: string): string | null {
 
 function mockResolveTokenRewards(token: string): TokenRewardItem[] {
   const normalized = token.trim().toLowerCase();
-
-  if (normalized === "starter-pack") {
-    return [
-      { itemId: "health_potion", quantity: 3 },
-      { itemId: "mana_potion", quantity: 2 },
-      { itemId: "ring_1", quantity: 1 },
-    ];
-  }
-
-  if (normalized === "gardener-kit") {
-    return [
-      { itemId: "sunflower_seed_common", quantity: 20 },
-      { itemId: "carrot_seed_common", quantity: 20 },
-      { itemId: "wateringcan_common", quantity: 1 },
-    ];
-  }
-
-  if (normalized === "legendary-bundle") {
-    return [
-      { itemId: "excalibur", quantity: 1 },
-      { itemId: "excalibur_armor", quantity: 1 },
-      { itemId: "infinity_gem", quantity: 1 },
-    ];
-  }
-
-  if (normalized === "pet-lover") {
-    return [
-      { itemId: "wolf_pup", quantity: 1 },
-      { itemId: "fire_fox", quantity: 1 },
-      { itemId: "ice_dragon", quantity: 1 },
-    ];
-  }
-
-  if (normalized === "alchemy-cache") {
-    return [
-      { itemId: "health_potion", quantity: 5 },
-      { itemId: "mana_potion", quantity: 3 },
-      { itemId: "elixir", quantity: 1 },
-      { itemId: "fortitude_brew", quantity: 1 },
-    ];
-  }
-
-  if (normalized === "harvest-surge") {
-    return [
-      { itemId: "sunflower_seed_common", quantity: 50 },
-      { itemId: "carrot_seed_common", quantity: 50 },
-      { itemId: "apple_seed_common", quantity: 30 },
-      { itemId: "mint_seed_common", quantity: 30 },
-      { itemId: "wateringcan_rare", quantity: 1 },
-    ];
-  }
-
-  return [];
+  return MOCK_REWARD_TOKEN_DEFINITIONS[normalized]?.rewards ?? [];
 }
 
 export function applyTokenRewards(

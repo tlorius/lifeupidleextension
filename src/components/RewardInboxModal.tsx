@@ -46,7 +46,6 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
               0,
             );
             const receivedLabel = new Date(bundle.receivedAt).toLocaleString();
-            const isRedeemed = Boolean(bundle.redeemedAt);
 
             return (
               <div
@@ -65,7 +64,7 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
                 >
                   <div>
                     <strong style={{ color: "#e8f4ff" }}>
-                      Bundle #{bundle.id}
+                      {bundle.sourceLabel ?? bundle.sourceToken}
                     </strong>
                     <div style={{ fontSize: 11, color: "#8fa8be" }}>
                       Token: {bundle.sourceToken} | Received: {receivedLabel}
@@ -74,9 +73,8 @@ export function RewardInboxModal({ isOpen, onClose }: RewardInboxModalProps) {
                   <button
                     className="ui-touch-target"
                     onClick={() => redeemRewardInboxBundle(bundle.id)}
-                    disabled={isRedeemed}
                   >
-                    {isRedeemed ? "Redeemed" : "Redeem"}
+                    Redeem
                   </button>
                 </div>
 

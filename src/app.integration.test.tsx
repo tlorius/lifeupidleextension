@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   render,
   screen,
@@ -103,6 +103,30 @@ describe("app integration", () => {
     await waitFor(() => {
       expect(screen.queryByText("Welcome back! Idle earnings")).toBeNull();
     });
+  });
+
+  it("does not consume playtime from offline elapsed time on load", () => {
+    vi.useFakeTimers();
+    try {
+      const now = new Date("2026-03-28T12:00:00.000Z").getTime();
+      vi.setSystemTime(now);
+
+      const seeded = createDefaultState();
+      seeded.meta.lastUpdate = now - 10 * 60 * 1000;
+      seeded.playtime.remainingMs = 5 * 60 * 1000;
+      localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+      renderApp();
+
+      const savedRaw = localStorage.getItem("idle_save");
+      expect(savedRaw).toBeTruthy();
+      const saved = JSON.parse(savedRaw as string) as typeof seeded;
+
+      // Offline catch-up should not burn session playtime.
+      expect(saved.playtime.remainingMs).toBe(seeded.playtime.remainingMs);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("hides ruby resource chip before first level 50 kill", async () => {
@@ -496,7 +520,7 @@ describe("app integration", () => {
       ).toBeTruthy();
     });
 
-    expect(screen.getByText(/Bundle #/)).toBeTruthy();
+    expect(screen.getByText("Starter Pack")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Redeem" }));
 
@@ -509,6 +533,25 @@ describe("app integration", () => {
     });
 
     expect(screen.getAllByText("Health Potion").length).toBeGreaterThan(0);
+
+    const rewardModalHeader = screen.getByRole("heading", {
+      name: "Congrats! You have earned items",
+    });
+    const rewardModalHeaderRow = rewardModalHeader.parentElement;
+    expect(rewardModalHeaderRow).toBeTruthy();
+    fireEvent.click(
+      within(rewardModalHeaderRow as HTMLElement).getByRole("button", {
+        name: "Close",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open reward inbox" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Reward Inbox" }),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText("Starter Pack")).toBeNull();
   });
 
   it("applies playtime token before reward token and removes both params", async () => {

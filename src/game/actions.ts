@@ -60,13 +60,13 @@ export type GameAction =
   | {
       type: "rewards/enqueueTokenBundle";
       sourceToken: string;
+      sourceLabel?: string;
       rewards: NormalizedTokenRewardItem[];
       receivedAt: number;
     }
   | {
       type: "rewards/redeemInboxBundle";
       bundleId: number;
-      redeemedAt: number;
     }
   | { type: "state/resetToDefault" };
 
@@ -207,10 +207,7 @@ export function applyGameAction(
       if (units <= 0) return { state, combatEvents: [] };
 
       const addMs = units * Math.max(60_000, state.playtime.tokenUnitMs);
-      const nextRemaining = Math.min(
-        state.playtime.capMs,
-        state.playtime.remainingMs + addMs,
-      );
+      const nextRemaining = state.playtime.remainingMs + addMs;
 
       return {
         state: {
@@ -269,6 +266,7 @@ export function applyGameAction(
       const nextBundle = {
         id: state.rewardInbox.nextBundleId,
         sourceToken: action.sourceToken,
+        sourceLabel: action.sourceLabel,
         rewards,
         receivedAt: action.receivedAt,
       };
@@ -289,7 +287,7 @@ export function applyGameAction(
       const target = state.rewardInbox.bundles.find(
         (bundle) => bundle.id === action.bundleId,
       );
-      if (!target || target.redeemedAt) {
+      if (!target) {
         return { state, combatEvents: [] };
       }
 
@@ -299,10 +297,8 @@ export function applyGameAction(
           ...rewardedState,
           rewardInbox: {
             ...rewardedState.rewardInbox,
-            bundles: rewardedState.rewardInbox.bundles.map((bundle) =>
-              bundle.id === action.bundleId
-                ? { ...bundle, redeemedAt: action.redeemedAt }
-                : bundle,
+            bundles: rewardedState.rewardInbox.bundles.filter(
+              (bundle) => bundle.id !== action.bundleId,
             ),
           },
         },

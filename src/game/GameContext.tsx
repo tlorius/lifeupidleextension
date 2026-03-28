@@ -17,6 +17,7 @@ import {
   normalizeTokenRewards,
   removePlaytimeTokenFromUrl,
   removeRewardTokenFromUrl,
+  resolveRewardTokenDisplayName,
   resolvePlaytimeToken,
   resolveTokenRewards,
   toGrantedTokenRewards,
@@ -299,6 +300,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
               dispatch({
                 type: "rewards/enqueueTokenBundle",
                 sourceToken: pendingRewardToken,
+                sourceLabel:
+                  resolveRewardTokenDisplayName(pendingRewardToken) ??
+                  pendingRewardToken,
                 rewards: normalizedRewards,
                 receivedAt: Date.now(),
               });
@@ -327,19 +331,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const bundle = stateRef.current.rewardInbox.bundles.find(
       (entry) => entry.id === bundleId,
     );
-    if (!bundle || bundle.redeemedAt) return;
+    if (!bundle) return;
 
     dispatch({
       type: "rewards/redeemInboxBundle",
       bundleId,
-      redeemedAt: Date.now(),
     });
     setTokenRewardModalItems(toGrantedTokenRewards(bundle.rewards));
   };
 
-  const unreadRewardBundleCount = state.rewardInbox.bundles.filter(
-    (bundle) => !bundle.redeemedAt,
-  ).length;
+  const unreadRewardBundleCount = state.rewardInbox.bundles.length;
 
   return (
     <GameContext.Provider
