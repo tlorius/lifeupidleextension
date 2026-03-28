@@ -170,6 +170,55 @@ describe("engine", () => {
     expect(state.resources.gold).toBeCloseTo(30, 8);
   });
 
+  it("applies chaos idle surge and passive gem generation during idle", () => {
+    const state = makeState();
+    state.stats.attack = 10;
+    state.resources.gold = 0;
+    state.resources.gems = 0;
+    state.upgrades = [
+      {
+        id: "chaos_idle_surge_1",
+        name: "Idle Surge I",
+        level: 1,
+        baseCost: 100,
+        scaling: 2,
+        rubyBaseCost: 100,
+        rubyScaling: 1,
+        maxLevel: 1,
+        type: "autoGold",
+        tree: "chaos",
+        bonuses: [],
+      },
+      {
+        id: "chaos_gem_foundry",
+        name: "Gem Foundry",
+        level: 2,
+        baseCost: 100,
+        scaling: 2,
+        rubyBaseCost: 10,
+        rubyScaling: 2,
+        type: "gemFinder",
+        tree: "chaos",
+        bonuses: [],
+      },
+      {
+        id: "gem_hunter",
+        name: "Gem Hunter",
+        level: 3,
+        baseCost: 100,
+        scaling: 1.8,
+        type: "gemFinder",
+        tree: "resource",
+        bonuses: [],
+      },
+    ];
+
+    applyIdle(state, 1_000);
+
+    expect(state.resources.gold).toBeCloseTo(100, 8);
+    expect(state.resources.gems).toBe(1);
+  });
+
   it("regenerates mana over time and respects mana regen bonuses", () => {
     const state = makeState();
     state.resources.energy = 50;
@@ -362,6 +411,105 @@ describe("engine", () => {
     expect(next.resources.gems).toBe(5);
   });
 
+  it("upgrades unique items using ruby instead of gems", () => {
+    const state = makeState();
+    state.resources.gems = 9999;
+    state.resources.ruby = 3;
+    state.inventory = [
+      {
+        uid: "unique-1",
+        itemId: "soul_edge",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItem(state, "unique-1");
+
+    expect(next.inventory[0].level).toBe(2);
+    expect(next.resources.ruby).toBe(2);
+    expect(next.resources.gems).toBe(9999);
+  });
+
+  it("does not upgrade unique items when ruby is insufficient", () => {
+    const state = makeState();
+    state.resources.gems = 9999;
+    state.resources.ruby = 0;
+    state.inventory = [
+      {
+        uid: "unique-1",
+        itemId: "soul_edge",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItem(state, "unique-1");
+
+    expect(next.inventory[0].level).toBe(1);
+    expect(next.resources.ruby).toBe(0);
+    expect(next.resources.gems).toBe(9999);
+  });
+
+  it("upgrades pets only when both gems and farm resources are available", () => {
+    const state = makeState();
+    state.resources.gems = 40;
+    state.garden.cropStorage.current.vegetable = 40;
+    state.inventory = [
+      {
+        uid: "pet-1",
+        itemId: "wolf_pup",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItem(state, "pet-1");
+
+    expect(next.inventory[0].level).toBe(2);
+    expect(next.resources.gems).toBe(34);
+    expect(next.garden.cropStorage.current.vegetable).toBe(30);
+  });
+
+  it("does not upgrade pets when farm resources are missing", () => {
+    const state = makeState();
+    state.resources.gems = 40;
+    state.garden.cropStorage.current.vegetable = 0;
+    state.inventory = [
+      {
+        uid: "pet-1",
+        itemId: "wolf_pup",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItem(state, "pet-1");
+
+    expect(next.inventory[0].level).toBe(1);
+    expect(next.resources.gems).toBe(40);
+  });
+
+  it("upgrades unique pets using ruby plus configured farm resource", () => {
+    const state = makeState();
+    state.resources.ruby = 10;
+    state.garden.cropStorage.current.grape = 500;
+    state.inventory = [
+      {
+        uid: "pet-unique",
+        itemId: "auric_chimera",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItem(state, "pet-unique");
+
+    expect(next.inventory[0].level).toBe(2);
+    expect(next.resources.ruby).toBe(8);
+    expect(next.garden.cropStorage.current.grape).toBe(256);
+  });
+
   it("does not upgrade potions even when enough gems are available", () => {
     const state = makeState();
     state.resources.gems = 999;
@@ -405,6 +553,26 @@ describe("engine", () => {
 
     expect(next.inventory[0].level).toBe(expectedLevel);
     expect(next.resources.gems).toBe(expectedGems);
+  });
+
+  it("max-upgrades pets until either gems or farm resources run out", () => {
+    const state = makeState();
+    state.resources.gems = 30;
+    state.garden.cropStorage.current.vegetable = 30;
+    state.inventory = [
+      {
+        uid: "pet-1",
+        itemId: "wolf_pup",
+        quantity: 1,
+        level: 1,
+      },
+    ];
+
+    const next = upgradeItemMax(state, "pet-1");
+
+    expect(next.inventory[0].level).toBe(3);
+    expect(next.resources.gems).toBe(15);
+    expect(next.garden.cropStorage.current.vegetable).toBe(5);
   });
 
   it("returns unchanged state when max-upgrade cannot afford first level", () => {

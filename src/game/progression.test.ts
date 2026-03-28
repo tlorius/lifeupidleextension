@@ -118,4 +118,24 @@ describe("progression", () => {
     expect(next.playerProgress.level).toBe(getHardLevelCap());
     expect(next.playerProgress.xp).toBe(0);
   });
+
+  it("extends hard cap by chaos hardcap upgrade level", () => {
+    const state = createDefaultState();
+    state.upgrades = [
+      {
+        id: "chaos_hardcap_core",
+        name: "Hardcap Breach",
+        level: 3,
+        baseCost: 100,
+        scaling: 2,
+        rubyBaseCost: 10,
+        rubyScaling: 2,
+        type: "attackBoost",
+        tree: "chaos",
+        bonuses: [],
+      },
+    ];
+
+    expect(getHardLevelCap(state)).toBe(getHardLevelCap() + 3);
+  });
 });

@@ -102,6 +102,45 @@ describe("upgrade selectors", () => {
     expect(insufficientGold.actionTitle).toBe("Not enough gold");
   });
 
+  it("exposes ruby, level, and max-level lock states", () => {
+    let state = createDefaultState();
+    state.resources.gold = 1_000_000_000;
+    state.resources.ruby = 1_000;
+    state.playerProgress.level = 50;
+    state = buyUpgrade(state, "chaos_core");
+    state.resources.ruby = 0;
+
+    const insufficientRuby = selectUpgradePresentation(
+      state,
+      getUpgradeDef("chaos_idle_surge_1")!,
+    );
+
+    state.resources.ruby = 1_000;
+    state.playerProgress.level = 49;
+    const levelLocked = selectUpgradePresentation(
+      state,
+      getUpgradeDef("chaos_idle_surge_1")!,
+    );
+
+    state.playerProgress.level = 50;
+    state = buyUpgrade(state, "chaos_idle_surge_1");
+    const maxed = selectUpgradePresentation(
+      state,
+      getUpgradeDef("chaos_idle_surge_1")!,
+    );
+
+    expect(insufficientRuby.lockReason).toBe("insufficient-ruby");
+    expect(insufficientRuby.actionTitle).toBe("Not enough ruby");
+    expect(insufficientRuby.rubyCost).toBe(100);
+
+    expect(levelLocked.lockReason).toBe("level-requirement");
+    expect(levelLocked.levelRequirementText).toContain("Requires Player Level");
+
+    expect(maxed.lockReason).toBe("max-level");
+    expect(maxed.actionLabel).toBe("Purchased");
+    expect(maxed.purchaseDisabled).toBe(true);
+  });
+
   it("returns null selected modal when selected upgrade id is not present", () => {
     const state = createDefaultState();
     const treeView = selectUpgradeTreeView(state, "resource", 1024, "attack_i");

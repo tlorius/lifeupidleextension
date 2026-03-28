@@ -66,8 +66,22 @@ export function TokenRewardModal() {
       <div className="ui-grid-gap-8">
         {tokenRewardModalItems.map((reward, index) => {
           const definition = getItemDefSafe(reward.itemId);
-          if (!definition) return null;
-          const accent = rarityAccent[definition.rarity] ?? rarityAccent.common;
+          const isRubyReward = reward.itemId === "ruby_currency";
+          if (!definition && !isRubyReward) return null;
+          const rarityKey = definition?.rarity ?? "common";
+          const accent = rarityAccent[rarityKey] ?? rarityAccent.common;
+          const icon = isRubyReward
+            ? "♦️"
+            : getItemIcon(definition?.type as ItemType);
+          const name = isRubyReward
+            ? "Ruby"
+            : (definition?.name ?? reward.itemId);
+          const subtitle = isRubyReward
+            ? "resource"
+            : `${definition?.rarity} ${definition?.type}`;
+          const showLevel = isRubyReward
+            ? false
+            : shouldShowLevel(definition?.type as ItemType);
 
           return (
             <div
@@ -94,20 +108,16 @@ export function TokenRewardModal() {
                 {reward.quantity}x
               </div>
 
-              <div style={{ fontSize: 20, textAlign: "center" }}>
-                {getItemIcon(definition.type)}
-              </div>
+              <div style={{ fontSize: 20, textAlign: "center" }}>{icon}</div>
 
               <div>
                 <div style={{ color: "#e5edf6", fontWeight: "bold" }}>
-                  {definition.name}
+                  {name}
                 </div>
-                <div style={{ color: "#95a8bb", fontSize: 11 }}>
-                  {definition.rarity} {definition.type}
-                </div>
+                <div style={{ color: "#95a8bb", fontSize: 11 }}>{subtitle}</div>
               </div>
 
-              {shouldShowLevel(definition.type) ? (
+              {showLevel ? (
                 <div
                   style={{
                     color: "#cfe0f1",

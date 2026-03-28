@@ -14,17 +14,24 @@ export function isDpsMeterUnlocked(state: GameState): boolean {
   return dpsMeterUpgrade ? dpsMeterUpgrade.level > 0 : false;
 }
 
-export function getHardLevelCap(): number {
-  return PROGRESSION_CONFIG.levelCaps.hardCapLevel;
+export function getHardLevelCap(state?: GameState): number {
+  const baseCap = PROGRESSION_CONFIG.levelCaps.hardCapLevel;
+  if (!state) {
+    return baseCap;
+  }
+  const hardCapUpgrade = state.upgrades.find(
+    (u) => u.id === "chaos_hardcap_core",
+  );
+  return baseCap + Math.max(0, hardCapUpgrade?.level ?? 0);
 }
 
-export function isLevelHardCapped(level: number): boolean {
-  return Math.max(1, Math.floor(level)) >= getHardLevelCap();
+export function isLevelHardCapped(level: number, state?: GameState): boolean {
+  return Math.max(1, Math.floor(level)) >= getHardLevelCap(state);
 }
 
-export function getXpForNextLevel(level: number): number {
+export function getXpForNextLevel(level: number, state?: GameState): number {
   const normalizedLevel = Math.max(1, Math.floor(level));
-  if (isLevelHardCapped(normalizedLevel)) {
+  if (isLevelHardCapped(normalizedLevel, state)) {
     return Number.POSITIVE_INFINITY;
   }
 
@@ -125,8 +132,8 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
   };
 
   let leveledUp = false;
-  let nextRequiredXp = getXpForNextLevel(nextProgress.level);
-  const hardCap = getHardLevelCap();
+  let nextRequiredXp = getXpForNextLevel(nextProgress.level, state);
+  const hardCap = getHardLevelCap(state);
 
   while (nextProgress.level < hardCap && nextProgress.xp >= nextRequiredXp) {
     nextProgress.xp -= nextRequiredXp;
@@ -149,7 +156,7 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
       nextStats[statKey] = (nextStats[statKey] ?? 0) + (value ?? 0);
     }
 
-    nextRequiredXp = getXpForNextLevel(nextProgress.level);
+    nextRequiredXp = getXpForNextLevel(nextProgress.level, state);
   }
 
   if (nextProgress.level >= hardCap) {
