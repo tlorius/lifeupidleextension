@@ -13,6 +13,13 @@ function makeState(): GameState {
 }
 
 describe("itemSets", () => {
+  it("uses percent-driven four-piece bonuses for all unique sets", () => {
+    for (const setDef of Object.values(uniqueSetDefinitions)) {
+      expect(setDef.fourPieceSetStatBonusPercent).toBe(100);
+      expect(Object.keys(setDef.fourPiece)).toHaveLength(0);
+    }
+  });
+
   it("counts all five pieces when both accessory slots are set pieces", () => {
     const state = makeState();
     state.character.activeClassId = "idler";

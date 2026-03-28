@@ -1,5 +1,6 @@
 import {
   areUpgradePrerequisitesMet,
+  getUpgradeCosts,
   getUnlockedUpgrades,
   getUpgradeDef,
   getUpgradeLevel,
@@ -23,17 +24,32 @@ export interface UpgradePresentation {
   icon: string;
   level: number;
   cost: number;
+  goldCost: number;
+  rubyCost: number;
   canAfford: boolean;
+  canAffordGold: boolean;
+  canAffordRuby: boolean;
   prerequisites: string[];
   isUnlocked: boolean;
   preqsMet: boolean;
+  levelRequirementMet: boolean;
+  requiredPlayerLevel: number | null;
+  isMaxLevelReached: boolean;
   unlockedByThis: string[];
   canPurchase: boolean;
   purchaseDisabled: boolean;
-  lockReason: "prerequisites" | "linked-level" | "insufficient-gold" | null;
+  lockReason:
+    | "prerequisites"
+    | "linked-level"
+    | "level-requirement"
+    | "max-level"
+    | "insufficient-gold"
+    | "insufficient-ruby"
+    | null;
   prereqText: string;
   linkedText: string;
-  actionLabel: "Locked" | "Unlock" | "Upgrade";
+  levelRequirementText: string;
+  actionLabel: "Locked" | "Unlock" | "Upgrade" | "Purchased" | "Maxed";
   actionTitle: string;
   prerequisiteNames: string[];
   linkedNames: string[];
@@ -94,6 +110,8 @@ export function getTreeIcon(tree: string): string {
       return "🌿";
     case "expedition":
       return "🧭";
+    case "chaos":
+      return "🌀";
     default:
       return "🌳";
   }
@@ -156,18 +174,37 @@ export function selectUpgradePresentation(
   upgradeDef: Upgrade,
 ): UpgradePresentation {
   const level = getUpgradeLevel(state, upgradeDef.id);
-  const cost = Math.ceil(
-    upgradeDef.baseCost * Math.pow(upgradeDef.scaling, level),
-  );
-  const canAfford = state.resources.gold >= cost;
+  const costs = getUpgradeCosts(upgradeDef, level);
+  const cost = costs.gold;
+  const canAffordGold = state.resources.gold >= costs.gold;
+  const canAffordRuby = (state.resources.ruby ?? 0) >= costs.ruby;
+  const canAfford = canAffordGold && canAffordRuby;
   const prerequisites = upgradeDef.prerequisites ?? [];
   const isUnlocked = isUpgradeUnlocked(state, upgradeDef.id);
   const preqsMet = areUpgradePrerequisitesMet(state, upgradeDef.id);
+  const requiredPlayerLevel = upgradeDef.requiredPlayerLevel ?? null;
+  const levelRequirementMet =
+    requiredPlayerLevel === null ||
+    state.playerProgress.level >= requiredPlayerLevel;
+  const isMaxLevelReached =
+    upgradeDef.maxLevel !== undefined && level >= upgradeDef.maxLevel;
   const unlockedByThis = getUnlockedUpgrades(state, upgradeDef.id);
-  const canPurchase = isUnlocked && preqsMet && canAfford;
+  const canPurchase =
+    isUnlocked &&
+    preqsMet &&
+    levelRequirementMet &&
+    !isMaxLevelReached &&
+    canAfford;
   const purchaseDisabled = !canPurchase;
 
-  const lockReason = getUpgradeLockReason(isUnlocked, preqsMet, canAfford);
+  const lockReason = getUpgradeLockReason(
+    isUnlocked,
+    preqsMet,
+    levelRequirementMet,
+    isMaxLevelReached,
+    canAffordGold,
+    canAffordRuby,
+  );
 
   const prereqText =
     prerequisites.length > 0
@@ -197,22 +234,45 @@ export function selectUpgradePresentation(
           .join(", ")}`
       : "";
 
+  const levelRequirementText =
+    requiredPlayerLevel !== null
+      ? `Requires Player Level ${requiredPlayerLevel} (current ${state.playerProgress.level})`
+      : "";
+
+  const actionLabel = isMaxLevelReached
+    ? upgradeDef.maxLevel === 1
+      ? "Purchased"
+      : "Maxed"
+    : !isUnlocked
+      ? "Locked"
+      : level === 0
+        ? "Unlock"
+        : "Upgrade";
+
   return {
     upgrade: upgradeDef,
     icon: getUpgradeIcon(upgradeDef),
     level,
     cost,
+    goldCost: costs.gold,
+    rubyCost: costs.ruby,
     canAfford,
+    canAffordGold,
+    canAffordRuby,
     prerequisites,
     isUnlocked,
     preqsMet,
+    levelRequirementMet,
+    requiredPlayerLevel,
+    isMaxLevelReached,
     unlockedByThis,
     canPurchase,
     purchaseDisabled,
     lockReason,
     prereqText,
     linkedText,
-    actionLabel: !isUnlocked ? "Locked" : level === 0 ? "Unlock" : "Upgrade",
+    levelRequirementText,
+    actionLabel,
     actionTitle: getUpgradeActionTitle(lockReason),
     prerequisiteNames: prerequisites
       .map((preqId) => getUpgradeDef(preqId)?.name)
@@ -423,7 +483,10 @@ function getLocalPrerequisiteIds(
 function getUpgradeLockReason(
   isUnlocked: boolean,
   preqsMet: boolean,
-  canAfford: boolean,
+  levelRequirementMet: boolean,
+  isMaxLevelReached: boolean,
+  canAffordGold: boolean,
+  canAffordRuby: boolean,
 ): UpgradePresentation["lockReason"] {
   if (!isUnlocked) {
     return preqsMet ? "linked-level" : "prerequisites";
@@ -431,8 +494,17 @@ function getUpgradeLockReason(
   if (!preqsMet) {
     return "linked-level";
   }
-  if (!canAfford) {
+  if (!levelRequirementMet) {
+    return "level-requirement";
+  }
+  if (isMaxLevelReached) {
+    return "max-level";
+  }
+  if (!canAffordGold) {
     return "insufficient-gold";
+  }
+  if (!canAffordRuby) {
+    return "insufficient-ruby";
   }
   return null;
 }
@@ -446,8 +518,17 @@ function getUpgradeActionTitle(
   if (lockReason === "linked-level") {
     return "Previous upgrade level required";
   }
+  if (lockReason === "level-requirement") {
+    return "Player level requirement not met";
+  }
+  if (lockReason === "max-level") {
+    return "Maximum level reached";
+  }
   if (lockReason === "insufficient-gold") {
     return "Not enough gold";
+  }
+  if (lockReason === "insufficient-ruby") {
+    return "Not enough ruby";
   }
   return "";
 }

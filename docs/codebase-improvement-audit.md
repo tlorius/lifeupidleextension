@@ -35,7 +35,7 @@ Primary recommendation:
 ### Current testing baseline
 
 - Test files exist for game domains (combat, engine, garden, progression, storage, upgrades, token rewards, number formatting).
-- Coverage (from existing coverage-final.json):
+- Coverage (historical snapshot from prior reports):
   - Statements: 1194/1469 (81.28%)
   - Functions: 23/29 (79.31%)
   - Branches: 86/135 (63.70%)

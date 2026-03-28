@@ -94,18 +94,11 @@ export function addDebugItems(state: GameState) {
   newState = addItem(newState, "chaos_potion");
   // Seeds
   // Keep debug seeds aligned to implemented crop definitions only.
-  // Pets
-  newState = addItem(newState, "wolf_pup");
-  newState = addItem(newState, "fire_fox");
-  newState = addItem(newState, "thunder_lynx");
-  newState = addItem(newState, "ice_dragon");
-  newState = addItem(newState, "storm_griffin");
-  newState = addItem(newState, "phoenix");
-  newState = addItem(newState, "astral_phoenix");
-  newState = addItem(newState, "void_beast");
-  newState = addItem(newState, "astral_wolf");
-  newState = addItem(newState, "grove_colossus");
-  newState = addItem(newState, "storm_hydra");
-  newState = addItem(newState, "blood_raptor");
+  // Pets (set pets are already added above with unique set items)
+  for (const itemDef of Object.values(itemDefinitions)) {
+    if (itemDef.type === "pet" && !itemDef.setId) {
+      newState = addItem(newState, itemDef.id);
+    }
+  }
   return newState;
 }

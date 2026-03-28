@@ -6,10 +6,11 @@ import {
   hasSetPieceThreshold,
   uniqueSetDefinitions,
 } from "../game/itemSets";
+import { getGardenCategoryIcon } from "../game/selectors/garden";
 import { getItemDefSafe } from "../game/items";
 import {
   getItemStats,
-  calculateUpgradeCost,
+  calculateItemUpgradeCosts,
   isItemEquipped,
 } from "../game/engine";
 import { useState } from "react";
@@ -67,12 +68,20 @@ export function ItemDetail({
 
   const stats = getItemStats(item, def);
   const equipped = isItemEquipped(state, item.uid);
-  const upgradeCost = calculateUpgradeCost(item.level, def.rarity);
+  const upgradeCosts = calculateItemUpgradeCosts(item.level, def);
   const isSprinkler = def.type === "tool" && def.id.includes("sprinkler");
   const isPotion = def.type === "potion";
   const canUpgradeItem = !isPotion;
-  const canAffordUpgrade =
-    canUpgradeItem && (state.resources.gems ?? 0) >= upgradeCost;
+  const canAffordCurrency =
+    upgradeCosts.currency === "gems"
+      ? (state.resources.gems ?? 0) >= upgradeCosts.currencyCost
+      : (state.resources.ruby ?? 0) >= upgradeCosts.currencyCost;
+  const canAffordFarm = upgradeCosts.farmResourceCost
+    ? (state.garden.cropStorage.current[
+        upgradeCosts.farmResourceCost.category
+      ] ?? 0) >= upgradeCosts.farmResourceCost.cost
+    : true;
+  const canAffordUpgrade = canUpgradeItem && canAffordCurrency && canAffordFarm;
   const isEquipableType =
     ["weapon", "armor", "accessory", "pet", "tool"].includes(def.type) &&
     !isSprinkler;
@@ -131,6 +140,7 @@ export function ItemDetail({
 
   const formatStatLabel = (stat: string): string =>
     stat.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+  const fourPieceEntries = setDef ? Object.entries(setDef.fourPiece) : [];
 
   const renderDotIndicator = (
     selectedValue: number,
@@ -162,6 +172,23 @@ export function ItemDetail({
   const formatDelta = (value: number): string => {
     if (value > 0) return `+${value}`;
     return `${value}`;
+  };
+
+  const formatUpgradeCostLabel = (): string => {
+    const currencyIcon = upgradeCosts.currency === "gems" ? "💎" : "♦️";
+    const currencySegment = `${formatCompactNumber(upgradeCosts.currencyCost)}${currencyIcon}`;
+    if (!upgradeCosts.farmResourceCost) {
+      return currencySegment;
+    }
+
+    const farmIcon = getGardenCategoryIcon(
+      upgradeCosts.farmResourceCost.category,
+    );
+    const farmLabel = upgradeCosts.farmResourceCost.category
+      .charAt(0)
+      .toUpperCase()
+      .concat(upgradeCosts.farmResourceCost.category.slice(1));
+    return `${currencySegment} + ${formatCompactNumber(upgradeCosts.farmResourceCost.cost)}${farmIcon} ${farmLabel}`;
   };
 
   const getPotionEffectToastMessage = (
@@ -326,7 +353,13 @@ export function ItemDetail({
                     4-piece {fourPieceActive ? "(active)" : "(inactive)"}
                   </strong>
                   <div style={{ marginTop: 4 }}>
-                    {Object.entries(setDef.fourPiece).map(([key, value]) => (
+                    {(setDef.fourPieceSetStatBonusPercent ?? 0) > 0 ? (
+                      <div style={{ fontSize: 12 }}>
+                        +{setDef.fourPieceSetStatBonusPercent}% to all equipped
+                        set item stats
+                      </div>
+                    ) : null}
+                    {fourPieceEntries.map(([key, value]) => (
                       <div key={`four-${key}`} style={{ fontSize: 12 }}>
                         +
                         {formatCompactNumber(value ?? 0, {
@@ -623,7 +656,7 @@ export function ItemDetail({
               {readOnly
                 ? "Upgrade (Preview)"
                 : canUpgradeItem
-                  ? `Upgrade (${formatCompactNumber(upgradeCost)}💎)`
+                  ? `Upgrade (${formatUpgradeCostLabel()})`
                   : "Potions cannot be upgraded"}
             </button>
 
@@ -647,7 +680,7 @@ export function ItemDetail({
                 title={
                   readOnly
                     ? "Upgrade max (Preview)"
-                    : "Upgrade until you run out of gems"
+                    : "Upgrade until you run out of required resources"
                 }
               >
                 {readOnly ? "Max (Preview)" : "Upgrade Max"}

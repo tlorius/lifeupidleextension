@@ -72,6 +72,7 @@ const MIGRATION_STEPS: Record<number, MigrationStep> = {
   0: (state) => state,
   1: (state) => state,
   2: (state) => normalizeCropStorageCategoryKeys(state),
+  3: (state) => state,
 };
 
 function getLoadedVersion(loadedObj: Record<string, unknown>): number {
@@ -115,7 +116,10 @@ export function migrateState(loaded: unknown): GameState {
 
   let migrated = runVersionMigrations(merged, loadedVersion);
 
-  if (typeof migrated.meta.lastUpdate !== "number") {
+  if (
+    typeof migrated.meta.lastUpdate !== "number" ||
+    !Number.isFinite(migrated.meta.lastUpdate)
+  ) {
     migrated.meta.lastUpdate = Date.now();
   }
 

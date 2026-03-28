@@ -4,7 +4,9 @@ import type { GameState } from "./types";
 import {
   areUpgradePrerequisitesMet,
   buyUpgrade,
+  getIdleGoldSurgeMultiplier,
   getUpgradeDef,
+  getUpgradeLevel,
   getUnlockedUpgrades,
   getUpgradesByTree,
   isUpgradeUnlocked,
@@ -205,5 +207,55 @@ describe("Upgrade System - Modern Tree Graph", () => {
     }
 
     expect(isUpgradeUnlocked(state, "singularity_bank")).toBe(true);
+  });
+});
+
+describe("Upgrade System - Chaos Branch", () => {
+  let state: GameState;
+
+  beforeEach(() => {
+    state = JSON.parse(JSON.stringify(defaultState));
+    state.resources.gold = 9_000_000_000_000;
+    state.resources.ruby = 50_000;
+  });
+
+  it("requires player level gates for idle surge nodes", () => {
+    state = buyUpgrade(state, "chaos_core");
+
+    expect(isUpgradeUnlocked(state, "chaos_idle_surge_1")).toBe(true);
+
+    state.playerProgress.level = 49;
+    const before = getUpgradeLevel(state, "chaos_idle_surge_1");
+    state = buyUpgrade(state, "chaos_idle_surge_1");
+    expect(getUpgradeLevel(state, "chaos_idle_surge_1")).toBe(before);
+
+    state.playerProgress.level = 50;
+    state = buyUpgrade(state, "chaos_idle_surge_1");
+    expect(getUpgradeLevel(state, "chaos_idle_surge_1")).toBe(1);
+  });
+
+  it("enforces one-time ruby purchases at max level 1", () => {
+    state.playerProgress.level = 70;
+    state = buyUpgrade(state, "chaos_core");
+
+    const firstRuby = state.resources.ruby ?? 0;
+    state = buyUpgrade(state, "chaos_idle_surge_1");
+    expect(getUpgradeLevel(state, "chaos_idle_surge_1")).toBe(1);
+    expect(state.resources.ruby).toBe(firstRuby - 100);
+
+    const secondRuby = state.resources.ruby ?? 0;
+    state = buyUpgrade(state, "chaos_idle_surge_1");
+    expect(getUpgradeLevel(state, "chaos_idle_surge_1")).toBe(1);
+    expect(state.resources.ruby).toBe(secondRuby);
+  });
+
+  it("stacks idle surge multipliers across purchased surge nodes", () => {
+    state.playerProgress.level = 70;
+    state = buyUpgrade(state, "chaos_core");
+    state = buyUpgrade(state, "chaos_idle_surge_1");
+    state = buyUpgrade(state, "chaos_idle_surge_2");
+    state = buyUpgrade(state, "chaos_idle_surge_3");
+
+    expect(getIdleGoldSurgeMultiplier(state)).toBeCloseTo(1000, 8);
   });
 });

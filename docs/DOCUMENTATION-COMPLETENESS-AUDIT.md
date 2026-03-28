@@ -54,7 +54,7 @@ Purpose: Assess whether documentation is complete for independent code expansion
 - **Impact:** New developer cannot quickly understand how to run, test, build
 - **Needed:**
   - "Getting Started" section with npm install, dev server, build commands
-  - Overview of key npm scripts (test:integration, test:run, test:coverage)
+  - Overview of key npm scripts (test:integration, test:run, build)
   - Vite + React + TypeScript tooling overview
   - Code structure quick reference
 

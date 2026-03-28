@@ -34,7 +34,6 @@ Phase 16 continues the consolidation and consistency push across remaining handl
 4. Slice 4: Validation and completion
    - Run `npm run test:integration`.
    - Run `npm run test:run`.
-   - Run `npm run test:coverage`.
    - Run `npm run build`.
 
 ## Exit criteria
@@ -84,5 +83,4 @@ Validation rerun after all decomposition:
 
 - `npm run test:integration` passed (8 tests).
 - `npm run test:run -- --reporter=dot` passed (21 files, 234 tests).
-- `npm run test:coverage -- --reporter=dot` passed (coverage ~91% lines, 76% branches, 86.6% functions).
 - `npm run build` passed.

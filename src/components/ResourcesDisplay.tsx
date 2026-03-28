@@ -4,14 +4,16 @@ import { formatCompactNumber } from "../game/numberFormat";
 import { selectResourcesDisplayView } from "../game/selectors/resources";
 import type { Stats } from "../game/types";
 import { ModalShell } from "./ui/ModalShell";
+import { RewardInboxModal } from "./RewardInboxModal";
 
 interface ResourcesDisplayProps {
   compact?: boolean;
 }
 
 export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
-  const { state } = useGame();
+  const { state, unreadRewardBundleCount } = useGame();
   const [showStats, setShowStats] = useState(false);
+  const [showRewardInbox, setShowRewardInbox] = useState(false);
   const hasRubyResourceUnlocked = state.combat.highestLevelReached > 50;
 
   const {
@@ -41,6 +43,15 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
 
     if (minutes <= 0) return `${seconds}s`;
     return `${minutes}m ${seconds}s`;
+  };
+
+  const formatPlaytime = (ms: number): string => {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+    return `${minutes}:${seconds}`;
   };
 
   const formatSigned = (value: number | undefined): string => {
@@ -109,6 +120,21 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
         ) : null}
 
         <button
+          type="button"
+          className="ui-resource-mail-btn"
+          title="Reward Inbox"
+          aria-label="Open reward inbox"
+          onClick={() => setShowRewardInbox(true)}
+        >
+          <span aria-hidden="true">✉</span>
+          {unreadRewardBundleCount > 0 ? (
+            <span className="ui-resource-mail-badge">
+              {unreadRewardBundleCount}
+            </span>
+          ) : null}
+        </button>
+
+        <button
           style={{
             marginLeft: compact ? 2 : "auto",
             width: compact ? 28 : 32,
@@ -146,6 +172,21 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
             >
               Close
             </button>
+          </div>
+
+          <div className="ui-card-tonal" style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+              Session Playtime Remaining
+            </div>
+            <div style={{ fontSize: 14, color: "#9fe3a8", fontWeight: "bold" }}>
+              {formatPlaytime(state.playtime.remainingMs)} /{" "}
+              {formatPlaytime(state.playtime.capMs)}
+            </div>
+            <div className="ui-text-meta" style={{ marginTop: 4 }}>
+              Token unit adds{" "}
+              {Math.max(1, Math.floor(state.playtime.tokenUnitMs / 60000))}{" "}
+              minute(s)
+            </div>
           </div>
 
           {/* Current Total Stats */}
@@ -373,6 +414,11 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
           </div>
         </ModalShell>
       )}
+
+      <RewardInboxModal
+        isOpen={showRewardInbox}
+        onClose={() => setShowRewardInbox(false)}
+      />
     </div>
   );
 }

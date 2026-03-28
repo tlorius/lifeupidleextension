@@ -32,12 +32,11 @@ Phase 14 addresses these with minimal behavior change and explicit validation ga
 
 3. Slice 3: Quality gates
    - Set baseline coverage thresholds in Vitest config.
-   - Add a `test:ci` script to run non-watch tests + coverage.
+   - Add a `test:ci` script to run non-watch tests.
 
 4. Slice 4: Validation and completion
    - Run `npm run test:integration`.
    - Run `npm run test:run`.
-   - Run `npm run test:coverage`.
    - Run `npm run build`.
 
 ## Exit criteria
@@ -56,9 +55,8 @@ Validation rerun (one command at a time):
 
 - `npm run test:integration` passed (8 tests).
 - `npm run test:run` passed (21 files, 231 tests).
-- `npm run test:coverage -- --run --reporter=dot` passed.
 - `npm run build` passed.
 
 Additional hardening:
 
-- Updated `test:coverage` in `package.json` to `vitest --coverage --run` so coverage checks do not enter watch mode during local phase validation.
+- Added non-watch validation scripts for repeatable local and CI checks.

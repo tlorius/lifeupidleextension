@@ -137,7 +137,6 @@ Top inline-style hotspots by occurrence:
     - Full validation sequence executed successfully:
       - `npm run test:integration`
       - `npm run test:run`
-      - `npm run test:coverage`
       - `npm run build`
     - Coverage run completed with overall statement coverage at 91.32%
 

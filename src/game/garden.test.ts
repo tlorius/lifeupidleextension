@@ -343,6 +343,27 @@ describe("Garden System - Unit Tests", () => {
       expect(newState.inventory[0].quantity).toBe(1);
     });
 
+    it("should plant around an occupied planter tile when planter range allows it", () => {
+      testState.inventory = [
+        {
+          uid: "seed-1",
+          itemId: "sunflower_seed_common",
+          quantity: 4,
+          level: 1,
+        },
+      ];
+      testState.garden.selectedPlanterSeedId = "sunflower_seed_common";
+
+      let newState = plantCrop(testState, "sunflower_common", 0, 0);
+      newState = placePlanterOnField(newState, 0, 0, "planter_rare");
+      applyGardenIdle(newState, 5000);
+
+      expect(newState.garden.crops["sunflower_common"]).toBeDefined();
+      expect(newState.garden.crops["sunflower_common"].length).toBeGreaterThan(
+        1,
+      );
+    });
+
     it("should use per-planter seed assignment over global planter seed", () => {
       testState.inventory = [
         {
@@ -795,11 +816,11 @@ describe("Garden System - Unit Tests", () => {
       });
       expect(getSprinklerCoverageProfile("sprinkler_rare")).toEqual({
         crossRange: 1,
-        diagonalRange: 0,
+        diagonalRange: 1,
       });
       expect(getSprinklerCoverageProfile("sprinkler_epic")).toEqual({
-        crossRange: 1,
-        diagonalRange: 1,
+        crossRange: 2,
+        diagonalRange: 2,
       });
       expect(getSprinklerCoverageProfile("sprinkler_legendary")).toEqual({
         crossRange: 2,
@@ -819,9 +840,12 @@ describe("Garden System - Unit Tests", () => {
       ).toBe(true);
       expect(
         sprinklerCoversField("sprinkler_rare", center, { row: 5, col: 5 }),
-      ).toBe(false);
+      ).toBe(true);
       expect(
         sprinklerCoversField("sprinkler_epic", center, { row: 5, col: 5 }),
+      ).toBe(true);
+      expect(
+        sprinklerCoversField("sprinkler_epic", center, { row: 6, col: 4 }),
       ).toBe(true);
       expect(
         sprinklerCoversField("sprinkler_legendary", center, { row: 4, col: 7 }),

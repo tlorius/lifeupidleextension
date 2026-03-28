@@ -50,6 +50,24 @@ export type GameAction =
       type: "rewards/applyTokenRewards";
       normalizedRewards: NormalizedTokenRewardItem[];
     }
+  | { type: "playtime/addTokenUnits"; units: number }
+  | { type: "playtime/consumeMs"; amountMs: number }
+  | {
+      type: "playtime/configure";
+      capMs: number;
+      tokenUnitMs: number;
+    }
+  | {
+      type: "rewards/enqueueTokenBundle";
+      sourceToken: string;
+      sourceLabel?: string;
+      rewards: NormalizedTokenRewardItem[];
+      receivedAt: number;
+    }
+  | {
+      type: "rewards/redeemInboxBundle";
+      bundleId: number;
+    }
   | { type: "state/resetToDefault" };
 
 export interface GameActionResult {
@@ -156,6 +174,7 @@ export function applyGameAction(
     case "combat/clickAttack":
     case "combat/useConsumable":
     case "combat/castSpell":
+    case "combat/setFightMode":
       return applyCombatAction(state, action);
 
     case "inventory/equipItem":
@@ -182,6 +201,110 @@ export function applyGameAction(
         state: applyTokenRewards(state, action.normalizedRewards),
         combatEvents: [],
       };
+
+    case "playtime/addTokenUnits": {
+      const units = Math.max(0, Math.floor(action.units));
+      if (units <= 0) return { state, combatEvents: [] };
+
+      const addMs = units * Math.max(60_000, state.playtime.tokenUnitMs);
+      const nextRemaining = state.playtime.remainingMs + addMs;
+
+      return {
+        state: {
+          ...state,
+          playtime: {
+            ...state.playtime,
+            remainingMs: nextRemaining,
+          },
+        },
+        combatEvents: [],
+      };
+    }
+
+    case "playtime/consumeMs": {
+      const amountMs = Math.max(0, Math.floor(action.amountMs));
+      if (amountMs <= 0) return { state, combatEvents: [] };
+
+      return {
+        state: {
+          ...state,
+          playtime: {
+            ...state.playtime,
+            remainingMs: Math.max(0, state.playtime.remainingMs - amountMs),
+          },
+        },
+        combatEvents: [],
+      };
+    }
+
+    case "playtime/configure": {
+      const nextCapMs = Math.max(60_000, Math.floor(action.capMs));
+      const nextUnitMs = Math.max(60_000, Math.floor(action.tokenUnitMs));
+      return {
+        state: {
+          ...state,
+          playtime: {
+            ...state.playtime,
+            capMs: nextCapMs,
+            tokenUnitMs: nextUnitMs,
+            remainingMs: Math.min(state.playtime.remainingMs, nextCapMs),
+          },
+        },
+        combatEvents: [],
+      };
+    }
+
+    case "rewards/enqueueTokenBundle": {
+      const rewards = action.rewards
+        .map((entry) => ({
+          itemId: entry.itemId,
+          quantity: Math.max(1, Math.floor(entry.quantity)),
+        }))
+        .filter((entry) => entry.itemId.length > 0);
+      if (rewards.length === 0) return { state, combatEvents: [] };
+
+      const nextBundle = {
+        id: state.rewardInbox.nextBundleId,
+        sourceToken: action.sourceToken,
+        sourceLabel: action.sourceLabel,
+        rewards,
+        receivedAt: action.receivedAt,
+      };
+
+      return {
+        state: {
+          ...state,
+          rewardInbox: {
+            bundles: [...state.rewardInbox.bundles, nextBundle],
+            nextBundleId: state.rewardInbox.nextBundleId + 1,
+          },
+        },
+        combatEvents: [],
+      };
+    }
+
+    case "rewards/redeemInboxBundle": {
+      const target = state.rewardInbox.bundles.find(
+        (bundle) => bundle.id === action.bundleId,
+      );
+      if (!target) {
+        return { state, combatEvents: [] };
+      }
+
+      const rewardedState = applyTokenRewards(state, target.rewards);
+      return {
+        state: {
+          ...rewardedState,
+          rewardInbox: {
+            ...rewardedState.rewardInbox,
+            bundles: rewardedState.rewardInbox.bundles.filter(
+              (bundle) => bundle.id !== action.bundleId,
+            ),
+          },
+        },
+        combatEvents: [],
+      };
+    }
 
     case "garden/reconcileRocks":
     case "garden/craftSeed":

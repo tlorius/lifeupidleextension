@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   render,
   screen,
@@ -9,6 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import App from "./App";
+import { createEnemyInstance } from "./game/combat";
 import { GameProvider } from "./game/GameContext";
 import { createDefaultState } from "./game/state";
 
@@ -104,6 +105,30 @@ describe("app integration", () => {
     });
   });
 
+  it("does not consume playtime from offline elapsed time on load", () => {
+    vi.useFakeTimers();
+    try {
+      const now = new Date("2026-03-28T12:00:00.000Z").getTime();
+      vi.setSystemTime(now);
+
+      const seeded = createDefaultState();
+      seeded.meta.lastUpdate = now - 10 * 60 * 1000;
+      seeded.playtime.remainingMs = 5 * 60 * 1000;
+      localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+      renderApp();
+
+      const savedRaw = localStorage.getItem("idle_save");
+      expect(savedRaw).toBeTruthy();
+      const saved = JSON.parse(savedRaw as string) as typeof seeded;
+
+      // Offline catch-up should not burn session playtime.
+      expect(saved.playtime.remainingMs).toBe(seeded.playtime.remainingMs);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("hides ruby resource chip before first level 50 kill", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();
@@ -185,6 +210,138 @@ describe("app integration", () => {
         screen.getByRole("heading", { name: "Spell Selection" }),
       ).toBeTruthy();
     });
+  });
+
+  it("shows enemy hp dropping to zero before the next enemy appears on one-shot kills", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.combat.currentLevel = 14;
+    seeded.combat.highestLevelReached = 14;
+    seeded.combat.enemy = createEnemyInstance(14);
+    seeded.stats.attack = 1_000_000;
+    seeded.stats.intelligence = 1_000_000;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fight" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("fight-enemy-hp-label")).toBeTruthy();
+    });
+
+    const enemyHpLabelBefore = screen.getByTestId(
+      "fight-enemy-hp-label",
+    ).textContent;
+    expect(enemyHpLabelBefore).toContain("/");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Tap \/ Click To Strike/i }),
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("fight-enemy-hp-label").textContent).toMatch(
+          /^HP: 0 \/ /,
+        );
+        expect(
+          (screen.getByTestId("fight-enemy-hp-fill") as HTMLElement).style
+            .width,
+        ).toBe("0%");
+      },
+      { timeout: 1500 },
+    );
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByTestId("fight-enemy-hp-label").textContent,
+        ).not.toMatch(/^HP: 0 \/ /);
+        expect(screen.getByTestId("fight-enemy-hp-label").textContent).not.toBe(
+          enemyHpLabelBefore,
+        );
+      },
+      { timeout: 1500 },
+    );
+  });
+
+  it("keeps HP at 0 during the death window even when subsequent combat events fire", async () => {
+    // Regression: the combined useEffect had deps [currentHp, enemyId, combatEvents].
+    // A new combatEvents batch (next auto-attack tick) would trigger the cleanup
+    // registered on the previous render, cancelling the pending death-animation
+    // timers within ~16 ms.  This test fires another attack immediately after the
+    // kill to simulate that next-tick event and confirms the HP:0 state persists.
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.combat.currentLevel = 14;
+    seeded.combat.highestLevelReached = 14;
+    seeded.combat.enemy = createEnemyInstance(14);
+    seeded.stats.attack = 1_000_000;
+    seeded.stats.intelligence = 1_000_000;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    renderApp();
+    await dismissIdleEarningsModalIfShown();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fight" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("fight-enemy-hp-label")).toBeTruthy();
+    });
+
+    const attackBtn = screen.getByRole("button", {
+      name: /Tap \/ Click To Strike/i,
+    });
+
+    // Kill the enemy.
+    fireEvent.click(attackBtn);
+
+    // Immediately fire additional clicks to simulate rapid combatEvents changes
+    // (equivalent to the auto-attack loop ticking during the death window).
+    // This is the regression scenario: without the isDeathAnimationPendingRef
+    // guard in the HP-drain effect, these clicks would cause it to overwrite
+    // visualEnemyHp with the new enemy's HP before the drop timer fires.
+    fireEvent.click(attackBtn);
+    fireEvent.click(attackBtn);
+    fireEvent.click(attackBtn);
+
+    // The death animation should still complete: HP must reach 0 ...
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("fight-enemy-hp-label").textContent).toMatch(
+          /^HP: 0 \/ /,
+        );
+      },
+      { timeout: 1500 },
+    );
+
+    // ... and the bar must read 0% width (not just the label).
+    expect(
+      (screen.getByTestId("fight-enemy-hp-fill") as HTMLElement).style.width,
+    ).toBe("0%");
+
+    // Fire even more clicks while we're at 0% to confirm the 0% state holds.
+    fireEvent.click(attackBtn);
+    fireEvent.click(attackBtn);
+
+    // HP:0 must persist through those additional events (guard still active).
+    expect(screen.getByTestId("fight-enemy-hp-label").textContent).toMatch(
+      /^HP: 0 \/ /,
+    );
+    expect(
+      (screen.getByTestId("fight-enemy-hp-fill") as HTMLElement).style.width,
+    ).toBe("0%");
+
+    // After the hold the new enemy must appear without the user doing anything.
+    await waitFor(
+      () => {
+        expect(
+          screen.getByTestId("fight-enemy-hp-label").textContent,
+        ).not.toMatch(/^HP: 0 \/ /);
+      },
+      { timeout: 1500 },
+    );
   });
 
   it("prevents equipped inventory items from mass-sell selection", async () => {
@@ -342,7 +499,7 @@ describe("app integration", () => {
     });
   });
 
-  it("resolves token reward flow and clears token from URL", async () => {
+  it("queues reward token bundle and redeems from inbox", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();
     localStorage.setItem("idle_save", JSON.stringify(seeded));
@@ -352,6 +509,22 @@ describe("app integration", () => {
     await dismissIdleEarningsModalIfShown();
 
     await waitFor(() => {
+      expect(window.location.search).toBe("");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open reward inbox" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Reward Inbox" }),
+      ).toBeTruthy();
+    });
+
+    expect(screen.getByText("Starter Pack")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Redeem" }));
+
+    await waitFor(() => {
       expect(
         screen.getByRole("heading", {
           name: "Congrats! You have earned items",
@@ -359,60 +532,66 @@ describe("app integration", () => {
       ).toBeTruthy();
     });
 
-    expect(screen.getByText("Health Potion")).toBeTruthy();
-    expect(window.location.search).toBe("");
+    expect(screen.getAllByText("Health Potion").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const rewardModalHeader = screen.getByRole("heading", {
+      name: "Congrats! You have earned items",
+    });
+    const rewardModalHeaderRow = rewardModalHeader.parentElement;
+    expect(rewardModalHeaderRow).toBeTruthy();
+    fireEvent.click(
+      within(rewardModalHeaderRow as HTMLElement).getByRole("button", {
+        name: "Close",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open reward inbox" }));
+
     await waitFor(() => {
       expect(
-        screen.queryByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeNull();
+        screen.getByRole("heading", { name: "Reward Inbox" }),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText("Starter Pack")).toBeNull();
+  });
+
+  it("applies playtime token before reward token and removes both params", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.playtime.remainingMs = 0;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    window.history.replaceState(
+      {},
+      "",
+      "/?playtimeToken=play-5m=1u&token=starter-pack",
+    );
+
+    renderApp();
+
+    await waitFor(() => {
+      expect(screen.queryByText("Playtime Used Up")).toBeNull();
+    });
+
+    expect(window.location.search).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Open reward inbox" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Redeem" })).toBeTruthy();
     });
   });
 
-  it("allows redeeming the same valid token on separate app loads", async () => {
+  it("shows playtime gate when session time is exhausted", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();
+    seeded.playtime.remainingMs = 0;
     localStorage.setItem("idle_save", JSON.stringify(seeded));
 
-    window.history.replaceState({}, "", "/?token=starter-pack");
-    const firstRender = renderApp();
-    await dismissIdleEarningsModalIfShown();
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeTruthy();
-    });
-    expect(window.location.search).toBe("");
-
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeNull();
-    });
-
-    firstRender.unmount();
-
-    window.history.replaceState({}, "", "/?token=starter-pack");
     renderApp();
-    await dismissIdleEarningsModalIfShown();
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeTruthy();
+      expect(screen.getByText("Playtime Used Up")).toBeTruthy();
     });
-    expect(window.location.search).toBe("");
+    expect(screen.queryByText("Idle RPG")).toBeNull();
   });
 
   it("hides spell management controls when spell system is locked", async () => {

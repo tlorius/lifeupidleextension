@@ -6,6 +6,7 @@ import {
   canUpgradeClassNode,
   getClassNodeRank,
 } from "../game/classes";
+import { SpellIconTile } from "./SpellIcon";
 import { ModalShell } from "./ui/ModalShell";
 
 interface SkillTreeModalProps {
@@ -57,6 +58,47 @@ export function SkillTreeModal({ isOpen, onClose }: SkillTreeModalProps) {
       <div className="ui-section-divider">
         <div className="ui-skill-fantasy">{activeClass.fantasy}</div>
         <div className="ui-skill-class-summary">{activeClass.summary}</div>
+      </div>
+
+      <div className="ui-section-divider">
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#d7ecff",
+            marginBottom: 10,
+          }}
+        >
+          Class Spells
+        </div>
+        <div className="ui-skill-spell-grid">
+          {activeClass.classSpells.map((spell) => {
+            const isUnlocked =
+              state.playerProgress.level >= spell.requiredLevel;
+
+            return (
+              <div
+                key={spell.id}
+                className="ui-skill-spell-card"
+                style={{ opacity: isUnlocked ? 1 : 0.58 }}
+              >
+                <SpellIconTile
+                  spellId={spell.id}
+                  tileSize={36}
+                  size={18}
+                  dimmed={!isUnlocked}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div className="ui-skill-spell-name">{spell.name}</div>
+                  <div className="ui-skill-spell-meta">
+                    Lv {spell.requiredLevel} •{" "}
+                    {isUnlocked ? "Unlocked" : "Locked"}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Skill Points Display */}

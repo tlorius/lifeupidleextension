@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createDefaultState } from "../state";
 import { addDebugItems } from "../items";
 import { applyCombatAction } from "./combat";
+import { resetEnemyInstanceIdCounter } from "../combat";
 
 describe("combat action handler", () => {
   it("applies click attack through the action handler", () => {
@@ -65,7 +66,9 @@ describe("combat action handler", () => {
       return state;
     };
 
+    resetEnemyInstanceIdCounter();
     const first = runSequence();
+    resetEnemyInstanceIdCounter();
     const second = runSequence();
 
     randomSpy.mockRestore();

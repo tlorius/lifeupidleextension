@@ -138,13 +138,17 @@ describe("fight selectors", () => {
     expect(panel.classLabel).toBe("(Class: sorceress)");
     expect(panel.showManageButton).toBe(true);
     expect(panel.unlockedSpellSlots).toBe(5);
-    expect(panel.spellActions).toHaveLength(2);
-    expect(panel.spellActions[0]?.id).toBe("arcane_bolt");
-    expect(panel.spellActions[0]?.canCast).toBe(false);
-    expect(panel.spellActions[0]?.cooldownLabel).toBe("Cooldown 2s");
-    expect(panel.spellActions[1]?.id).toBe("second_wind");
-    expect(panel.spellActions[1]?.canCast).toBe(false);
-    expect(panel.spellActions[1]?.cooldownLabel).toBe("Ready");
+    expect(panel.spellSlots).toHaveLength(8);
+    expect(panel.spellSlots[0]?.spell?.id).toBe("arcane_bolt");
+    expect(panel.spellSlots[0]?.spell?.canCast).toBe(false);
+    expect(panel.spellSlots[0]?.spell?.cooldownLabel).toBe("Cooldown 2s");
+    expect(panel.spellSlots[0]?.spell?.unavailableReason).toBe("cooldown");
+    expect(panel.spellSlots[1]?.spell?.id).toBe("second_wind");
+    expect(panel.spellSlots[1]?.spell?.canCast).toBe(false);
+    expect(panel.spellSlots[1]?.spell?.cooldownLabel).toBe("Ready");
+    expect(panel.spellSlots[1]?.spell?.unavailableReason).toBe("mana");
+    expect(panel.spellSlots[4]?.isUnlocked).toBe(true);
+    expect(panel.spellSlots[5]?.isUnlocked).toBe(false);
     expect(panel.spellPath.length).toBeGreaterThan(0);
   });
 

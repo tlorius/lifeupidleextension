@@ -83,6 +83,15 @@ const DAMAGE_TEXT_FIT_CONFIG: DamageTextFitConfig = {
   minScale: 0.52,
 };
 
+// How long the death animation window lasts:
+//   DELAY_MS   – bar stays at old HP before starting to drain (gives player time to register the kill)
+//   TRANSITION_MS – CSS width transition duration (bar visually drains to 0)
+//   HOLD_MS    – bar fully at 0 before the next enemy swaps in
+// Total visibility window = DELAY + TRANSITION + HOLD
+const ENEMY_DEATH_BAR_DELAY_MS = 50; // short pause after kill
+const ENEMY_DEATH_BAR_TRANSITION_MS = 450; // visible drain animation
+const ENEMY_DEATH_BAR_HOLD_MS = 400; // hold at 0 so the player sees it
+
 function getDamageFontSize(
   damage: number,
   isMobileViewport: boolean,
@@ -128,8 +137,12 @@ function getDamagePopupLeftPercent(target: "enemy" | "player"): number {
 
 export function Fight() {
   const { state, combatEvents } = useGame();
-  const { combatCastSpell, combatClickAttack, combatUseConsumable } =
-    useGameActions();
+  const {
+    combatCastSpell,
+    combatClickAttack,
+    combatUseConsumable,
+    combatSetFightMode,
+  } = useGameActions();
   const [floatingDamage, setFloatingDamage] = useState<FloatingDamage[]>([]);
   const [combatLog, setCombatLog] = useState<
     Array<{ id: string; text: string; color: string }>
@@ -149,6 +162,9 @@ export function Fight() {
     0,
   );
   const [isSpellSelectOpen, setIsSpellSelectOpen] = useState(false);
+  const [farmingLevelInput, setFarmingLevelInput] = useState<string>(() =>
+    String(state.combat.farmingTargetLevel ?? state.combat.currentLevel ?? 1),
+  );
 
   const combat = state.combat;
   const {
@@ -160,7 +176,6 @@ export function Fight() {
     critChance,
     xpForNextLevel,
     xpProgressPercent,
-    combatTitle,
     activeClassId,
     slottedSpells,
     manaRegenPerSecond,
@@ -170,13 +185,27 @@ export function Fight() {
   const [visualEnemyHp, setVisualEnemyHp] = useState(
     () => combat.enemy.currentHp,
   );
+  const [displayedEnemy, setDisplayedEnemy] = useState(() => combat.enemy);
+  const [isEnemyDeathFlashActive, setIsEnemyDeathFlashActive] = useState(false);
   const enemyHpTickTimersRef = useRef<number[]>([]);
+  const enemyHpSwapTimerRef = useRef<number | null>(null);
+  const enemyHpDropTimerRef = useRef<number | null>(null);
   const previousEnemyIdRef = useRef(combat.enemy.enemyId);
+  // True while the death animation window is open – guards HP sync.
+  const isDeathAnimationPendingRef = useRef(false);
+  // The most recent enemy to show when the current swap timer fires.
+  // Enemies can die faster than the animation duration; instead of restarting
+  // the timer we just update this ref so the swap always shows the latest one.
+  const nextEnemySwapRef = useRef<{
+    enemy: typeof combat.enemy;
+    hp: number;
+  } | null>(null);
 
   const enemySprite =
-    combat.enemy.kind === "boss" ? enemyBossPixel : enemyPixel;
+    displayedEnemy.kind === "boss" ? enemyBossPixel : enemyPixel;
   const enemyAlt =
-    combat.enemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
+    displayedEnemy.kind === "boss" ? "Boss enemy pixel art" : "Enemy pixel art";
+  const displayedCombatTitle = `${displayedEnemy.name} (Lv ${displayedEnemy.level})`;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -211,26 +240,143 @@ export function Fight() {
     );
   }, [clockNow]);
 
-  // Keep visual HP aligned when the encounter swaps or HP increases.
+  // ── Effect A: enemy swap ─────────────────────────────────────────────────
+  // Fires when the enemy ID changes.  Two cases:
+  //
+  // Case 1 – death animation already running: don't restart.  Just update
+  //   nextEnemySwapRef so the existing swap timer shows the latest enemy when
+  //   it fires.  This prevents a fast kill rate (high-level player vs low-level
+  //   enemies, rapid clicks) from perpetually resetting the swap deadline and
+  //   trapping the UI in a dying state forever.
+  //
+  // Case 2 – no animation running: start a fresh animation (or immediate swap
+  //   for non-kill ID changes like mode switches / initial load).
+  //
+  // ⚠️  Neither branch returns a cleanup.  React calls the cleanup on every
+  //   re-run; registering one would cancel our pending timers on the very
+  //   next combatEvents tick (~16 ms).  Timers self-cancel via their refs.
   useEffect(() => {
-    if (previousEnemyIdRef.current !== combat.enemy.enemyId) {
-      previousEnemyIdRef.current = combat.enemy.enemyId;
+    if (previousEnemyIdRef.current === combat.enemy.enemyId) {
+      // Same enemy – combatEvents changed but nothing to do here.
+      return;
+    }
+
+    // Update the ref immediately so repeated renders for this same ID are
+    // skipped without duplicate processing.
+    previousEnemyIdRef.current = combat.enemy.enemyId;
+
+    const nextEnemy = combat.enemy;
+    const nextHp = combat.enemy.currentHp;
+
+    const shouldAnimateDeathToZero = combatEvents.some(
+      (event) => event.type === "enemyDefeated",
+    );
+
+    // ── Case 1: kill while animation already running ──────────────────────
+    if (shouldAnimateDeathToZero && isDeathAnimationPendingRef.current) {
+      // Cancel any stray HP-drain tick timers.
       for (const timerId of enemyHpTickTimersRef.current) {
         window.clearTimeout(timerId);
       }
       enemyHpTickTimersRef.current = [];
-      setVisualEnemyHp(combat.enemy.currentHp);
-      return;
+      // Tell the in-flight swap timer which enemy to show when it fires.
+      nextEnemySwapRef.current = { enemy: nextEnemy, hp: nextHp };
+      return; // ⚠️  No cleanup – existing drop/swap timers must not be cancelled.
     }
 
+    // ── Case 2: fresh start ───────────────────────────────────────────────
+    for (const timerId of enemyHpTickTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+    enemyHpTickTimersRef.current = [];
+    if (enemyHpSwapTimerRef.current !== null) {
+      window.clearTimeout(enemyHpSwapTimerRef.current);
+      enemyHpSwapTimerRef.current = null;
+    }
+    if (enemyHpDropTimerRef.current !== null) {
+      window.clearTimeout(enemyHpDropTimerRef.current);
+      enemyHpDropTimerRef.current = null;
+    }
+
+    if (shouldAnimateDeathToZero) {
+      isDeathAnimationPendingRef.current = true;
+      nextEnemySwapRef.current = { enemy: nextEnemy, hp: nextHp };
+      setIsEnemyDeathFlashActive(true);
+
+      // After DELAY ms the bar drops to 0.
+      enemyHpDropTimerRef.current = window.setTimeout(() => {
+        setVisualEnemyHp(0);
+        enemyHpDropTimerRef.current = null;
+      }, ENEMY_DEATH_BAR_DELAY_MS);
+
+      // After DELAY + TRANSITION + HOLD ms swap to the latest queued enemy.
+      enemyHpSwapTimerRef.current = window.setTimeout(
+        () => {
+          const target = nextEnemySwapRef.current ?? {
+            enemy: nextEnemy,
+            hp: nextHp,
+          };
+          setDisplayedEnemy(target.enemy);
+          setVisualEnemyHp(target.hp);
+          setIsEnemyDeathFlashActive(false);
+          isDeathAnimationPendingRef.current = false;
+          nextEnemySwapRef.current = null;
+          enemyHpSwapTimerRef.current = null;
+        },
+        ENEMY_DEATH_BAR_DELAY_MS +
+          ENEMY_DEATH_BAR_TRANSITION_MS +
+          ENEMY_DEATH_BAR_HOLD_MS,
+      );
+    } else {
+      // Non-kill ID change (mode switch, load) – swap immediately.
+      isDeathAnimationPendingRef.current = false;
+      nextEnemySwapRef.current = null;
+      setIsEnemyDeathFlashActive(false);
+      setDisplayedEnemy(nextEnemy);
+      setVisualEnemyHp(nextHp);
+    }
+  }, [combat.enemy.enemyId, combatEvents]);
+
+  // ── Effect B: HP sync within the same enemy ───────────────────────────────
+  // Fires only when currentHp changes.  Skipped while a death animation is
+  // running so the displayed dying enemy's bar stays visible and drains to 0
+  // rather than jumping to the new enemy's HP mid-animation.
+  useEffect(() => {
+    if (isDeathAnimationPendingRef.current) return;
     setVisualEnemyHp((current) =>
       combat.enemy.currentHp > current ? combat.enemy.currentHp : current,
     );
-  }, [combat.enemy.currentHp, combat.enemy.enemyId]);
+  }, [combat.enemy.currentHp]);
+
+  // ── Effect C: unmount cleanup ─────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      for (const timerId of enemyHpTickTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+      if (enemyHpSwapTimerRef.current !== null) {
+        window.clearTimeout(enemyHpSwapTimerRef.current);
+      }
+      if (enemyHpDropTimerRef.current !== null) {
+        window.clearTimeout(enemyHpDropTimerRef.current);
+      }
+      isDeathAnimationPendingRef.current = false;
+      nextEnemySwapRef.current = null;
+    };
+  }, []);
 
   // Replay each damage event so HP text/bar move per-hit instead of once per batch.
+  // ⚠️ Must be skipped while a death animation is running – the auto-attack loop
+  // fires combatEvents every ~16 ms with attacks on the *new* enemy.  Without this
+  // guard the effect would immediately call setVisualEnemyHp(newEnemy.currentHp) and
+  // overwrite the dying enemy's HP display before the drop timer even fires.
   useEffect(() => {
     if (combatEvents.length === 0) return;
+    if (isDeathAnimationPendingRef.current) return;
+
+    if (combatEvents.some((event) => event.type === "enemyDefeated")) {
+      return;
+    }
 
     const hitDamages = combatEvents
       .filter((event) => event.type === "playerHit")
@@ -435,6 +581,7 @@ export function Fight() {
         if (event.type === "playerHit") {
           const isCrit = Boolean(event.isCrit);
           const isPetHit = event.attackSource === "pet";
+          const isSpellHit = Boolean(event.spellId);
           const baseFontSize = getDamageFontSize(
             event.value ?? 0,
             isMobileViewport,
@@ -450,7 +597,15 @@ export function Fight() {
           return {
             id: `${now}-p-${index}`,
             text: damageText,
-            color: isPetHit ? "#ffb347" : isCrit ? "#ffffff" : "#47d16d",
+            color: isPetHit
+              ? isSpellHit
+                ? "#d5a6ff"
+                : "#ffb347"
+              : isSpellHit
+                ? "#7eb8ff"
+                : isCrit
+                  ? "#ffffff"
+                  : "#47d16d",
             fontSize,
             top: 24 + Math.random() * 42,
             left: getDamagePopupLeftPercent("enemy"),
@@ -805,29 +960,89 @@ export function Fight() {
         )}
       </div>
 
+      {/* Fight Mode Selector */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 0 4px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            className={combat.fightMode !== "farming" ? "btn-selected" : ""}
+            onClick={() => combatSetFightMode("progression")}
+            style={{ fontSize: 13, padding: "4px 12px" }}
+          >
+            Progression
+          </button>
+          <button
+            className={combat.fightMode === "farming" ? "btn-selected" : ""}
+            onClick={() =>
+              combatSetFightMode(
+                "farming",
+                Number(farmingLevelInput) || combat.currentLevel,
+              )
+            }
+            style={{ fontSize: 13, padding: "4px 12px" }}
+          >
+            Farming
+          </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, opacity: 0.75 }}>Target Lv:</span>
+          <input
+            type="number"
+            min={1}
+            value={farmingLevelInput}
+            onChange={(e) => setFarmingLevelInput(e.target.value)}
+            onBlur={(e) => {
+              const val = Math.max(1, Number(e.target.value) || 1);
+              setFarmingLevelInput(String(val));
+              if (combat.fightMode === "farming") {
+                combatSetFightMode("farming", val);
+              }
+            }}
+            style={{
+              width: 64,
+              fontSize: 13,
+              textAlign: "center",
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 4,
+              color: "inherit",
+              padding: "3px 6px",
+            }}
+          />
+        </div>
+      </div>
+
       {/* Fight Arena */}
       <div className="ui-fight-arena">
         <div className="ui-fight-arena-header">
-          <h2 className="ui-fight-title">{combatTitle}</h2>
+          <h2 className="ui-fight-title">{displayedCombatTitle}</h2>
           <span
             className="ui-fight-kind-badge"
             style={{
               backgroundColor:
-                combat.enemy.kind === "boss"
+                displayedEnemy.kind === "boss"
                   ? "rgba(235, 97, 79, 0.35)"
                   : "rgba(91, 144, 199, 0.28)",
             }}
           >
-            {combat.enemy.kind === "boss" ? "Boss" : "Enemy"}
+            {displayedEnemy.kind === "boss" ? "Boss" : "Enemy"}
           </span>
         </div>
 
-        <div className="ui-fight-enemy-hp">
+        <div className="ui-fight-enemy-hp" data-testid="fight-enemy-hp-label">
           HP: {formatCombatNumber(Math.max(0, Math.round(visualEnemyHp)))} /{" "}
-          {formatCombatNumber(combat.enemy.maxHp)}
+          {formatCombatNumber(displayedEnemy.maxHp)}
         </div>
         <div className="ui-fight-enemy-hp-shell">
           <div
+            data-testid="fight-enemy-hp-fill"
             style={{
               position: "absolute",
               left: 0,
@@ -835,13 +1050,13 @@ export function Fight() {
                 0,
                 Math.min(
                   100,
-                  (visualEnemyHp / Math.max(1, combat.enemy.maxHp)) * 100,
+                  (visualEnemyHp / Math.max(1, displayedEnemy.maxHp)) * 100,
                 ),
               )}%`,
               height: "100%",
               background:
                 "linear-gradient(90deg, #b83838 0%, #e65e5e 64%, #ffc4c4 100%)",
-              transition: "width 36ms linear",
+              transition: `width ${ENEMY_DEATH_BAR_TRANSITION_MS}ms ease-out`,
             }}
           />
         </div>
@@ -888,7 +1103,38 @@ export function Fight() {
               )}
             </div>
 
-            <div className="ui-fight-sprite-stack">
+            <div
+              className="ui-fight-sprite-stack"
+              style={{
+                position: "relative",
+                opacity: isEnemyDeathFlashActive ? 0.28 : 1,
+                transform: isEnemyDeathFlashActive
+                  ? "scale(0.94) translateY(2px)"
+                  : "scale(1)",
+                filter: isEnemyDeathFlashActive
+                  ? "brightness(1.65) saturate(0.42)"
+                  : "none",
+                transition: [
+                  `opacity ${ENEMY_DEATH_BAR_TRANSITION_MS}ms ease-out`,
+                  `transform ${ENEMY_DEATH_BAR_TRANSITION_MS}ms ease-out`,
+                  `filter ${ENEMY_DEATH_BAR_TRANSITION_MS}ms ease-out`,
+                ].join(", "),
+              }}
+            >
+              {isEnemyDeathFlashActive && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: -18,
+                    borderRadius: "50%",
+                    background:
+                      "radial-gradient(circle, rgba(255,246,221,0.9) 0%, rgba(255,172,111,0.72) 24%, rgba(255,104,104,0.34) 54%, rgba(255,104,104,0) 76%)",
+                    pointerEvents: "none",
+                    animation: `fightEnemyDefeatFlash ${ENEMY_DEATH_BAR_DELAY_MS + ENEMY_DEATH_BAR_TRANSITION_MS}ms ease-out forwards`,
+                  }}
+                />
+              )}
               <img
                 src={enemySprite}
                 alt={enemyAlt}
@@ -897,7 +1143,7 @@ export function Fight() {
                 style={{
                   imageRendering: "pixelated",
                   filter:
-                    combat.enemy.kind === "boss"
+                    displayedEnemy.kind === "boss"
                       ? "drop-shadow(0 0 8px rgba(246, 176, 82, 0.6)) drop-shadow(0 8px 5px rgba(0,0,0,0.55))"
                       : "drop-shadow(0 6px 4px rgba(0,0,0,0.5))",
                 }}
@@ -954,8 +1200,9 @@ export function Fight() {
         unlockedSpellSlots={spellPanel.unlockedSpellSlots}
         maxSpellSlots={spellPanel.maxSpellSlots}
         emptyMessage={spellPanel.emptyMessage}
-        spellActions={spellPanel.spellActions}
+        spellSlots={spellPanel.spellSlots}
         spellPath={spellPanel.spellPath}
+        state={state}
         onOpenManageSpells={() => setIsSpellSelectOpen(true)}
         onCastSpell={combatCastSpell}
       />
@@ -1035,6 +1282,12 @@ export function Fight() {
           0% { transform: translateY(0) scale(1); filter: brightness(1); }
           40% { transform: translateY(0) scale(1.03); filter: brightness(1.35); }
           100% { transform: translateY(0) scale(1); filter: brightness(1); }
+        }
+
+        @keyframes fightEnemyDefeatFlash {
+          0% { opacity: 0; transform: scale(0.72); }
+          22% { opacity: 1; transform: scale(1.02); }
+          100% { opacity: 0; transform: scale(1.42); }
         }`}
       </style>
 

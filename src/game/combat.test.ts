@@ -410,6 +410,44 @@ describe("combat engine", () => {
     expect(result.itemsGained).toBeGreaterThanOrEqual(0);
   });
 
+  it("recovers offline combat from a saved zero-hp enemy state", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    state.stats.attack = 40;
+
+    const runtime = createInitialCombatRuntime(state);
+    runtime.enemy.currentHp = 0;
+
+    const result = resolveOfflineCombatExpected(
+      runtime,
+      state,
+      1_000,
+      () => 0.2,
+    );
+
+    expect(result.levelsCleared).toBeGreaterThan(0);
+    expect(result.runtime.currentLevel).toBeGreaterThanOrEqual(2);
+    expect(result.runtime.enemy.currentHp).toBeGreaterThan(0);
+  });
+
+  it("bounds offline combat iterations for very large away-time windows", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    state.stats.attack = 10_000_000;
+    state.stats.agility = 1_000_000;
+
+    const runtime = createInitialCombatRuntime(state);
+    const result = resolveOfflineCombatExpected(
+      runtime,
+      state,
+      1000 * 60 * 60 * 24 * 365,
+      () => 0.5,
+    );
+
+    expect(result.levelsCleared).toBeLessThanOrEqual(25_000);
+    expect(result.levelsCleared).toBeGreaterThan(0);
+  });
+
   it("emits level-up and system unlock events from combat rewards", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     const state = createDefaultState();

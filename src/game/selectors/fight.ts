@@ -99,6 +99,13 @@ export interface FightSpellActionViewModel {
   cooldownMs: number;
   canCast: boolean;
   cooldownLabel: string;
+  unavailableReason: "cooldown" | "mana" | null;
+}
+
+export interface FightSpellSlotViewModel {
+  slotIndex: number;
+  isUnlocked: boolean;
+  spell: FightSpellActionViewModel | null;
 }
 
 export interface FightSpellPathEntryViewModel {
@@ -115,7 +122,7 @@ export interface FightSpellPanelViewModel {
   unlockedSpellSlots: number;
   maxSpellSlots: number;
   emptyMessage: string | null;
-  spellActions: FightSpellActionViewModel[];
+  spellSlots: FightSpellSlotViewModel[];
   spellPath: FightSpellPathEntryViewModel[];
 }
 
@@ -305,7 +312,8 @@ export function selectFightDpsMetrics(
 
   const maxValue = Math.max(1, ...normalizedBuckets);
 
-  // Generate 4-5 y-axis ticks evenly distributed
+  // Generate 4-5 y-axis ticks evenly distributed, highest value first so it
+  // renders at the visual top of the flex-column label list.
   const tickCount = 5;
   const tickInterval = maxValue / (tickCount - 1);
   const yAxisTicks: YAxisTick[] = Array.from({ length: tickCount }, (_, i) => {
@@ -315,7 +323,7 @@ export function selectFightDpsMetrics(
       label: formatCompactNumber(value, { minCompactValue: 1000 }),
       y: 100 - (value / maxValue) * 100,
     };
-  });
+  }).reverse();
 
   const dpsGraphPoints = normalizedBuckets
     .map((value, index) => {
@@ -346,6 +354,7 @@ export function selectFightSpellPanel(
 ): FightSpellPanelViewModel {
   const spellsUnlocked = Boolean(state.playerProgress.unlockedSystems?.spells);
   const activeClassId = state.character.activeClassId;
+  const maxSpellSlots = 8;
   const unlockedSpellSlots = getSpellSlotsForLevel(state.playerProgress.level);
   const playerMana = Math.max(0, Math.min(100, state.resources.energy ?? 100));
   const spellCooldowns = state.combat.spellCooldowns ?? {};
@@ -359,29 +368,60 @@ export function selectFightSpellPanel(
       "No spells are slotted. Open Character and assign spells to slots.";
   }
 
+  const slottedSpellsById = new Map(
+    slottedSpells.map((spell) => [spell.id, spell] as const),
+  );
+  const selectedSpellIds = activeClassId
+    ? (state.character.classProgress[activeClassId]?.selectedSpellIds.slice(
+        0,
+        maxSpellSlots,
+      ) ?? [])
+    : slottedSpells.slice(0, maxSpellSlots).map((spell) => spell.id);
+
   return {
     isVisible: spellsUnlocked,
     classLabel: activeClassId ? `(Class: ${activeClassId})` : null,
     showManageButton: Boolean(activeClassId) && unlockedSpellSlots > 0,
     unlockedSpellSlots,
-    maxSpellSlots: 8,
+    maxSpellSlots,
     emptyMessage,
-    spellActions: slottedSpells.map((spell) => {
+    spellSlots: Array.from({ length: maxSpellSlots }, (_, slotIndex) => {
+      const spellId = selectedSpellIds[slotIndex] ?? null;
+      const spell = spellId ? (slottedSpellsById.get(spellId) ?? null) : null;
+
+      if (!spell) {
+        return {
+          slotIndex,
+          isUnlocked: slotIndex < unlockedSpellSlots,
+          spell: null,
+        };
+      }
+
       const cooldownMs = spellCooldowns[spell.id] ?? 0;
-      const canCast = cooldownMs <= 0 && playerMana >= spell.manaCost;
+      const unavailableReason =
+        cooldownMs > 0
+          ? "cooldown"
+          : playerMana < spell.manaCost
+            ? "mana"
+            : null;
 
       return {
-        id: spell.id,
-        name: spell.name,
-        description: spell.description,
-        requiredLevel: spell.requiredLevel,
-        manaCost: spell.manaCost,
-        cooldownMs,
-        canCast,
-        cooldownLabel:
-          cooldownMs > 0
-            ? `Cooldown ${formatRemainingMs(cooldownMs)}`
-            : "Ready",
+        slotIndex,
+        isUnlocked: slotIndex < unlockedSpellSlots,
+        spell: {
+          id: spell.id,
+          name: spell.name,
+          description: spell.description,
+          requiredLevel: spell.requiredLevel,
+          manaCost: spell.manaCost,
+          cooldownMs,
+          canCast: unavailableReason === null,
+          cooldownLabel:
+            cooldownMs > 0
+              ? `Cooldown ${formatRemainingMs(cooldownMs)}`
+              : "Ready",
+          unavailableReason,
+        },
       };
     }),
     spellPath: getGeneralCombatSpellPath().map((spell) => ({

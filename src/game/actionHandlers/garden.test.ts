@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultState } from "../state";
-import { applyGardenAction } from "./garden";
+import { applyGardenAction, computeWaterAreaResult } from "./garden";
 
 describe("garden action handler", () => {
   it("sets and removes crop sprinkler through explicit actions", () => {
@@ -219,5 +219,22 @@ describe("garden action handler", () => {
     const second = runSequence();
 
     expect(first).toEqual(second);
+  });
+
+  it("applies configured 3x3 range for rare watering can", () => {
+    const state = createDefaultState();
+    const planted = applyGardenAction(state, {
+      type: "garden/plantCrop",
+      cropId: "sunflower_common",
+      row: 1,
+      col: 1,
+    });
+
+    const result = computeWaterAreaResult(planted, 0, 0, "watering_can_rare");
+
+    expect(result.wateredTiles).toBe(1);
+    expect(result.nextState.garden.crops.sunflower_common[0].waterLevel).toBe(
+      100,
+    );
   });
 });

@@ -70,6 +70,8 @@ export interface CombatRuntimeState {
     sourceClassId?: ClassId;
     nextClassSpellMultiplier?: number;
   };
+  fightMode?: "progression" | "farming";
+  farmingTargetLevel?: number;
 }
 
 export interface CombatEvent {
@@ -503,6 +505,20 @@ function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
   };
 }
 
+// Counter for generating unique enemy instance IDs.  Ensures enemies spawned at
+// the same level still have different IDs (for farming mode animation continuity).
+// This is incremented on each createEnemyInstance call and provides deterministic,
+// monotonically increasing instance IDs.
+let enemyInstanceIdCounter = 0;
+
+/**
+ * Resets the enemy instance ID counter. Used in tests to ensure determinism.
+ * @internal
+ */
+export function resetEnemyInstanceIdCounter(): void {
+  enemyInstanceIdCounter = 0;
+}
+
 export function getCombatLevelConfig(level: number): CombatLevelConfig {
   const normalizedLevel = Math.max(1, Math.floor(level));
   const authored = COMBAT_LEVELS.find(
@@ -513,9 +529,13 @@ export function getCombatLevelConfig(level: number): CombatLevelConfig {
 
 export function createEnemyInstance(level: number): CombatEnemyInstance {
   const config = getCombatLevelConfig(level);
+  // Generate a unique instance ID so repeated enemies at the same level in farming mode
+  // still trigger the death animation (which keys off enemy ID changes).
+  // The counter is deterministic and monotonically increasing.
+  const uniqueInstanceId = `${config.enemyId}_${enemyInstanceIdCounter++}`;
   return {
     level: config.level,
-    enemyId: config.enemyId,
+    enemyId: uniqueInstanceId,
     name: config.name,
     kind: config.kind,
     maxHp: config.hp,

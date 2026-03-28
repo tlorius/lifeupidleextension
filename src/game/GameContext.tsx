@@ -11,10 +11,14 @@ import {
   type CombatEvent,
 } from "./combat";
 import {
+  extractPlaytimeToken,
   extractRewardToken,
   type GrantedTokenRewardItem,
   normalizeTokenRewards,
+  removePlaytimeTokenFromUrl,
   removeRewardTokenFromUrl,
+  resolveRewardTokenDisplayName,
+  resolvePlaytimeToken,
   resolveTokenRewards,
   toGrantedTokenRewards,
 } from "./tokenRewards";
@@ -41,6 +45,8 @@ type InitializationResult = {
   idleFightReview: IdleFightReview | null;
 };
 
+const MAX_OFFLINE_CATCHUP_MS = 1000 * 60 * 60 * 24 * 14;
+
 function initializeGameState(): InitializationResult {
   let initialState = load() ?? createDefaultState();
   const dailyCheckIn = applyIdlerDailyCheckIn(initialState);
@@ -50,16 +56,22 @@ function initializeGameState(): InitializationResult {
     typeof initialState.meta.lastUpdate === "number"
       ? initialState.meta.lastUpdate
       : now;
-  const delta = Math.max(0, now - lastUpdate);
+  const rawDelta = now - lastUpdate;
+  const delta = Number.isFinite(rawDelta)
+    ? Math.max(0, Math.min(rawDelta, MAX_OFFLINE_CATCHUP_MS))
+    : 0;
   const beforeGold = initialState.resources.gold;
   const beforeGems = initialState.resources.gems ?? 0;
   const beforePlayerLevel = initialState.playerProgress.level;
   const beforeHighestLevelReached = initialState.combat.highestLevelReached;
   let idleFightReview: IdleFightReview | null = null;
 
+  let afterPassiveGold = beforeGold;
+
   if (delta > 0) {
     applyIdle(initialState, delta);
     applyGardenIdle(initialState, delta);
+    afterPassiveGold = initialState.resources.gold;
 
     const offlineCombat = resolveOfflineCombatExpected(
       initialState.combat,
@@ -100,19 +112,33 @@ function initializeGameState(): InitializationResult {
   }
 
   initialState.meta.lastUpdate = now;
+  // Persist immediately so that if beforeunload fails (mobile, crash, hard
+  // refresh before the first tick), the next load uses this timestamp and
+  // doesn't re-award the same offline earnings.
+  save(initialState);
 
-  const earnedGold = Math.max(0, initialState.resources.gold - beforeGold);
-  const idleEarnings: IdleEarningItem[] =
-    earnedGold > 0
-      ? [
-          {
-            resourceId: "gold",
-            label: "Gold",
-            amount: earnedGold,
-            icon: "🪙",
-          },
-        ]
-      : [];
+  const passiveGold = Math.max(0, afterPassiveGold - beforeGold);
+  const combatGold = Math.max(
+    0,
+    initialState.resources.gold - afterPassiveGold,
+  );
+  const idleEarnings: IdleEarningItem[] = [];
+  if (passiveGold > 0) {
+    idleEarnings.push({
+      resourceId: "gold:passive",
+      label: "Idle Gold",
+      amount: passiveGold,
+      icon: "🪙",
+    });
+  }
+  if (combatGold > 0) {
+    idleEarnings.push({
+      resourceId: "gold:combat",
+      label: "Combat Gold",
+      amount: combatGold,
+      icon: "⚔️",
+    });
+  }
 
   if (dailyCheckIn.gemsGranted > 0) {
     idleEarnings.push({
@@ -138,6 +164,9 @@ const GameContext = createContext<{
   setTickSpeedMultiplier: (multiplier: number) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
+  rewardInboxBundles: GameState["rewardInbox"]["bundles"];
+  unreadRewardBundleCount: number;
+  redeemRewardInboxBundle: (bundleId: number) => void;
   idleEarningsModalItems: IdleEarningItem[];
   idleDurationMs: number;
   idleFightReview: IdleFightReview | null;
@@ -169,6 +198,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [idleFightReview, setIdleFightReview] =
     useState<IdleFightReview | null>(initializationRef.current.idleFightReview);
   const [combatEvents, setCombatEvents] = useState<CombatEvent[]>([]);
+  const [pendingPlaytimeToken, setPendingPlaytimeToken] = useState<
+    string | null
+  >(() => extractPlaytimeToken(window.location.search));
   const [pendingRewardToken, setPendingRewardToken] = useState<string | null>(
     () => extractRewardToken(window.location.search),
   );
@@ -212,8 +244,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           combat: combatResult.runtime,
         };
 
-        save(withCombat);
-        return withCombat;
+        const withPlaytimeConsumed = applyGameAction(withCombat, {
+          type: "playtime/consumeMs",
+          amountMs: 1000,
+        }).state;
+
+        save(withPlaytimeConsumed);
+        return withPlaytimeConsumed;
       });
 
       setCombatEvents(tickCombatEvents);
@@ -237,33 +274,73 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const token = pendingRewardToken;
-    if (!token) return;
-    if (idleEarningsModalItems.length > 0) return;
+    if (!pendingPlaytimeToken && !pendingRewardToken) return;
 
-    void resolveTokenRewards(token)
-      .then((rewards) => {
-        if (cancelled || rewards.length === 0) return;
-        const normalizedRewards = normalizeTokenRewards(rewards);
-        if (normalizedRewards.length === 0) return;
-        dispatch({ type: "rewards/applyTokenRewards", normalizedRewards });
-        setTokenRewardModalItems(toGrantedTokenRewards(normalizedRewards));
-      })
-      .catch((error) => {
-        // Keep placeholder error handling lightweight until API integration is finalized.
-        console.error("Failed to resolve reward token", error);
-      })
-      .finally(() => {
-        const nextSearch = removeRewardTokenFromUrl(window.location.search);
+    void (async () => {
+      let nextSearch = window.location.search;
+
+      if (pendingPlaytimeToken) {
+        try {
+          const result = await resolvePlaytimeToken(pendingPlaytimeToken);
+          if (!cancelled && result.isValid && result.units > 0) {
+            dispatch({ type: "playtime/addTokenUnits", units: result.units });
+            nextSearch = removePlaytimeTokenFromUrl(nextSearch);
+          }
+        } catch (error) {
+          console.error("Failed to resolve playtime token", error);
+        }
+      }
+
+      if (pendingRewardToken) {
+        try {
+          const rewards = await resolveTokenRewards(pendingRewardToken);
+          if (!cancelled && rewards.length > 0) {
+            const normalizedRewards = normalizeTokenRewards(rewards);
+            if (normalizedRewards.length > 0) {
+              dispatch({
+                type: "rewards/enqueueTokenBundle",
+                sourceToken: pendingRewardToken,
+                sourceLabel:
+                  resolveRewardTokenDisplayName(pendingRewardToken) ??
+                  pendingRewardToken,
+                rewards: normalizedRewards,
+                receivedAt: Date.now(),
+              });
+              nextSearch = removeRewardTokenFromUrl(nextSearch);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to resolve reward token", error);
+        }
+      }
+
+      if (!cancelled) {
         const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
         window.history.replaceState({}, "", nextUrl);
+        setPendingPlaytimeToken(null);
         setPendingRewardToken(null);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [pendingRewardToken, idleEarningsModalItems.length]);
+  }, [pendingPlaytimeToken, pendingRewardToken]);
+
+  const redeemRewardInboxBundle = (bundleId: number) => {
+    const bundle = stateRef.current.rewardInbox.bundles.find(
+      (entry) => entry.id === bundleId,
+    );
+    if (!bundle) return;
+
+    dispatch({
+      type: "rewards/redeemInboxBundle",
+      bundleId,
+    });
+    setTokenRewardModalItems(toGrantedTokenRewards(bundle.rewards));
+  };
+
+  const unreadRewardBundleCount = state.rewardInbox.bundles.length;
 
   return (
     <GameContext.Provider
@@ -274,6 +351,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setTickSpeedMultiplier,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
+        rewardInboxBundles: state.rewardInbox.bundles,
+        unreadRewardBundleCount,
+        redeemRewardInboxBundle,
         idleEarningsModalItems,
         idleDurationMs,
         idleFightReview,

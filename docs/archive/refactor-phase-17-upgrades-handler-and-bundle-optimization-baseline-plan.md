@@ -36,7 +36,6 @@ Phase 17 focuses on handler consistency completion and data gathering for optimi
 4. Slice 4: Validation and completion
    - Run `npm run test:integration`.
    - Run `npm run test:run`.
-   - Run `npm run test:coverage`.
    - Run `npm run build` and analyze output.
 
 ## Exit criteria
@@ -126,7 +125,7 @@ dist/index.html                                     0.54 kB (raw) | 0.32 kB (gzi
 - Duration: ~6.48s
 - No regressions detected
 
-**test:run:**
+**Historical coverage gate (removed from active scripts):**
 
 - Status: ✓ PASS
 - Tests: 235 / 235 passed (up from 234; +1 from new upgrades determinism test)
@@ -134,7 +133,7 @@ dist/index.html                                     0.54 kB (raw) | 0.32 kB (gzi
 - Files: 21 test suites
 - Coverage maintained
 
-**test:coverage:**
+**Historical coverage metrics:**
 
 - Status: ✓ PASS
 - Files tracked: 21

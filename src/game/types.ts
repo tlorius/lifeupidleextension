@@ -203,6 +203,29 @@ export interface TemporaryEffects {
   goldIncomeBoostUntil?: number;
 }
 
+export interface PlaytimeState {
+  remainingMs: number;
+  capMs: number;
+  tokenUnitMs: number;
+}
+
+export interface RewardInboxBundle {
+  id: number;
+  sourceToken: string;
+  sourceLabel?: string;
+  rewards: Array<{
+    itemId: string;
+    quantity: number;
+  }>;
+  receivedAt: number;
+  redeemedAt?: number;
+}
+
+export interface RewardInboxState {
+  bundles: RewardInboxBundle[];
+  nextBundleId: number;
+}
+
 export interface PlayerProgress {
   level: number;
   xp: number;
@@ -245,6 +268,8 @@ export interface CombatState {
     sourceClassId?: ClassId;
     nextClassSpellMultiplier?: number;
   };
+  fightMode?: "progression" | "farming";
+  farmingTargetLevel?: number;
 }
 
 export interface GameState {
@@ -258,6 +283,8 @@ export interface GameState {
   playerProgress: PlayerProgress;
   combat: CombatState;
   temporaryEffects?: TemporaryEffects;
+  playtime: PlaytimeState;
+  rewardInbox: RewardInboxState;
 
   inventory: ItemInstance[];
   equipment: Equipment;
@@ -298,6 +325,15 @@ export interface ItemDefinition {
   petBonus?: {
     bonusType: keyof Stats; // "attack", "goldIncome", etc.
     bonusAmount: number; // E.g., 0.1 = 10% bonus per level
+  };
+  upgradeCostConfig?: {
+    currencyBaseCost?: number;
+    currencyCostPerLevel?: number;
+    farmResource?: {
+      category: CropCategory;
+      baseCost: number;
+      costPerLevel: number;
+    };
   };
 }
 
@@ -343,6 +379,10 @@ export interface Upgrade {
   level: number;
   baseCost: number;
   scaling: number;
+  rubyBaseCost?: number;
+  rubyScaling?: number;
+  maxLevel?: number;
+  requiredPlayerLevel?: number;
   type: UpgradeType;
   tree: string; // e.g., "combat", "resource", "farming"
   bonuses: UpgradeBonus[];
