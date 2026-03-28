@@ -170,6 +170,55 @@ describe("engine", () => {
     expect(state.resources.gold).toBeCloseTo(30, 8);
   });
 
+  it("applies chaos idle surge and passive gem generation during idle", () => {
+    const state = makeState();
+    state.stats.attack = 10;
+    state.resources.gold = 0;
+    state.resources.gems = 0;
+    state.upgrades = [
+      {
+        id: "chaos_idle_surge_1",
+        name: "Idle Surge I",
+        level: 1,
+        baseCost: 100,
+        scaling: 2,
+        rubyBaseCost: 100,
+        rubyScaling: 1,
+        maxLevel: 1,
+        type: "autoGold",
+        tree: "chaos",
+        bonuses: [],
+      },
+      {
+        id: "chaos_gem_foundry",
+        name: "Gem Foundry",
+        level: 2,
+        baseCost: 100,
+        scaling: 2,
+        rubyBaseCost: 10,
+        rubyScaling: 2,
+        type: "gemFinder",
+        tree: "chaos",
+        bonuses: [],
+      },
+      {
+        id: "gem_hunter",
+        name: "Gem Hunter",
+        level: 3,
+        baseCost: 100,
+        scaling: 1.8,
+        type: "gemFinder",
+        tree: "resource",
+        bonuses: [],
+      },
+    ];
+
+    applyIdle(state, 1_000);
+
+    expect(state.resources.gold).toBeCloseTo(100, 8);
+    expect(state.resources.gems).toBe(1);
+  });
+
   it("regenerates mana over time and respects mana regen bonuses", () => {
     const state = makeState();
     state.resources.energy = 50;

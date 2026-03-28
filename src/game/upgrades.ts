@@ -7,6 +7,23 @@ import {
 } from "./upgradePrerequisites";
 import { isDpsMeterUnlocked } from "./progression";
 
+export interface UpgradeCosts {
+  gold: number;
+  ruby: number;
+}
+
+const CHAOS_IDLE_SURGE_NODE_IDS = [
+  "chaos_idle_surge_1",
+  "chaos_idle_surge_2",
+  "chaos_idle_surge_3",
+  "chaos_idle_surge_4",
+  "chaos_idle_surge_5",
+  "chaos_idle_surge_6",
+  "chaos_idle_surge_7",
+  "chaos_idle_surge_8",
+  "chaos_idle_surge_9",
+] as const;
+
 /**
  * Single source of truth for upgrade balance data.
  * Keep costs, scaling, bonuses, and unlock links here.
@@ -200,6 +217,9 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
     level: 0,
     baseCost: 2400,
     scaling: 2.12,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
     bonuses: [],
     prerequisites: ["immortal_legion"],
     linkedUpgrades: [],
@@ -831,6 +851,284 @@ export const upgradeDefinitions: Record<string, Upgrade> = {
     prerequisites: ["bounty_syndicate", "gem_hunter"],
     linkedUpgrades: [],
   },
+
+  // ===== CHAOS TREE =====
+  chaos_core: {
+    id: "chaos_core",
+    name: "Chaos Core",
+    description:
+      "A volatile core branch that blends ruby and gold into high-risk scaling upgrades.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 12000,
+    scaling: 2.2,
+    rubyBaseCost: 30,
+    rubyScaling: 1.85,
+    bonuses: [{ percentBonusType: "goldIncome", percentBonusAmount: 0.2 }],
+    prerequisites: [],
+    linkedUpgrades: [
+      { upgradeId: "chaos_idle_surge_1", unlocksAtLevel: 1 },
+      { upgradeId: "chaos_hardcap_core", unlocksAtLevel: 1 },
+      { upgradeId: "chaos_gem_foundry", unlocksAtLevel: 1 },
+      { upgradeId: "chaos_midas_heart", unlocksAtLevel: 2 },
+      { upgradeId: "chaos_prismatic_flux", unlocksAtLevel: 3 },
+      { upgradeId: "chaos_overclock_ritual", unlocksAtLevel: 4 },
+    ],
+  },
+
+  chaos_idle_surge_1: {
+    id: "chaos_idle_surge_1",
+    name: "Idle Surge I",
+    description: "One-time purchase. Multiplies idle gold gain by 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 25000,
+    scaling: 2.35,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 50,
+    bonuses: [],
+    prerequisites: ["chaos_core"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_2", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_2: {
+    id: "chaos_idle_surge_2",
+    name: "Idle Surge II",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 45000,
+    scaling: 2.36,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 60,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_1"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_3", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_3: {
+    id: "chaos_idle_surge_3",
+    name: "Idle Surge III",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 75000,
+    scaling: 2.37,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 70,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_2"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_4", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_4: {
+    id: "chaos_idle_surge_4",
+    name: "Idle Surge IV",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 115000,
+    scaling: 2.38,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 80,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_3"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_5", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_5: {
+    id: "chaos_idle_surge_5",
+    name: "Idle Surge V",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 175000,
+    scaling: 2.39,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 90,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_4"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_6", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_6: {
+    id: "chaos_idle_surge_6",
+    name: "Idle Surge VI",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 260000,
+    scaling: 2.4,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 100,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_5"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_7", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_7: {
+    id: "chaos_idle_surge_7",
+    name: "Idle Surge VII",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 370000,
+    scaling: 2.41,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 110,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_6"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_8", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_8: {
+    id: "chaos_idle_surge_8",
+    name: "Idle Surge VIII",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 520000,
+    scaling: 2.42,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 120,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_7"],
+    linkedUpgrades: [{ upgradeId: "chaos_idle_surge_9", unlocksAtLevel: 1 }],
+  },
+
+  chaos_idle_surge_9: {
+    id: "chaos_idle_surge_9",
+    name: "Idle Surge IX",
+    description: "One-time purchase. Multiplies idle gold gain by another 10x.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 720000,
+    scaling: 2.43,
+    rubyBaseCost: 100,
+    rubyScaling: 1,
+    maxLevel: 1,
+    requiredPlayerLevel: 130,
+    bonuses: [],
+    prerequisites: ["chaos_idle_surge_8"],
+    linkedUpgrades: [],
+  },
+
+  chaos_hardcap_core: {
+    id: "chaos_hardcap_core",
+    name: "Hardcap Breach",
+    description:
+      "Raises level hard cap by +1 per level with aggressive dual-currency scaling.",
+    type: "attackBoost",
+    tree: "chaos",
+    level: 0,
+    baseCost: 90000,
+    scaling: 2.52,
+    rubyBaseCost: 12,
+    rubyScaling: 2.1,
+    bonuses: [],
+    prerequisites: ["chaos_core"],
+    linkedUpgrades: [],
+  },
+
+  chaos_gem_foundry: {
+    id: "chaos_gem_foundry",
+    name: "Gem Foundry",
+    description:
+      "Generates passive gems per second. Works during active play and offline progress.",
+    type: "gemFinder",
+    tree: "chaos",
+    level: 0,
+    baseCost: 68000,
+    scaling: 2.36,
+    rubyBaseCost: 16,
+    rubyScaling: 1.95,
+    bonuses: [],
+    prerequisites: ["chaos_core"],
+    linkedUpgrades: [],
+  },
+
+  chaos_midas_heart: {
+    id: "chaos_midas_heart",
+    name: "Midas Heart",
+    description:
+      "Crazy node: boosts gold income by 35% and attack by 10% per level.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 160000,
+    scaling: 2.34,
+    rubyBaseCost: 24,
+    rubyScaling: 1.9,
+    bonuses: [
+      { percentBonusType: "goldIncome", percentBonusAmount: 0.35 },
+      { percentBonusType: "attack", percentBonusAmount: 0.1 },
+    ],
+    prerequisites: ["chaos_core"],
+    linkedUpgrades: [],
+  },
+
+  chaos_prismatic_flux: {
+    id: "chaos_prismatic_flux",
+    name: "Prismatic Flux",
+    description:
+      "Crazy node: boosts passive gem engine scaling through gem-finder synergy.",
+    type: "gemFinder",
+    tree: "chaos",
+    level: 0,
+    baseCost: 220000,
+    scaling: 2.42,
+    rubyBaseCost: 30,
+    rubyScaling: 2,
+    bonuses: [
+      { percentBonusType: "intelligence", percentBonusAmount: 0.16 },
+      { percentBonusType: "energyRegeneration", percentBonusAmount: 0.14 },
+    ],
+    prerequisites: ["chaos_core"],
+    linkedUpgrades: [],
+  },
+
+  chaos_overclock_ritual: {
+    id: "chaos_overclock_ritual",
+    name: "Overclock Ritual",
+    description:
+      "Crazy node: amplifies idle throughput by adding +25% idle multiplier per level.",
+    type: "autoGold",
+    tree: "chaos",
+    level: 0,
+    baseCost: 340000,
+    scaling: 2.46,
+    rubyBaseCost: 40,
+    rubyScaling: 2.05,
+    bonuses: [],
+    prerequisites: ["chaos_core"],
+    linkedUpgrades: [],
+  },
 };
 
 /**
@@ -893,6 +1191,48 @@ export function getUpgradeLevel(state: GameState, upgradeId: string): number {
   return upgrade?.level ?? 0;
 }
 
+export function getUpgradeCosts(def: Upgrade, level: number): UpgradeCosts {
+  return {
+    gold: Math.ceil(def.baseCost * Math.pow(def.scaling, level)),
+    ruby:
+      def.rubyBaseCost && def.rubyBaseCost > 0
+        ? Math.ceil(
+            def.rubyBaseCost *
+              Math.pow(def.rubyScaling ?? def.scaling ?? 1, level),
+          )
+        : 0,
+  };
+}
+
+export function getIdleGoldSurgeMultiplier(state: GameState): number {
+  const surgeStacks = CHAOS_IDLE_SURGE_NODE_IDS.reduce(
+    (sum, nodeId) => sum + Math.min(1, getUpgradeLevel(state, nodeId)),
+    0,
+  );
+  const overclockLevels = getUpgradeLevel(state, "chaos_overclock_ritual");
+  const overclockMultiplier = 1 + overclockLevels * 0.25;
+  return Math.pow(10, surgeStacks) * overclockMultiplier;
+}
+
+export function getPassiveGemRatePerSecond(state: GameState): number {
+  const gemFoundryLevel = getUpgradeLevel(state, "chaos_gem_foundry");
+  if (gemFoundryLevel <= 0) {
+    return 0;
+  }
+
+  const baseGemRate = gemFoundryLevel * 0.35;
+  const gemFinderLevels = state.upgrades.reduce((sum, upgrade) => {
+    const def = getUpgradeDef(upgrade.id);
+    if (!def || def.type !== "gemFinder") {
+      return sum;
+    }
+    return sum + Math.max(0, upgrade.level);
+  }, 0);
+  const gemRateMultiplier = 1 + gemFinderLevels * 0.08;
+
+  return baseGemRate * gemRateMultiplier;
+}
+
 /**
  * Purchase an upgrade (if enough gold/resources)
  */
@@ -904,10 +1244,26 @@ export function buyUpgrade(state: GameState, upgradeId: string): GameState {
   if (!isUpgradeUnlocked(state, upgradeId)) return state;
 
   const currentLevel = getUpgradeLevel(state, upgradeId);
-  const cost = Math.ceil(def.baseCost * Math.pow(def.scaling, currentLevel));
+  if (
+    def.maxLevel !== undefined &&
+    Number.isFinite(def.maxLevel) &&
+    currentLevel >= def.maxLevel
+  ) {
+    return state;
+  }
+
+  if (
+    def.requiredPlayerLevel !== undefined &&
+    state.playerProgress.level < def.requiredPlayerLevel
+  ) {
+    return state;
+  }
+
+  const costs = getUpgradeCosts(def, currentLevel);
 
   // Check if enough gold
-  if (state.resources.gold < cost) return state;
+  if (state.resources.gold < costs.gold) return state;
+  if ((state.resources.ruby ?? 0) < costs.ruby) return state;
 
   // Find existing upgrade or create new one
   const existingIndex = state.upgrades.findIndex((u) => u.id === upgradeId);
@@ -931,7 +1287,8 @@ export function buyUpgrade(state: GameState, upgradeId: string): GameState {
     ...state,
     resources: {
       ...state.resources,
-      gold: state.resources.gold - cost,
+      gold: state.resources.gold - costs.gold,
+      ruby: (state.resources.ruby ?? 0) - costs.ruby,
     },
     upgrades: newUpgrades,
   };

@@ -11,6 +11,10 @@ import {
   getItemStats as getItemStatsImpl,
   calculateUpgradeCost as calculateUpgradeCostImpl,
 } from "./engineItemMath";
+import {
+  getIdleGoldSurgeMultiplier,
+  getPassiveGemRatePerSecond,
+} from "./upgrades";
 import type {
   CropCategory,
   GameState,
@@ -97,7 +101,15 @@ export function applyIdle(state: GameState, deltaMs: number): void {
     idleGoldMultiplier += perpetualEngineRank > 0 ? 0.2 : 0;
   }
 
+  idleGoldMultiplier *= getIdleGoldSurgeMultiplier(state);
+
   state.resources.gold += goldPerSecond * seconds * idleGoldMultiplier;
+
+  const passiveGemRatePerSecond = getPassiveGemRatePerSecond(state);
+  if (passiveGemRatePerSecond > 0 && seconds > 0) {
+    const passiveGemsGained = Math.ceil(passiveGemRatePerSecond * seconds);
+    state.resources.gems = (state.resources.gems ?? 0) + passiveGemsGained;
+  }
 
   const currentMana = state.resources.energy ?? MAX_MANA;
   let manaRegenPerSecond = getManaRegenPerSecond(state);

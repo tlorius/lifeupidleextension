@@ -379,6 +379,10 @@ export interface Upgrade {
   level: number;
   baseCost: number;
   scaling: number;
+  rubyBaseCost?: number;
+  rubyScaling?: number;
+  maxLevel?: number;
+  requiredPlayerLevel?: number;
   type: UpgradeType;
   tree: string; // e.g., "combat", "resource", "farming"
   bonuses: UpgradeBonus[];

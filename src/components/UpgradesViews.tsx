@@ -8,6 +8,14 @@ import type {
 import { ModalShell } from "./ui/ModalShell";
 import { NoticeCard } from "./ui/NoticeCard";
 
+function formatUpgradeCost(goldCost: number, rubyCost: number): string {
+  const goldText = `${formatCompactNumber(goldCost)}🪙`;
+  if (rubyCost <= 0) {
+    return goldText;
+  }
+  return `${goldText} + ${formatCompactNumber(rubyCost)}💠`;
+}
+
 interface UpgradesTreeSelectorProps {
   trees: UpgradeTreeSummary[];
   hasItems: boolean;
@@ -394,8 +402,11 @@ export function UpgradesTreePanel({
                             color: "#9eb0c2",
                           }}
                         >
-                          Next: {formatCompactNumber(presentation.cost)}
-                          🪙
+                          Next:{" "}
+                          {formatUpgradeCost(
+                            presentation.goldCost,
+                            presentation.rubyCost,
+                          )}
                         </div>
                       </div>
 
@@ -559,9 +570,19 @@ export function UpgradesListPanel({
                 Level: <strong>{presentation.level}</strong>
               </span>
               <span className="ui-upgrade-next-cost">
-                Next: {formatCompactNumber(presentation.cost)}🪙
+                Next:{" "}
+                {formatUpgradeCost(
+                  presentation.goldCost,
+                  presentation.rubyCost,
+                )}
               </span>
             </div>
+
+            {presentation.levelRequirementText && (
+              <p className="ui-upgrade-line" style={{ color: "#f0c67a" }}>
+                {presentation.levelRequirementText}
+              </p>
+            )}
 
             <button
               className={`${presentation.canPurchase ? "btn-primary" : ""} ui-upgrade-buy-btn ui-touch-target`}
@@ -623,7 +644,7 @@ export function UpgradesTreeModal({
             <h3 style={{ margin: 0 }}>{presentation.upgrade.name}</h3>
             <div style={{ fontSize: 12, color: "#9eb0c2", marginTop: 4 }}>
               Level {presentation.level} • Next cost{" "}
-              {formatCompactNumber(presentation.cost)}🪙
+              {formatUpgradeCost(presentation.goldCost, presentation.rubyCost)}
             </div>
           </div>
         </div>
@@ -653,6 +674,12 @@ export function UpgradesTreeModal({
       {presentation.linkedText && (
         <p style={{ marginBottom: 12, fontSize: 12, color: "#74c0fc" }}>
           {presentation.linkedText}
+        </p>
+      )}
+
+      {presentation.levelRequirementText && (
+        <p style={{ marginBottom: 12, fontSize: 12, color: "#f0c67a" }}>
+          {presentation.levelRequirementText}
         </p>
       )}
 
