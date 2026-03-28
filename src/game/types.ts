@@ -203,6 +203,28 @@ export interface TemporaryEffects {
   goldIncomeBoostUntil?: number;
 }
 
+export interface PlaytimeState {
+  remainingMs: number;
+  capMs: number;
+  tokenUnitMs: number;
+}
+
+export interface RewardInboxBundle {
+  id: number;
+  sourceToken: string;
+  rewards: Array<{
+    itemId: string;
+    quantity: number;
+  }>;
+  receivedAt: number;
+  redeemedAt?: number;
+}
+
+export interface RewardInboxState {
+  bundles: RewardInboxBundle[];
+  nextBundleId: number;
+}
+
 export interface PlayerProgress {
   level: number;
   xp: number;
@@ -260,6 +282,8 @@ export interface GameState {
   playerProgress: PlayerProgress;
   combat: CombatState;
   temporaryEffects?: TemporaryEffects;
+  playtime: PlaytimeState;
+  rewardInbox: RewardInboxState;
 
   inventory: ItemInstance[];
   equipment: Equipment;

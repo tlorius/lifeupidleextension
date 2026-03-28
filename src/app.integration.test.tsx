@@ -475,7 +475,7 @@ describe("app integration", () => {
     });
   });
 
-  it("resolves token reward flow and clears token from URL", async () => {
+  it("queues reward token bundle and redeems from inbox", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();
     localStorage.setItem("idle_save", JSON.stringify(seeded));
@@ -485,6 +485,22 @@ describe("app integration", () => {
     await dismissIdleEarningsModalIfShown();
 
     await waitFor(() => {
+      expect(window.location.search).toBe("");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open reward inbox" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Reward Inbox" }),
+      ).toBeTruthy();
+    });
+
+    expect(screen.getByText(/Bundle #/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Redeem" }));
+
+    await waitFor(() => {
       expect(
         screen.getByRole("heading", {
           name: "Congrats! You have earned items",
@@ -492,60 +508,47 @@ describe("app integration", () => {
       ).toBeTruthy();
     });
 
-    expect(screen.getByText("Health Potion")).toBeTruthy();
+    expect(screen.getAllByText("Health Potion").length).toBeGreaterThan(0);
+  });
+
+  it("applies playtime token before reward token and removes both params", async () => {
+    const seeded = createDefaultState();
+    seeded.meta.lastUpdate = Date.now();
+    seeded.playtime.remainingMs = 0;
+    localStorage.setItem("idle_save", JSON.stringify(seeded));
+
+    window.history.replaceState(
+      {},
+      "",
+      "/?playtimeToken=play-5m=1u&token=starter-pack",
+    );
+
+    renderApp();
+
+    await waitFor(() => {
+      expect(screen.queryByText("Playtime Used Up")).toBeNull();
+    });
+
     expect(window.location.search).toBe("");
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open reward inbox" }));
     await waitFor(() => {
-      expect(
-        screen.queryByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeNull();
+      expect(screen.getByRole("button", { name: "Redeem" })).toBeTruthy();
     });
   });
 
-  it("allows redeeming the same valid token on separate app loads", async () => {
+  it("shows playtime gate when session time is exhausted", async () => {
     const seeded = createDefaultState();
     seeded.meta.lastUpdate = Date.now();
+    seeded.playtime.remainingMs = 0;
     localStorage.setItem("idle_save", JSON.stringify(seeded));
 
-    window.history.replaceState({}, "", "/?token=starter-pack");
-    const firstRender = renderApp();
-    await dismissIdleEarningsModalIfShown();
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeTruthy();
-    });
-    expect(window.location.search).toBe("");
-
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeNull();
-    });
-
-    firstRender.unmount();
-
-    window.history.replaceState({}, "", "/?token=starter-pack");
     renderApp();
-    await dismissIdleEarningsModalIfShown();
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("heading", {
-          name: "Congrats! You have earned items",
-        }),
-      ).toBeTruthy();
+      expect(screen.getByText("Playtime Used Up")).toBeTruthy();
     });
-    expect(window.location.search).toBe("");
+    expect(screen.queryByText("Idle RPG")).toBeNull();
   });
 
   it("hides spell management controls when spell system is locked", async () => {

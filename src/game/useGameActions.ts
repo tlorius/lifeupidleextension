@@ -67,6 +67,13 @@ export function useGameActions() {
       targetLevel?: number,
     ) => dispatch({ type: "combat/setFightMode", mode, targetLevel }),
 
+    configurePlaytime: (capMinutes: number, tokenUnitMinutes: number) =>
+      dispatch({
+        type: "playtime/configure",
+        capMs: Math.max(1, Math.floor(capMinutes)) * 60 * 1000,
+        tokenUnitMs: Math.max(1, Math.floor(tokenUnitMinutes)) * 60 * 1000,
+      }),
+
     tickSpeedMultiplier,
     setTickSpeedMultiplier: (multiplier: 1 | 10 | 100) =>
       setTickSpeedMultiplier(multiplier),

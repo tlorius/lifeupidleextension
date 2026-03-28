@@ -11,7 +11,7 @@ export function createDefaultState(): GameState {
 
   return {
     meta: {
-      version: 3,
+      version: 4,
       lastUpdate: now,
     },
     resources: {
@@ -50,6 +50,15 @@ export function createDefaultState(): GameState {
     temporaryEffects: {
       goldIncomeBoostPercent: 0,
       goldIncomeBoostUntil: 0,
+    },
+    playtime: {
+      remainingMs: 1000 * 60 * 5,
+      capMs: 1000 * 60 * 5,
+      tokenUnitMs: 1000 * 60 * 5,
+    },
+    rewardInbox: {
+      bundles: [],
+      nextBundleId: 1,
     },
     garden: {
       gridSize: { rows: 2, cols: 2 },

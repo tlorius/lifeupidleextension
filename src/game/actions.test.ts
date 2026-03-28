@@ -305,6 +305,73 @@ describe("actions reducer", () => {
     expect(next.inventory.length).toBeGreaterThan(state.inventory.length);
   });
 
+  it("configures playtime cap and unit with minimum guards", () => {
+    const state = createDefaultState();
+    const next = reduceGameAction(state, {
+      type: "playtime/configure",
+      capMs: 30_000,
+      tokenUnitMs: 45_000,
+    });
+
+    expect(next.playtime.capMs).toBe(60_000);
+    expect(next.playtime.tokenUnitMs).toBe(60_000);
+    expect(next.playtime.remainingMs).toBeLessThanOrEqual(next.playtime.capMs);
+  });
+
+  it("adds playtime token units and clamps to cap", () => {
+    const state = createDefaultState();
+    state.playtime.remainingMs = 0;
+    state.playtime.capMs = 10 * 60 * 1000;
+    state.playtime.tokenUnitMs = 5 * 60 * 1000;
+
+    const next = reduceGameAction(state, {
+      type: "playtime/addTokenUnits",
+      units: 3,
+    });
+
+    expect(next.playtime.remainingMs).toBe(state.playtime.capMs);
+  });
+
+  it("consumes playtime in ms and floors at zero", () => {
+    const state = createDefaultState();
+    state.playtime.remainingMs = 1200;
+
+    const next = reduceGameAction(state, {
+      type: "playtime/consumeMs",
+      amountMs: 5000,
+    });
+
+    expect(next.playtime.remainingMs).toBe(0);
+  });
+
+  it("enqueues reward bundles and redeems later", () => {
+    const state = createDefaultState();
+    const enqueued = reduceGameAction(state, {
+      type: "rewards/enqueueTokenBundle",
+      sourceToken: "starter-pack",
+      rewards: [{ itemId: "health_potion", quantity: 2 }],
+      receivedAt: Date.now(),
+    });
+
+    expect(enqueued.rewardInbox.bundles).toHaveLength(1);
+    expect(enqueued.rewardInbox.nextBundleId).toBe(2);
+
+    const bundleId = enqueued.rewardInbox.bundles[0].id;
+    const redeemed = reduceGameAction(enqueued, {
+      type: "rewards/redeemInboxBundle",
+      bundleId,
+      redeemedAt: Date.now(),
+    });
+
+    expect(
+      redeemed.inventory.some((item) => item.itemId === "health_potion"),
+    ).toBe(true);
+    expect(
+      redeemed.rewardInbox.bundles.find((bundle) => bundle.id === bundleId)
+        ?.redeemedAt,
+    ).toBeTruthy();
+  });
+
   it("routes garden sprinkler actions through reducer", () => {
     const state = createDefaultState();
 

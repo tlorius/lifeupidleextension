@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import { defaultState } from "./state";
 import {
   applyTokenRewards,
+  createSignedMockPlaytimeToken,
+  extractPlaytimeToken,
   extractRewardToken,
   normalizeTokenRewards,
+  removePlaytimeTokenFromUrl,
   resolveTokenRewards,
+  resolvePlaytimeToken,
   removeRewardTokenFromUrl,
   toGrantedTokenRewards,
+  verifySignedMockPlaytimeToken,
 } from "./tokenRewards";
 
 describe("tokenRewards", () => {
@@ -16,9 +21,22 @@ describe("tokenRewards", () => {
     expect(extractRewardToken("?foo=bar")).toBeNull();
   });
 
+  it("extracts playtime token from supported query parameters", () => {
+    expect(extractPlaytimeToken("?playtimeToken=abc123")).toBe("abc123");
+    expect(extractPlaytimeToken("?gameTimeToken=xyz789")).toBe("xyz789");
+    expect(extractPlaytimeToken("?foo=bar")).toBeNull();
+  });
+
   it("removes reward token params but preserves other params", () => {
     expect(removeRewardTokenFromUrl("?token=abc&foo=bar")).toBe("?foo=bar");
     expect(removeRewardTokenFromUrl("?rewardToken=abc")).toBe("");
+  });
+
+  it("removes playtime token params but preserves other params", () => {
+    expect(removePlaytimeTokenFromUrl("?playtimeToken=abc&foo=bar")).toBe(
+      "?foo=bar",
+    );
+    expect(removePlaytimeTokenFromUrl("?gameTimeToken=abc")).toBe("");
   });
 
   it("applies only valid reward items and enforces quantity minimum", () => {
@@ -80,5 +98,38 @@ describe("tokenRewards", () => {
 
   it("returns empty rewards for unknown token", async () => {
     await expect(resolveTokenRewards("unknown-token")).resolves.toEqual([]);
+  });
+
+  it("resolves simple mock playtime aliases", async () => {
+    await expect(resolvePlaytimeToken("play-15m=3u")).resolves.toEqual({
+      isValid: true,
+      units: 3,
+    });
+    await expect(resolvePlaytimeToken("unknown-playtime")).resolves.toEqual({
+      isValid: false,
+      units: 0,
+    });
+  });
+
+  it("creates and verifies signed mock playtime tokens", () => {
+    const token = createSignedMockPlaytimeToken({
+      units: 2,
+      expiresAt: Date.now() + 60_000,
+      nonce: "n1",
+    });
+
+    const payload = verifySignedMockPlaytimeToken(token);
+    expect(payload).not.toBeNull();
+    expect(payload?.units).toBe(2);
+    expect(payload?.nonce).toBe("n1");
+  });
+
+  it("rejects expired signed mock playtime tokens", () => {
+    const token = createSignedMockPlaytimeToken({
+      units: 1,
+      expiresAt: Date.now() - 1000,
+    });
+
+    expect(verifySignedMockPlaytimeToken(token)).toBeNull();
   });
 });

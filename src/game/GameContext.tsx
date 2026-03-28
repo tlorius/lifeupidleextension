@@ -11,10 +11,13 @@ import {
   type CombatEvent,
 } from "./combat";
 import {
+  extractPlaytimeToken,
   extractRewardToken,
   type GrantedTokenRewardItem,
   normalizeTokenRewards,
+  removePlaytimeTokenFromUrl,
   removeRewardTokenFromUrl,
+  resolvePlaytimeToken,
   resolveTokenRewards,
   toGrantedTokenRewards,
 } from "./tokenRewards";
@@ -160,6 +163,9 @@ const GameContext = createContext<{
   setTickSpeedMultiplier: (multiplier: number) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
   dismissTokenRewardModal: () => void;
+  rewardInboxBundles: GameState["rewardInbox"]["bundles"];
+  unreadRewardBundleCount: number;
+  redeemRewardInboxBundle: (bundleId: number) => void;
   idleEarningsModalItems: IdleEarningItem[];
   idleDurationMs: number;
   idleFightReview: IdleFightReview | null;
@@ -191,6 +197,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [idleFightReview, setIdleFightReview] =
     useState<IdleFightReview | null>(initializationRef.current.idleFightReview);
   const [combatEvents, setCombatEvents] = useState<CombatEvent[]>([]);
+  const [pendingPlaytimeToken, setPendingPlaytimeToken] = useState<
+    string | null
+  >(() => extractPlaytimeToken(window.location.search));
   const [pendingRewardToken, setPendingRewardToken] = useState<string | null>(
     () => extractRewardToken(window.location.search),
   );
@@ -234,8 +243,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           combat: combatResult.runtime,
         };
 
-        save(withCombat);
-        return withCombat;
+        const withPlaytimeConsumed = applyGameAction(withCombat, {
+          type: "playtime/consumeMs",
+          amountMs: 1000,
+        }).state;
+
+        save(withPlaytimeConsumed);
+        return withPlaytimeConsumed;
       });
 
       setCombatEvents(tickCombatEvents);
@@ -259,33 +273,73 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const token = pendingRewardToken;
-    if (!token) return;
-    if (idleEarningsModalItems.length > 0) return;
+    if (!pendingPlaytimeToken && !pendingRewardToken) return;
 
-    void resolveTokenRewards(token)
-      .then((rewards) => {
-        if (cancelled || rewards.length === 0) return;
-        const normalizedRewards = normalizeTokenRewards(rewards);
-        if (normalizedRewards.length === 0) return;
-        dispatch({ type: "rewards/applyTokenRewards", normalizedRewards });
-        setTokenRewardModalItems(toGrantedTokenRewards(normalizedRewards));
-      })
-      .catch((error) => {
-        // Keep placeholder error handling lightweight until API integration is finalized.
-        console.error("Failed to resolve reward token", error);
-      })
-      .finally(() => {
-        const nextSearch = removeRewardTokenFromUrl(window.location.search);
+    void (async () => {
+      let nextSearch = window.location.search;
+
+      if (pendingPlaytimeToken) {
+        try {
+          const result = await resolvePlaytimeToken(pendingPlaytimeToken);
+          if (!cancelled && result.isValid && result.units > 0) {
+            dispatch({ type: "playtime/addTokenUnits", units: result.units });
+            nextSearch = removePlaytimeTokenFromUrl(nextSearch);
+          }
+        } catch (error) {
+          console.error("Failed to resolve playtime token", error);
+        }
+      }
+
+      if (pendingRewardToken) {
+        try {
+          const rewards = await resolveTokenRewards(pendingRewardToken);
+          if (!cancelled && rewards.length > 0) {
+            const normalizedRewards = normalizeTokenRewards(rewards);
+            if (normalizedRewards.length > 0) {
+              dispatch({
+                type: "rewards/enqueueTokenBundle",
+                sourceToken: pendingRewardToken,
+                rewards: normalizedRewards,
+                receivedAt: Date.now(),
+              });
+              nextSearch = removeRewardTokenFromUrl(nextSearch);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to resolve reward token", error);
+        }
+      }
+
+      if (!cancelled) {
         const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`;
         window.history.replaceState({}, "", nextUrl);
+        setPendingPlaytimeToken(null);
         setPendingRewardToken(null);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [pendingRewardToken, idleEarningsModalItems.length]);
+  }, [pendingPlaytimeToken, pendingRewardToken]);
+
+  const redeemRewardInboxBundle = (bundleId: number) => {
+    const bundle = stateRef.current.rewardInbox.bundles.find(
+      (entry) => entry.id === bundleId,
+    );
+    if (!bundle || bundle.redeemedAt) return;
+
+    dispatch({
+      type: "rewards/redeemInboxBundle",
+      bundleId,
+      redeemedAt: Date.now(),
+    });
+    setTokenRewardModalItems(toGrantedTokenRewards(bundle.rewards));
+  };
+
+  const unreadRewardBundleCount = state.rewardInbox.bundles.filter(
+    (bundle) => !bundle.redeemedAt,
+  ).length;
 
   return (
     <GameContext.Provider
@@ -296,6 +350,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setTickSpeedMultiplier,
         tokenRewardModalItems,
         dismissTokenRewardModal: () => setTokenRewardModalItems([]),
+        rewardInboxBundles: state.rewardInbox.bundles,
+        unreadRewardBundleCount,
+        redeemRewardInboxBundle,
         idleEarningsModalItems,
         idleDurationMs,
         idleFightReview,

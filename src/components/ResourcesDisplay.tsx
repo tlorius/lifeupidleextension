@@ -4,14 +4,16 @@ import { formatCompactNumber } from "../game/numberFormat";
 import { selectResourcesDisplayView } from "../game/selectors/resources";
 import type { Stats } from "../game/types";
 import { ModalShell } from "./ui/ModalShell";
+import { RewardInboxModal } from "./RewardInboxModal";
 
 interface ResourcesDisplayProps {
   compact?: boolean;
 }
 
 export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
-  const { state } = useGame();
+  const { state, unreadRewardBundleCount } = useGame();
   const [showStats, setShowStats] = useState(false);
+  const [showRewardInbox, setShowRewardInbox] = useState(false);
   const hasRubyResourceUnlocked = state.combat.highestLevelReached > 50;
 
   const {
@@ -107,6 +109,21 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
             <span>{formatCompactNumber(state.resources.ruby ?? 0)}</span>
           </div>
         ) : null}
+
+        <button
+          type="button"
+          className="ui-resource-mail-btn"
+          title="Reward Inbox"
+          aria-label="Open reward inbox"
+          onClick={() => setShowRewardInbox(true)}
+        >
+          <span aria-hidden="true">✉</span>
+          {unreadRewardBundleCount > 0 ? (
+            <span className="ui-resource-mail-badge">
+              {unreadRewardBundleCount}
+            </span>
+          ) : null}
+        </button>
 
         <button
           style={{
@@ -373,6 +390,11 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
           </div>
         </ModalShell>
       )}
+
+      <RewardInboxModal
+        isOpen={showRewardInbox}
+        onClose={() => setShowRewardInbox(false)}
+      />
     </div>
   );
 }
