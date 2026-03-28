@@ -34,6 +34,20 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
     totalGoldBonusPercent,
     totalGoldMultiplier,
     calculatedGoldPerSecond,
+    attacksPerSecond,
+    agilityBaselineAttacksPerSecond,
+    defenseMitigationPercent,
+    enemyRawDamage,
+    enemyDamageTakenPerHit,
+    passiveGemRatePerSecond,
+    passiveGemsPerTick,
+    passiveGemsPerMinute,
+    passiveGemFoundryLevel,
+    passiveGemFinderLevels,
+    passiveGemBaseRatePerSecond,
+    passiveGemRateMultiplier,
+    idleGoldSurgeMultiplier,
+    arcaneBoltBaseDamage,
   } = selectResourcesDisplayView(state);
 
   const formatDuration = (ms: number): string => {
@@ -211,9 +225,19 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 <strong>{formatStat(total.intelligence)}</strong>
               </div>
               <div>
+                <span className="ui-label-muted">Attack Speed:</span>{" "}
+                <strong>{formatStat(attacksPerSecond)}/s</strong>
+              </div>
+              <div>
                 <span className="ui-label-muted">Gold Income:</span>{" "}
                 <strong style={{ color: "#FFD700" }}>
                   +{formatStat(total.goldIncome)}%
+                </strong>
+              </div>
+              <div>
+                <span className="ui-label-muted">Passive Gems:</span>{" "}
+                <strong style={{ color: "#8bd3ff" }}>
+                  {formatStat(passiveGemRatePerSecond)}/s
                 </strong>
               </div>
               {(total.energyRegeneration ?? 0) > 0 && (
@@ -403,6 +427,60 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 </span>
               </div>
             )}
+
+            <div style={{ marginTop: 10, marginBottom: 8 }}>
+              <strong>Extended Effects:</strong>
+            </div>
+            <FormulaRow
+              label="Defense mitigation"
+              value={`${formatStat(defenseMitigationPercent)}%`}
+              hint={`Formula: defense / (defense + 100). Current: ${formatStat(total.defense)} / (${formatStat(total.defense)} + 100).`}
+            />
+            <FormulaRow
+              label="Damage taken per enemy hit"
+              value={formatStat(enemyDamageTakenPerHit)}
+              hint={`Formula: max(round(raw * 0.05), round(raw * (1 - mitigation))). Current raw enemy damage: ${formatStat(enemyRawDamage)}.`}
+            />
+            <FormulaRow
+              label="Agility APS baseline"
+              value={formatStat(agilityBaselineAttacksPerSecond)}
+              hint={`Formula: 1 + agility * 0.2. Current agility: ${formatStat(total.agility)}.`}
+            />
+            <FormulaRow
+              label="Final APS"
+              value={formatStat(attacksPerSecond)}
+              hint="Formula: baseline APS adjusted by class modifiers and clamped by APS caps."
+            />
+            <FormulaRow
+              label="Arcane Bolt base spell damage"
+              value={formatStat(arcaneBoltBaseDamage)}
+              hint={`Formula: attack * 2 + intelligence * 5. Current: ${formatStat(total.attack)} * 2 + ${formatStat(total.intelligence)} * 5.`}
+            />
+            <FormulaRow
+              label="Final spell hit"
+              value="Runtime"
+              hint="Formula: round(baseDamage * spellDamageMultipliers). Multipliers come from class, sets, and spell-cast effects."
+            />
+            <FormulaRow
+              label="Passive gems / second"
+              value={formatStat(passiveGemRatePerSecond)}
+              hint={`Formula: (foundryLevel * 0.35) * (1 + gemFinderLevels * 0.08). Current: (${formatStat(passiveGemFoundryLevel)} * 0.35) * (1 + ${formatStat(passiveGemFinderLevels)} * 0.08) = ${formatStat(passiveGemBaseRatePerSecond)} * ${formatStat(passiveGemRateMultiplier)}.`}
+            />
+            <FormulaRow
+              label="Passive gems per 1s tick"
+              value={formatStat(passiveGemsPerTick)}
+              hint="Formula: ceil(gemsPerSecond * 1)."
+            />
+            <FormulaRow
+              label="Passive gems per minute"
+              value={formatStat(passiveGemsPerMinute)}
+              hint="Formula: ceil(gemsPerSecond * 60). Used in idle/offline resolution."
+            />
+            <FormulaRow
+              label="Idle gold surge multiplier"
+              value={`${formatStat(idleGoldSurgeMultiplier)}x`}
+              hint="Formula: 10^surgeNodesPurchased, then multiplied by chaos overclock bonus."
+            />
           </div>
 
           {/* Detailed Sections */}
@@ -447,6 +525,76 @@ function StatSection({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function FormulaRow({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  const [isHintOpen, setIsHintOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        marginBottom: 6,
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        columnGap: 6,
+        rowGap: 6,
+        alignItems: "start",
+      }}
+    >
+      <span>
+        {label}: <strong>{value}</strong>
+      </span>
+      <button
+        type="button"
+        title={hint}
+        aria-label={hint}
+        aria-expanded={isHintOpen}
+        onClick={() => setIsHintOpen((prev) => !prev)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          fontSize: 10,
+          lineHeight: 1,
+          backgroundColor: "#2a3a4b",
+          color: "#c8d7e5",
+          border: "1px solid #47617a",
+          cursor: "pointer",
+          flex: "0 0 auto",
+          padding: 0,
+        }}
+      >
+        ?
+      </button>
+      {isHintOpen ? (
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            fontSize: 11,
+            color: "#9eb0c2",
+            lineHeight: 1.4,
+            backgroundColor: "#172533",
+            border: "1px solid #2f4459",
+            borderRadius: 8,
+            padding: "6px 8px",
+          }}
+        >
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }

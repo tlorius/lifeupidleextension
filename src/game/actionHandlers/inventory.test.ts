@@ -119,4 +119,46 @@ describe("inventory action handler", () => {
         .length,
     ).toBe(3);
   });
+
+  it("dismantles unique items into ruby when selling one item", () => {
+    const seeded = reduceInventoryAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const uniqueItem = seeded.inventory.find(
+      (entry) => entry.itemId === "soul_edge",
+    );
+    expect(uniqueItem).toBeTruthy();
+
+    const next = reduceInventoryAction(seeded, {
+      type: "inventory/sellItem",
+      itemUid: uniqueItem!.uid,
+    });
+
+    expect(next.inventory.some((entry) => entry.uid === uniqueItem!.uid)).toBe(
+      false,
+    );
+    expect(next.resources.ruby).toBeGreaterThan(seeded.resources.ruby ?? 0);
+  });
+
+  it("includes ruby rewards when batch-selling selected unique items", () => {
+    const seeded = reduceInventoryAction(createDefaultState(), {
+      type: "inventory/addDebugItems",
+    });
+    const uniqueCandidates = seeded.inventory
+      .filter(
+        (entry) =>
+          entry.itemId === "soul_edge" || entry.itemId === "voidthorn_blade",
+      )
+      .slice(0, 2)
+      .map((entry) => entry.uid);
+    expect(uniqueCandidates.length).toBeGreaterThan(0);
+
+    const next = reduceInventoryAction(seeded, {
+      type: "inventory/sellSelectedItems",
+      itemUids: uniqueCandidates,
+    });
+
+    expect(next.resources.ruby).toBeGreaterThan(seeded.resources.ruby ?? 0);
+    expect(next.resources.gold).toBe(seeded.resources.gold);
+  });
 });

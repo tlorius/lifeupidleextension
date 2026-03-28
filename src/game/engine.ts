@@ -31,6 +31,26 @@ interface RuntimeDeterminismOptions {
   rng?: () => number;
 }
 
+export interface SellRewards {
+  gold: number;
+  ruby: number;
+}
+
+export function getSellRewardsForDefinition(def: ItemDefinition): SellRewards {
+  const baseSellValue = Math.max(0, Math.floor(def.sellPrice ?? 0));
+  if (def.rarity === "unique") {
+    return {
+      gold: 0,
+      ruby: Math.max(1, baseSellValue),
+    };
+  }
+
+  return {
+    gold: baseSellValue,
+    ruby: 0,
+  };
+}
+
 /**
  * Calculate gold income per second based on player stats and upgrades
  */
@@ -523,13 +543,16 @@ export function sellItem(state: GameState, itemUid: string): GameState {
   if (!item) return state;
 
   const def = getItemDefSafe(item.itemId);
-  if (!def || !def.sellPrice) return state;
+  if (!def) return state;
+  const rewards = getSellRewardsForDefinition(def);
+  if (rewards.gold <= 0 && rewards.ruby <= 0) return state;
 
   return {
     ...state,
     resources: {
       ...state.resources,
-      gold: state.resources.gold + def.sellPrice,
+      gold: state.resources.gold + rewards.gold,
+      ruby: (state.resources.ruby ?? 0) + rewards.ruby,
     },
     inventory: state.inventory.filter((i) => i.uid !== itemUid),
   };

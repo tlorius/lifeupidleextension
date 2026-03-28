@@ -73,12 +73,13 @@ describe("inventory selectors", () => {
 
     expect(result.selectableVisibleUids).toEqual(["unique-weapon", "ring"]);
     expect(result.allVisibleSelected).toBe(true);
-    expect(result.selectedSellTotalGold).toBe(780);
+    expect(result.selectedSellTotalGold).toBe(30);
+    expect(result.selectedSellTotalRuby).toBe(750);
     expect(result.selectedSellCount).toBe(2);
-    expect(result.selectedSellSummary).toBe("2 selected • +780🪙");
+    expect(result.selectedSellSummary).toBe("2 selected • +30🪙 • +750♦️");
     expect(result.selectedUniqueItemNames).toEqual(["Voidborn Fang"]);
     expect(result.sellConfirmationMessage).toContain(
-      "Sell 2 selected item(s) for 780 gold?",
+      "Sell 2 selected item(s) for 30 gold + 750 ruby?",
     );
     expect(result.sellConfirmationMessage).toContain("Voidborn Fang");
     expect(
@@ -107,6 +108,7 @@ describe("inventory selectors", () => {
     expect(result.selectedItem).toBeNull();
     expect(result.selectedSellCount).toBe(1);
     expect(result.selectedSellTotalGold).toBe(0);
+    expect(result.selectedSellTotalRuby).toBe(0);
     expect(result.selectedUniqueItemNames).toEqual([]);
     expect(result.sellConfirmationMessage).toBe(
       "Sell 1 selected item(s) for 0 gold?",

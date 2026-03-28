@@ -11,6 +11,7 @@ import { getItemDefSafe } from "../game/items";
 import {
   getItemStats,
   calculateItemUpgradeCosts,
+  getSellRewardsForDefinition,
   isItemEquipped,
 } from "../game/engine";
 import { useState } from "react";
@@ -124,6 +125,11 @@ export function ItemDetail({
 
   const rarityColor = rarityColors[def.rarity] || "#999999";
   const setDef = def.setId ? uniqueSetDefinitions[def.setId] : null;
+  const sellRewards = getSellRewardsForDefinition(def);
+  const sellActionLabel =
+    def.rarity === "unique"
+      ? `Dismantle (${formatCompactNumber(sellRewards.ruby, { minCompactValue: 1000 })}♦️)`
+      : `Sell (${formatCompactNumber(sellRewards.gold, { minCompactValue: 1000 })}🪙)`;
   const setPieceCount = def.setId ? getSetPieceCount(state, def.setId) : 0;
   const setClassActive = setDef
     ? state.character.activeClassId === setDef.classId
@@ -698,9 +704,7 @@ export function ItemDetail({
               onClose();
             }}
           >
-            {readOnly
-              ? "Sell (Preview)"
-              : `Sell (${formatCompactNumber(def.sellPrice || 0)}🪙)`}
+            {readOnly ? "Sell (Preview)" : sellActionLabel}
           </button>
         </div>
 

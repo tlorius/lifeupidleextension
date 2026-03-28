@@ -1,6 +1,7 @@
 import {
   addItem,
   equipItem,
+  getSellRewardsForDefinition,
   isItemEquipped,
   sellItem,
   upgradeItem,
@@ -178,20 +179,29 @@ function sellSelectedItems(state: GameState, itemUids: string[]): GameState {
   if (itemUids.length === 0) return state;
 
   const selectedSet = new Set(itemUids);
-  const totalGold = state.inventory
+  const totalRewards = state.inventory
     .filter(
       (item) => selectedSet.has(item.uid) && !isItemEquipped(state, item.uid),
     )
-    .reduce((sum, item) => {
-      const def = getItemDefSafe(item.itemId);
-      return sum + (def?.sellPrice ?? 0);
-    }, 0);
+    .reduce(
+      (sum, item) => {
+        const def = getItemDefSafe(item.itemId);
+        if (!def) return sum;
+        const rewards = getSellRewardsForDefinition(def);
+        return {
+          gold: sum.gold + rewards.gold,
+          ruby: sum.ruby + rewards.ruby,
+        };
+      },
+      { gold: 0, ruby: 0 },
+    );
 
   return {
     ...state,
     resources: {
       ...state.resources,
-      gold: state.resources.gold + totalGold,
+      gold: state.resources.gold + totalRewards.gold,
+      ruby: (state.resources.ruby ?? 0) + totalRewards.ruby,
     },
     inventory: state.inventory.filter(
       (item) => !selectedSet.has(item.uid) || isItemEquipped(state, item.uid),
