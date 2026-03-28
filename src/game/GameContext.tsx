@@ -62,9 +62,12 @@ function initializeGameState(): InitializationResult {
   const beforeHighestLevelReached = initialState.combat.highestLevelReached;
   let idleFightReview: IdleFightReview | null = null;
 
+  let afterPassiveGold = beforeGold;
+
   if (delta > 0) {
     applyIdle(initialState, delta);
     applyGardenIdle(initialState, delta);
+    afterPassiveGold = initialState.resources.gold;
 
     const offlineCombat = resolveOfflineCombatExpected(
       initialState.combat,
@@ -105,19 +108,33 @@ function initializeGameState(): InitializationResult {
   }
 
   initialState.meta.lastUpdate = now;
+  // Persist immediately so that if beforeunload fails (mobile, crash, hard
+  // refresh before the first tick), the next load uses this timestamp and
+  // doesn't re-award the same offline earnings.
+  save(initialState);
 
-  const earnedGold = Math.max(0, initialState.resources.gold - beforeGold);
-  const idleEarnings: IdleEarningItem[] =
-    earnedGold > 0
-      ? [
-          {
-            resourceId: "gold",
-            label: "Gold",
-            amount: earnedGold,
-            icon: "🪙",
-          },
-        ]
-      : [];
+  const passiveGold = Math.max(0, afterPassiveGold - beforeGold);
+  const combatGold = Math.max(
+    0,
+    initialState.resources.gold - afterPassiveGold,
+  );
+  const idleEarnings: IdleEarningItem[] = [];
+  if (passiveGold > 0) {
+    idleEarnings.push({
+      resourceId: "gold:passive",
+      label: "Idle Gold",
+      amount: passiveGold,
+      icon: "🪙",
+    });
+  }
+  if (combatGold > 0) {
+    idleEarnings.push({
+      resourceId: "gold:combat",
+      label: "Combat Gold",
+      amount: combatGold,
+      icon: "⚔️",
+    });
+  }
 
   if (dailyCheckIn.gemsGranted > 0) {
     idleEarnings.push({

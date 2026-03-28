@@ -100,7 +100,12 @@ export function resolveOfflineCombatExpected(
         enemyAttackRemainderMs: 0,
       };
       defeatedByEnemy = true;
-      break;
+      // Consume the time until death, then continue simulating from the
+      // checkpoint so that longer offline periods always earn >= gold compared
+      // to shorter ones. Use at least 100ms per death to guard against
+      // degenerate near-instant-death tight loops.
+      remainingMs = Math.max(0, remainingMs - Math.max(100, timeToDieMs));
+      continue;
     }
 
     if (timeToKillMs > remainingMs) {
