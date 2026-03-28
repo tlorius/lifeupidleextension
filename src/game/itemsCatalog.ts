@@ -1173,6 +1173,67 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 2 },
     sellPrice: 60,
     petBonus: { bonusType: "attack", bonusAmount: 0.05 }, // 5% attack bonus per level
+    upgradeCostConfig: {
+      currencyBaseCost: 6,
+      currencyCostPerLevel: 3,
+      farmResource: { category: "vegetable", baseCost: 10, costPerLevel: 5 },
+    },
+  },
+  meadow_hare: {
+    id: "meadow_hare",
+    name: "Meadow Hare",
+    type: "pet",
+    rarity: "common",
+    stats: { agility: 3, attack: 1 },
+    sellPrice: 64,
+    petBonus: { bonusType: "agility", bonusAmount: 0.045 },
+    upgradeCostConfig: {
+      currencyBaseCost: 5,
+      currencyCostPerLevel: 3,
+      farmResource: { category: "grains", baseCost: 9, costPerLevel: 4 },
+    },
+  },
+  pebble_tortoise: {
+    id: "pebble_tortoise",
+    name: "Pebble Tortoise",
+    type: "pet",
+    rarity: "common",
+    stats: { defense: 4, hp: 18 },
+    sellPrice: 68,
+    petBonus: { bonusType: "defense", bonusAmount: 0.04 },
+    upgradeCostConfig: {
+      currencyBaseCost: 6,
+      currencyCostPerLevel: 2,
+      farmResource: { category: "herb", baseCost: 8, costPerLevel: 4 },
+    },
+  },
+  ember_sparrow: {
+    id: "ember_sparrow",
+    name: "Ember Sparrow",
+    type: "pet",
+    rarity: "common",
+    stats: { intelligence: 3, critChance: 1 },
+    sellPrice: 72,
+    petBonus: { bonusType: "energyRegeneration", bonusAmount: 0.03 },
+    upgradeCostConfig: {
+      currencyBaseCost: 7,
+      currencyCostPerLevel: 3,
+      farmResource: { category: "fruit", baseCost: 9, costPerLevel: 5 },
+    },
+  },
+  moss_badger: {
+    id: "moss_badger",
+    name: "Moss Badger",
+    type: "pet",
+    rarity: "common",
+    stats: { attack: 3, defense: 2 },
+    sellPrice: 74,
+    petBonus: { bonusType: "plantGrowth", bonusAmount: 0.03 },
+    upgradeCostConfig: {
+      currencyBaseCost: 7,
+      currencyCostPerLevel: 3,
+      farmResource: { category: "flower", baseCost: 10, costPerLevel: 5 },
+    },
   },
   // Pets - Rare
   fire_fox: {
@@ -1183,6 +1244,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 16, intelligence: 12 },
     sellPrice: 120,
     petBonus: { bonusType: "goldIncome", bonusAmount: 0.1 }, // 10% gold income bonus per level
+    upgradeCostConfig: {
+      currencyBaseCost: 14,
+      currencyCostPerLevel: 6,
+      farmResource: { category: "fruit", baseCost: 18, costPerLevel: 9 },
+    },
   },
   thunder_lynx: {
     id: "thunder_lynx",
@@ -1192,6 +1258,67 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 24, agility: 14, critChance: 6 },
     sellPrice: 170,
     petBonus: { bonusType: "attack", bonusAmount: 0.14 },
+    upgradeCostConfig: {
+      currencyBaseCost: 16,
+      currencyCostPerLevel: 7,
+      farmResource: { category: "grains", baseCost: 19, costPerLevel: 9 },
+    },
+  },
+  dune_jackal: {
+    id: "dune_jackal",
+    name: "Dune Jackal",
+    type: "pet",
+    rarity: "rare",
+    stats: { attack: 20, agility: 18 },
+    sellPrice: 182,
+    petBonus: { bonusType: "agility", bonusAmount: 0.12 },
+    upgradeCostConfig: {
+      currencyBaseCost: 15,
+      currencyCostPerLevel: 7,
+      farmResource: { category: "vegetable", baseCost: 20, costPerLevel: 10 },
+    },
+  },
+  tide_otter: {
+    id: "tide_otter",
+    name: "Tide Otter",
+    type: "pet",
+    rarity: "rare",
+    stats: { intelligence: 15, energyRegeneration: 10 },
+    sellPrice: 188,
+    petBonus: { bonusType: "energyRegeneration", bonusAmount: 0.11 },
+    upgradeCostConfig: {
+      currencyBaseCost: 15,
+      currencyCostPerLevel: 6,
+      farmResource: { category: "grape", baseCost: 18, costPerLevel: 8 },
+    },
+  },
+  ivy_mantis: {
+    id: "ivy_mantis",
+    name: "Ivy Mantis",
+    type: "pet",
+    rarity: "rare",
+    stats: { attack: 18, plantGrowth: 20 },
+    sellPrice: 194,
+    petBonus: { bonusType: "plantGrowth", bonusAmount: 0.12 },
+    upgradeCostConfig: {
+      currencyBaseCost: 14,
+      currencyCostPerLevel: 7,
+      farmResource: { category: "herb", baseCost: 20, costPerLevel: 10 },
+    },
+  },
+  frost_owl: {
+    id: "frost_owl",
+    name: "Frost Owl",
+    type: "pet",
+    rarity: "rare",
+    stats: { defense: 20, intelligence: 16 },
+    sellPrice: 198,
+    petBonus: { bonusType: "defense", bonusAmount: 0.12 },
+    upgradeCostConfig: {
+      currencyBaseCost: 16,
+      currencyCostPerLevel: 7,
+      farmResource: { category: "flower", baseCost: 20, costPerLevel: 9 },
+    },
   },
   // Pets - Epic
   ice_dragon: {
@@ -1202,6 +1329,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 120, defense: 90, intelligence: 90 },
     sellPrice: 400,
     petBonus: { bonusType: "defense", bonusAmount: 0.12 }, // 12% defense bonus per level
+    upgradeCostConfig: {
+      currencyBaseCost: 34,
+      currencyCostPerLevel: 15,
+      farmResource: { category: "grains", baseCost: 44, costPerLevel: 20 },
+    },
   },
   storm_griffin: {
     id: "storm_griffin",
@@ -1211,6 +1343,67 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 150, agility: 80, critChance: 24 },
     sellPrice: 520,
     petBonus: { bonusType: "agility", bonusAmount: 0.2 },
+    upgradeCostConfig: {
+      currencyBaseCost: 36,
+      currencyCostPerLevel: 16,
+      farmResource: { category: "fruit", baseCost: 48, costPerLevel: 22 },
+    },
+  },
+  obsidian_panther: {
+    id: "obsidian_panther",
+    name: "Obsidian Panther",
+    type: "pet",
+    rarity: "epic",
+    stats: { attack: 170, agility: 110, critChance: 30 },
+    sellPrice: 540,
+    petBonus: { bonusType: "attack", bonusAmount: 0.22 },
+    upgradeCostConfig: {
+      currencyBaseCost: 38,
+      currencyCostPerLevel: 16,
+      farmResource: { category: "vegetable", baseCost: 50, costPerLevel: 22 },
+    },
+  },
+  iron_tusker: {
+    id: "iron_tusker",
+    name: "Iron Tusker",
+    type: "pet",
+    rarity: "epic",
+    stats: { defense: 150, hp: 820, attack: 80 },
+    sellPrice: 560,
+    petBonus: { bonusType: "defense", bonusAmount: 0.2 },
+    upgradeCostConfig: {
+      currencyBaseCost: 35,
+      currencyCostPerLevel: 15,
+      farmResource: { category: "grains", baseCost: 52, costPerLevel: 21 },
+    },
+  },
+  arcane_ray: {
+    id: "arcane_ray",
+    name: "Arcane Ray",
+    type: "pet",
+    rarity: "epic",
+    stats: { intelligence: 170, energyRegeneration: 28 },
+    sellPrice: 580,
+    petBonus: { bonusType: "intelligence", bonusAmount: 0.21 },
+    upgradeCostConfig: {
+      currencyBaseCost: 37,
+      currencyCostPerLevel: 16,
+      farmResource: { category: "grape", baseCost: 48, costPerLevel: 20 },
+    },
+  },
+  dusk_seraph: {
+    id: "dusk_seraph",
+    name: "Dusk Seraph",
+    type: "pet",
+    rarity: "epic",
+    stats: { attack: 130, intelligence: 130, plantGrowth: 60 },
+    sellPrice: 600,
+    petBonus: { bonusType: "plantGrowth", bonusAmount: 0.2 },
+    upgradeCostConfig: {
+      currencyBaseCost: 36,
+      currencyCostPerLevel: 15,
+      farmResource: { category: "herb", baseCost: 52, costPerLevel: 22 },
+    },
   },
   // Pets - Legendary
   phoenix: {
@@ -1221,6 +1414,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 2600, intelligence: 2100, energyRegeneration: 180 },
     sellPrice: 600,
     petBonus: { bonusType: "intelligence", bonusAmount: 0.15 }, // 15% intelligence bonus per level
+    upgradeCostConfig: {
+      currencyBaseCost: 88,
+      currencyCostPerLevel: 38,
+      farmResource: { category: "fruit", baseCost: 120, costPerLevel: 50 },
+    },
   },
   astral_phoenix: {
     id: "astral_phoenix",
@@ -1230,6 +1428,67 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 3200, intelligence: 2600, critChance: 60 },
     sellPrice: 1200,
     petBonus: { bonusType: "energyRegeneration", bonusAmount: 0.32 },
+    upgradeCostConfig: {
+      currencyBaseCost: 94,
+      currencyCostPerLevel: 40,
+      farmResource: { category: "grape", baseCost: 126, costPerLevel: 52 },
+    },
+  },
+  sunlion: {
+    id: "sunlion",
+    name: "Sunlion",
+    type: "pet",
+    rarity: "legendary",
+    stats: { attack: 3800, defense: 2600, critChance: 72 },
+    sellPrice: 1280,
+    petBonus: { bonusType: "attack", bonusAmount: 0.34 },
+    upgradeCostConfig: {
+      currencyBaseCost: 96,
+      currencyCostPerLevel: 42,
+      farmResource: { category: "vegetable", baseCost: 130, costPerLevel: 54 },
+    },
+  },
+  abyss_leviathan: {
+    id: "abyss_leviathan",
+    name: "Abyss Leviathan",
+    type: "pet",
+    rarity: "legendary",
+    stats: { attack: 3400, hp: 42000, defense: 3200 },
+    sellPrice: 1320,
+    petBonus: { bonusType: "defense", bonusAmount: 0.33 },
+    upgradeCostConfig: {
+      currencyBaseCost: 92,
+      currencyCostPerLevel: 41,
+      farmResource: { category: "grains", baseCost: 132, costPerLevel: 54 },
+    },
+  },
+  chrono_stag: {
+    id: "chrono_stag",
+    name: "Chrono Stag",
+    type: "pet",
+    rarity: "legendary",
+    stats: { intelligence: 3600, energyRegeneration: 260, agility: 210 },
+    sellPrice: 1360,
+    petBonus: { bonusType: "energyRegeneration", bonusAmount: 0.35 },
+    upgradeCostConfig: {
+      currencyBaseCost: 95,
+      currencyCostPerLevel: 42,
+      farmResource: { category: "herb", baseCost: 128, costPerLevel: 53 },
+    },
+  },
+  thunder_colossus: {
+    id: "thunder_colossus",
+    name: "Thunder Colossus",
+    type: "pet",
+    rarity: "legendary",
+    stats: { attack: 3900, agility: 240, plantGrowth: 180 },
+    sellPrice: 1400,
+    petBonus: { bonusType: "agility", bonusAmount: 0.36 },
+    upgradeCostConfig: {
+      currencyBaseCost: 98,
+      currencyCostPerLevel: 43,
+      farmResource: { category: "flower", baseCost: 132, costPerLevel: 55 },
+    },
   },
   // Pets - Unique
   void_beast: {
@@ -1241,6 +1500,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 110000, defense: 52000, intelligence: 56000 },
     sellPrice: 1000,
     petBonus: { bonusType: "attack", bonusAmount: 0.95 },
+    upgradeCostConfig: {
+      currencyBaseCost: 1,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "vegetable", baseCost: 180, costPerLevel: 70 },
+    },
   },
   astral_wolf: {
     id: "astral_wolf",
@@ -1251,6 +1515,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 98000, intelligence: 84000, energyRegeneration: 480 },
     sellPrice: 2000,
     petBonus: { bonusType: "intelligence", bonusAmount: 1.05 },
+    upgradeCostConfig: {
+      currencyBaseCost: 1,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "grape", baseCost: 175, costPerLevel: 68 },
+    },
   },
   grove_colossus: {
     id: "grove_colossus",
@@ -1261,6 +1530,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 86000, hp: 320000, plantGrowth: 480 },
     sellPrice: 1980,
     petBonus: { bonusType: "plantGrowth", bonusAmount: 1.2 },
+    upgradeCostConfig: {
+      currencyBaseCost: 1,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "herb", baseCost: 190, costPerLevel: 72 },
+    },
   },
   storm_hydra: {
     id: "storm_hydra",
@@ -1271,6 +1545,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 126000, defense: 68000, agility: 520 },
     sellPrice: 2100,
     petBonus: { bonusType: "attack", bonusAmount: 1.3 },
+    upgradeCostConfig: {
+      currencyBaseCost: 1,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "grains", baseCost: 200, costPerLevel: 75 },
+    },
   },
   blood_raptor: {
     id: "blood_raptor",
@@ -1281,6 +1560,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 122000, agility: 640, intelligence: 28000 },
     sellPrice: 2120,
     petBonus: { bonusType: "agility", bonusAmount: 1.35 },
+    upgradeCostConfig: {
+      currencyBaseCost: 1,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "fruit", baseCost: 195, costPerLevel: 74 },
+    },
   },
   windrazor_raptor: {
     id: "windrazor_raptor",
@@ -1291,6 +1575,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 118000, agility: 820, critChance: 140 },
     sellPrice: 2140,
     petBonus: { bonusType: "agility", bonusAmount: 1.6 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "flower", baseCost: 205, costPerLevel: 76 },
+    },
   },
   gorelord_warg: {
     id: "gorelord_warg",
@@ -1301,6 +1590,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 182000, hp: 460000, critChance: 320 },
     sellPrice: 2620,
     petBonus: { bonusType: "attack", bonusAmount: 2 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "vegetable", baseCost: 230, costPerLevel: 82 },
+    },
   },
   nightstar_drake: {
     id: "nightstar_drake",
@@ -1311,6 +1605,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 170000, intelligence: 210000, energyRegeneration: 1200 },
     sellPrice: 2640,
     petBonus: { bonusType: "intelligence", bonusAmount: 2.1 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "grape", baseCost: 228, costPerLevel: 82 },
+    },
   },
   rootcrown_colossus: {
     id: "rootcrown_colossus",
@@ -1321,6 +1620,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 162000, hp: 620000, plantGrowth: 2000 },
     sellPrice: 2660,
     petBonus: { bonusType: "plantGrowth", bonusAmount: 2.3 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "herb", baseCost: 236, costPerLevel: 84 },
+    },
   },
   skyhunter_gryphon: {
     id: "skyhunter_gryphon",
@@ -1331,6 +1635,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 180000, agility: 2100, critChance: 340 },
     sellPrice: 2680,
     petBonus: { bonusType: "agility", bonusAmount: 2.2 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "grains", baseCost: 234, costPerLevel: 83 },
+    },
   },
   epochveil_wyrm: {
     id: "epochveil_wyrm",
@@ -1341,6 +1650,11 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 174000, goldIncome: 3200, energyRegeneration: 1280 },
     sellPrice: 2700,
     petBonus: { bonusType: "goldIncome", bonusAmount: 2.4 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "fruit", baseCost: 240, costPerLevel: 86 },
+    },
   },
   moonpack_alpha: {
     id: "moonpack_alpha",
@@ -1351,5 +1665,66 @@ export const itemDefinitions: Record<string, ItemDefinition> = {
     stats: { attack: 186000, petStrength: 2400, hp: 520000 },
     sellPrice: 2720,
     petBonus: { bonusType: "attack", bonusAmount: 2.25 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "flower", baseCost: 238, costPerLevel: 85 },
+    },
+  },
+  auric_chimera: {
+    id: "auric_chimera",
+    name: "Auric Chimera",
+    type: "pet",
+    rarity: "unique",
+    stats: { attack: 196000, critChance: 380, goldIncome: 2800 },
+    sellPrice: 2760,
+    petBonus: { bonusType: "goldIncome", bonusAmount: 2.5 },
+    upgradeCostConfig: {
+      currencyBaseCost: 2,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "grape", baseCost: 244, costPerLevel: 88 },
+    },
+  },
+  starforge_manticore: {
+    id: "starforge_manticore",
+    name: "Starforge Manticore",
+    type: "pet",
+    rarity: "unique",
+    stats: { attack: 204000, defense: 86000, intelligence: 122000 },
+    sellPrice: 2800,
+    petBonus: { bonusType: "intelligence", bonusAmount: 2.55 },
+    upgradeCostConfig: {
+      currencyBaseCost: 3,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "vegetable", baseCost: 248, costPerLevel: 90 },
+    },
+  },
+  bloomwyrm: {
+    id: "bloomwyrm",
+    name: "Bloomwyrm",
+    type: "pet",
+    rarity: "unique",
+    stats: { attack: 188000, plantGrowth: 2600, hp: 640000 },
+    sellPrice: 2840,
+    petBonus: { bonusType: "plantGrowth", bonusAmount: 2.6 },
+    upgradeCostConfig: {
+      currencyBaseCost: 3,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "herb", baseCost: 252, costPerLevel: 90 },
+    },
+  },
+  tempest_juggernaut: {
+    id: "tempest_juggernaut",
+    name: "Tempest Juggernaut",
+    type: "pet",
+    rarity: "unique",
+    stats: { attack: 212000, agility: 2500, defense: 98000 },
+    sellPrice: 2880,
+    petBonus: { bonusType: "agility", bonusAmount: 2.65 },
+    upgradeCostConfig: {
+      currencyBaseCost: 3,
+      currencyCostPerLevel: 1,
+      farmResource: { category: "grains", baseCost: 256, costPerLevel: 92 },
+    },
   },
 };

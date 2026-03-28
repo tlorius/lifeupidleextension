@@ -326,6 +326,15 @@ export interface ItemDefinition {
     bonusType: keyof Stats; // "attack", "goldIncome", etc.
     bonusAmount: number; // E.g., 0.1 = 10% bonus per level
   };
+  upgradeCostConfig?: {
+    currencyBaseCost?: number;
+    currencyCostPerLevel?: number;
+    farmResource?: {
+      category: CropCategory;
+      baseCost: number;
+      costPerLevel: number;
+    };
+  };
 }
 
 // Equipment slots for the player character

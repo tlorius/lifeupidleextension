@@ -11,7 +11,13 @@ import {
   getItemStats as getItemStatsImpl,
   calculateUpgradeCost as calculateUpgradeCostImpl,
 } from "./engineItemMath";
-import type { GameState, ItemInstance, Stats } from "./types";
+import type {
+  CropCategory,
+  GameState,
+  ItemDefinition,
+  ItemInstance,
+  Stats,
+} from "./types";
 
 export const MAX_MANA = 100;
 const BASE_MANA_REGEN_PER_SECOND = 2;
@@ -154,6 +160,101 @@ export function calculateUpgradeCost(
     baseCost,
     costBonusMultiplier,
   );
+}
+
+export interface ItemUpgradeCostBreakdown {
+  currency: "gems" | "ruby";
+  currencyCost: number;
+  farmResourceCost?: {
+    category: CropCategory;
+    cost: number;
+  };
+}
+
+function calculateLinearUpgradeCost(
+  currentLevel: number,
+  baseCost: number,
+  costPerLevel: number,
+): number {
+  const level = Math.max(1, Math.floor(currentLevel));
+  const base = Math.max(0, baseCost);
+  const perLevel = Math.max(0, costPerLevel);
+  return Math.max(0, Math.ceil(base + (level - 1) * perLevel));
+}
+
+function calculateDefaultUniqueRubyCost(currentLevel: number): number {
+  const level = Math.max(1, Math.floor(currentLevel));
+  return Math.max(1, Math.ceil(Math.pow(level, 1.2)));
+}
+
+export function calculateItemUpgradeCosts(
+  currentLevel: number,
+  itemDef: ItemDefinition,
+): ItemUpgradeCostBreakdown {
+  const isUnique = itemDef.rarity === "unique";
+  const currency: "gems" | "ruby" = isUnique ? "ruby" : "gems";
+  const config = itemDef.upgradeCostConfig;
+
+  let currencyCost: number;
+  if (
+    config?.currencyBaseCost !== undefined ||
+    config?.currencyCostPerLevel !== undefined
+  ) {
+    currencyCost = calculateLinearUpgradeCost(
+      currentLevel,
+      config.currencyBaseCost ?? (currency === "ruby" ? 1 : 10),
+      config.currencyCostPerLevel ?? (currency === "ruby" ? 1 : 10),
+    );
+  } else if (currency === "ruby") {
+    currencyCost = calculateDefaultUniqueRubyCost(currentLevel);
+  } else {
+    currencyCost = calculateUpgradeCost(currentLevel, itemDef.rarity);
+  }
+
+  if (itemDef.type !== "pet") {
+    return {
+      currency,
+      currencyCost,
+    };
+  }
+
+  const farmConfig = config?.farmResource;
+  const farmCategory: CropCategory = farmConfig?.category ?? "vegetable";
+  const farmCost = calculateLinearUpgradeCost(
+    currentLevel,
+    farmConfig?.baseCost ?? 1,
+    farmConfig?.costPerLevel ?? 1,
+  );
+
+  return {
+    currency,
+    currencyCost,
+    farmResourceCost: {
+      category: farmCategory,
+      cost: farmCost,
+    },
+  };
+}
+
+function canAffordItemUpgradeCosts(
+  state: GameState,
+  costs: ItemUpgradeCostBreakdown,
+): boolean {
+  const currencyAmount =
+    costs.currency === "gems"
+      ? (state.resources.gems ?? 0)
+      : (state.resources.ruby ?? 0);
+  if (currencyAmount < costs.currencyCost) {
+    return false;
+  }
+
+  if (!costs.farmResourceCost) {
+    return true;
+  }
+
+  const availableFarm =
+    state.garden.cropStorage.current[costs.farmResourceCost.category] ?? 0;
+  return availableFarm >= costs.farmResourceCost.cost;
 }
 
 /**
@@ -485,8 +586,8 @@ export function upgradeItem(state: GameState, itemUid: string): GameState {
   if (!def) return state;
   if (def.type === "potion") return state;
 
-  const cost = calculateUpgradeCost(item.level, def.rarity);
-  if ((state.resources.gems ?? 0) < cost) return state;
+  const costs = calculateItemUpgradeCosts(item.level, def);
+  if (!canAffordItemUpgradeCosts(state, costs)) return state;
 
   // Create new inventory with upgraded item
   const newInventory = [...state.inventory];
@@ -500,8 +601,31 @@ export function upgradeItem(state: GameState, itemUid: string): GameState {
     inventory: newInventory,
     resources: {
       ...state.resources,
-      gems: (state.resources.gems ?? 0) - cost,
+      gems:
+        costs.currency === "gems"
+          ? (state.resources.gems ?? 0) - costs.currencyCost
+          : state.resources.gems,
+      ruby:
+        costs.currency === "ruby"
+          ? (state.resources.ruby ?? 0) - costs.currencyCost
+          : state.resources.ruby,
     },
+    garden:
+      costs.farmResourceCost !== undefined
+        ? {
+            ...state.garden,
+            cropStorage: {
+              ...state.garden.cropStorage,
+              current: {
+                ...state.garden.cropStorage.current,
+                [costs.farmResourceCost.category]:
+                  (state.garden.cropStorage.current[
+                    costs.farmResourceCost.category
+                  ] ?? 0) - costs.farmResourceCost.cost,
+              },
+            },
+          }
+        : state.garden,
   };
 }
 
@@ -519,13 +643,33 @@ export function upgradeItemMax(state: GameState, itemUid: string): GameState {
   if (def.type === "potion") return state;
 
   let remainingGems = state.resources.gems ?? 0;
+  let remainingRuby = state.resources.ruby ?? 0;
+  const remainingCropStorage = { ...state.garden.cropStorage.current };
   let nextLevel = item.level;
   let upgraded = false;
 
   while (true) {
-    const cost = calculateUpgradeCost(nextLevel, def.rarity);
-    if (remainingGems < cost) break;
-    remainingGems -= cost;
+    const costs = calculateItemUpgradeCosts(nextLevel, def);
+    if (costs.currency === "gems") {
+      if (remainingGems < costs.currencyCost) break;
+    } else if (remainingRuby < costs.currencyCost) {
+      break;
+    }
+
+    if (costs.farmResourceCost) {
+      const availableFarm =
+        remainingCropStorage[costs.farmResourceCost.category] ?? 0;
+      if (availableFarm < costs.farmResourceCost.cost) break;
+      remainingCropStorage[costs.farmResourceCost.category] =
+        availableFarm - costs.farmResourceCost.cost;
+    }
+
+    if (costs.currency === "gems") {
+      remainingGems -= costs.currencyCost;
+    } else {
+      remainingRuby -= costs.currencyCost;
+    }
+
     nextLevel += 1;
     upgraded = true;
   }
@@ -544,6 +688,14 @@ export function upgradeItemMax(state: GameState, itemUid: string): GameState {
     resources: {
       ...state.resources,
       gems: remainingGems,
+      ruby: remainingRuby,
+    },
+    garden: {
+      ...state.garden,
+      cropStorage: {
+        ...state.garden.cropStorage,
+        current: remainingCropStorage,
+      },
     },
   };
 }
