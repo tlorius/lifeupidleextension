@@ -1,0 +1,592 @@
+export type CombatEncounterKind = "normal" | "boss";
+
+export interface CombatLevelConfig {
+  level: number;
+  enemyId: string;
+  name: string;
+  kind: CombatEncounterKind;
+  hp: number;
+  damage: number;
+  attacksPerSecond: number;
+  gold: number;
+  gems: number;
+  xp: number;
+  lootTableId?: string;
+}
+
+export interface CombatLootEntry {
+  itemId: string;
+  weight: number;
+  quantityMin?: number;
+  quantityMax?: number;
+}
+
+export interface CombatLootTable {
+  guaranteed?: CombatLootEntry[];
+  weighted: CombatLootEntry[];
+  weightedRolls?: number;
+}
+
+export const COMBAT_PLAYER_CONFIG = {
+  baseAttacksPerSecond: 1,
+  agilityToApsScale: 0.2,
+  maxAttacksPerSecond: 100,
+  autoAdvanceAfterVictory: true,
+  deathCheckpointMode: "boss" as const,
+  offlineResolutionMode: "expected-value" as const,
+} as const;
+
+export const COMBAT_PROGRESS_CONFIG = {
+  bossIntervalLevels: 5,
+  majorDifficultySpikeIntervalLevels: 20,
+} as const;
+
+export const COMBAT_LEVELS: CombatLevelConfig[] = [
+  {
+    level: 1,
+    enemyId: "moss_mite",
+    name: "Moss Mite",
+    kind: "normal",
+    hp: 28,
+    damage: 2,
+    attacksPerSecond: 0.7,
+    gold: 8,
+    gems: 0,
+    xp: 10,
+  },
+  {
+    level: 2,
+    enemyId: "twigling",
+    name: "Twigling",
+    kind: "normal",
+    hp: 36,
+    damage: 2,
+    attacksPerSecond: 0.72,
+    gold: 10,
+    gems: 0,
+    xp: 12,
+  },
+  {
+    level: 3,
+    enemyId: "field_slug",
+    name: "Field Slug",
+    kind: "normal",
+    hp: 46,
+    damage: 3,
+    attacksPerSecond: 0.74,
+    gold: 12,
+    gems: 0,
+    xp: 14,
+  },
+  {
+    level: 4,
+    enemyId: "bark_imp",
+    name: "Bark Imp",
+    kind: "normal",
+    hp: 58,
+    damage: 3,
+    attacksPerSecond: 0.76,
+    gold: 15,
+    gems: 0,
+    xp: 16,
+  },
+  {
+    level: 5,
+    enemyId: "bramble_boar",
+    name: "Bramble Boar",
+    kind: "boss",
+    hp: 120,
+    damage: 6,
+    attacksPerSecond: 0.82,
+    gold: 40,
+    gems: 3,
+    xp: 70,
+    lootTableId: "boss_tier_1",
+  },
+  {
+    level: 6,
+    enemyId: "thorn_rat",
+    name: "Thorn Rat",
+    kind: "normal",
+    hp: 72,
+    damage: 4,
+    attacksPerSecond: 0.78,
+    gold: 18,
+    gems: 0,
+    xp: 18,
+  },
+  {
+    level: 7,
+    enemyId: "stone_scarab",
+    name: "Stone Scarab",
+    kind: "normal",
+    hp: 86,
+    damage: 4,
+    attacksPerSecond: 0.8,
+    gold: 21,
+    gems: 0,
+    xp: 20,
+  },
+  {
+    level: 8,
+    enemyId: "fen_hound",
+    name: "Fen Hound",
+    kind: "normal",
+    hp: 102,
+    damage: 5,
+    attacksPerSecond: 0.82,
+    gold: 24,
+    gems: 0,
+    xp: 22,
+  },
+  {
+    level: 9,
+    enemyId: "mud_lurker",
+    name: "Mud Lurker",
+    kind: "normal",
+    hp: 120,
+    damage: 5,
+    attacksPerSecond: 0.84,
+    gold: 28,
+    gems: 1,
+    xp: 24,
+  },
+  {
+    level: 10,
+    enemyId: "root_titan",
+    name: "Root Titan",
+    kind: "boss",
+    hp: 235,
+    damage: 9,
+    attacksPerSecond: 0.9,
+    gold: 78,
+    gems: 5,
+    xp: 95,
+    lootTableId: "boss_tier_1",
+  },
+  {
+    level: 11,
+    enemyId: "ember_beetle",
+    name: "Ember Beetle",
+    kind: "normal",
+    hp: 138,
+    damage: 6,
+    attacksPerSecond: 0.86,
+    gold: 32,
+    gems: 1,
+    xp: 27,
+  },
+  {
+    level: 12,
+    enemyId: "dusk_spider",
+    name: "Dusk Spider",
+    kind: "normal",
+    hp: 158,
+    damage: 6,
+    attacksPerSecond: 0.88,
+    gold: 36,
+    gems: 1,
+    xp: 30,
+  },
+  {
+    level: 13,
+    enemyId: "fen_reaver",
+    name: "Fen Reaver",
+    kind: "normal",
+    hp: 180,
+    damage: 7,
+    attacksPerSecond: 0.9,
+    gold: 41,
+    gems: 1,
+    xp: 33,
+  },
+  {
+    level: 14,
+    enemyId: "hollow_stag",
+    name: "Hollow Stag",
+    kind: "normal",
+    hp: 204,
+    damage: 7,
+    attacksPerSecond: 0.92,
+    gold: 46,
+    gems: 1,
+    xp: 36,
+  },
+  {
+    level: 15,
+    enemyId: "iron_tusk",
+    name: "Iron Tusk",
+    kind: "boss",
+    hp: 380,
+    damage: 12,
+    attacksPerSecond: 1,
+    gold: 120,
+    gems: 8,
+    xp: 125,
+    lootTableId: "boss_tier_2",
+  },
+  {
+    level: 16,
+    enemyId: "grave_hare",
+    name: "Grave Hare",
+    kind: "normal",
+    hp: 230,
+    damage: 8,
+    attacksPerSecond: 0.94,
+    gold: 52,
+    gems: 1,
+    xp: 40,
+  },
+  {
+    level: 17,
+    enemyId: "ash_viper",
+    name: "Ash Viper",
+    kind: "normal",
+    hp: 258,
+    damage: 8,
+    attacksPerSecond: 0.96,
+    gold: 58,
+    gems: 1,
+    xp: 44,
+  },
+  {
+    level: 18,
+    enemyId: "marrow_gnoll",
+    name: "Marrow Gnoll",
+    kind: "normal",
+    hp: 288,
+    damage: 9,
+    attacksPerSecond: 0.98,
+    gold: 64,
+    gems: 2,
+    xp: 48,
+  },
+  {
+    level: 19,
+    enemyId: "bog_wraith",
+    name: "Bog Wraith",
+    kind: "normal",
+    hp: 320,
+    damage: 9,
+    attacksPerSecond: 1,
+    gold: 71,
+    gems: 2,
+    xp: 52,
+  },
+  {
+    level: 20,
+    enemyId: "gloom_revenant",
+    name: "Gloom Revenant",
+    kind: "boss",
+    hp: 620,
+    damage: 15,
+    attacksPerSecond: 1.1,
+    gold: 175,
+    gems: 12,
+    xp: 170,
+    lootTableId: "boss_tier_2",
+  },
+  {
+    level: 21,
+    enemyId: "crag_drone",
+    name: "Crag Drone",
+    kind: "normal",
+    hp: 410,
+    damage: 11,
+    attacksPerSecond: 1.04,
+    gold: 92,
+    gems: 2,
+    xp: 68,
+  },
+  {
+    level: 22,
+    enemyId: "slag_marauder",
+    name: "Slag Marauder",
+    kind: "normal",
+    hp: 452,
+    damage: 12,
+    attacksPerSecond: 1.06,
+    gold: 101,
+    gems: 2,
+    xp: 74,
+  },
+  {
+    level: 23,
+    enemyId: "rift_howler",
+    name: "Rift Howler",
+    kind: "normal",
+    hp: 498,
+    damage: 12,
+    attacksPerSecond: 1.08,
+    gold: 111,
+    gems: 3,
+    xp: 80,
+  },
+  {
+    level: 24,
+    enemyId: "obsidian_lasher",
+    name: "Obsidian Lasher",
+    kind: "normal",
+    hp: 548,
+    damage: 13,
+    attacksPerSecond: 1.1,
+    gold: 122,
+    gems: 3,
+    xp: 87,
+  },
+  {
+    level: 25,
+    enemyId: "vault_hydra",
+    name: "Vault Hydra",
+    kind: "boss",
+    hp: 980,
+    damage: 20,
+    attacksPerSecond: 1.18,
+    gold: 300,
+    gems: 20,
+    xp: 240,
+    lootTableId: "boss_tier_3",
+  },
+];
+
+export const COMBAT_LOOT_TABLES: Record<string, CombatLootTable> = {
+  boss_tier_1: {
+    guaranteed: [
+      { itemId: "health_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+      {
+        itemId: "sunflower_seed_common",
+        weight: 1,
+        quantityMin: 4,
+        quantityMax: 7,
+      },
+    ],
+    weightedRolls: 2,
+    weighted: [
+      { itemId: "sword_1", weight: 24 },
+      { itemId: "armor_1", weight: 24 },
+      { itemId: "ring_1", weight: 20 },
+      { itemId: "wolf_pup", weight: 6 },
+      {
+        itemId: "sunflower_seed_common",
+        weight: 18,
+        quantityMin: 3,
+        quantityMax: 6,
+      },
+      {
+        itemId: "carrot_seed_common",
+        weight: 18,
+        quantityMin: 3,
+        quantityMax: 6,
+      },
+      { itemId: "mana_potion", weight: 10 },
+    ],
+  },
+  boss_tier_2: {
+    guaranteed: [
+      { itemId: "health_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+      { itemId: "mana_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+    ],
+    weightedRolls: 2,
+    weighted: [
+      { itemId: "hammer_1", weight: 18 },
+      { itemId: "storm_blade", weight: 12 },
+      { itemId: "shield_1", weight: 18 },
+      { itemId: "chainmail_aegis", weight: 12 },
+      { itemId: "amulet_1", weight: 16 },
+      { itemId: "battle_charm", weight: 11 },
+      { itemId: "fire_fox", weight: 5 },
+      { itemId: "thunder_lynx", weight: 4 },
+      { itemId: "rose_seed_rare", weight: 14, quantityMin: 2, quantityMax: 4 },
+      {
+        itemId: "cabbage_seed_rare",
+        weight: 14,
+        quantityMin: 2,
+        quantityMax: 4,
+      },
+      { itemId: "berry_seed_rare", weight: 14, quantityMin: 2, quantityMax: 4 },
+      { itemId: "swift_tonic", weight: 8 },
+      { itemId: "fortitude_brew", weight: 8 },
+    ],
+  },
+  boss_tier_3: {
+    guaranteed: [
+      { itemId: "mana_potion", weight: 1, quantityMin: 2, quantityMax: 2 },
+      { itemId: "corn_seed_rare", weight: 1, quantityMin: 4, quantityMax: 6 },
+    ],
+    weightedRolls: 2,
+    weighted: [
+      { itemId: "greataxe_1", weight: 14 },
+      { itemId: "sunlance", weight: 12 },
+      { itemId: "plate_armor", weight: 14 },
+      { itemId: "runesteel_plate", weight: 12 },
+      { itemId: "dragon_ring", weight: 12 },
+      { itemId: "mindspire_talisman", weight: 10 },
+      { itemId: "ice_dragon", weight: 4 },
+      { itemId: "storm_griffin", weight: 4 },
+      { itemId: "moonflower_seed", weight: 10, quantityMin: 2, quantityMax: 3 },
+      { itemId: "corn_seed_rare", weight: 12, quantityMin: 3, quantityMax: 5 },
+      { itemId: "berserkers_tonic", weight: 8 },
+      { itemId: "scholars_draught", weight: 8 },
+      { itemId: "mithril_pickaxe", weight: 9 },
+      { itemId: "mithril_shovel", weight: 9 },
+    ],
+  },
+  boss_tier_4: {
+    guaranteed: [
+      { itemId: "elixir", weight: 1, quantityMin: 2, quantityMax: 2 },
+      { itemId: "immortal_brew", weight: 1, quantityMin: 1, quantityMax: 1 },
+    ],
+    weightedRolls: 3,
+    weighted: [
+      { itemId: "excalibur", weight: 10 },
+      { itemId: "titan_cleaver", weight: 8 },
+      { itemId: "astral_halberd", weight: 8 },
+      { itemId: "excalibur_armor", weight: 10 },
+      { itemId: "aegis_of_ages", weight: 8 },
+      { itemId: "celestial_bulwark", weight: 8 },
+      { itemId: "infinity_gem", weight: 8 },
+      { itemId: "sovereign_signet", weight: 7 },
+      { itemId: "comet_locket", weight: 7 },
+      { itemId: "phoenix", weight: 3 },
+      { itemId: "astral_phoenix", weight: 2 },
+      { itemId: "yggdrasil_seed", weight: 8, quantityMin: 1, quantityMax: 2 },
+      { itemId: "immortal_brew", weight: 6 },
+      { itemId: "wateringcan_legendary", weight: 8 },
+      { itemId: "scythe_legendary", weight: 8 },
+      { itemId: "sprinkler_legendary", weight: 8 },
+      { itemId: "planter_legendary", weight: 8 },
+    ],
+  },
+  boss_unique_chase: {
+    weighted: [
+      { itemId: "soul_edge", weight: 24 },
+      { itemId: "starforged_maul", weight: 18 },
+      { itemId: "worldroot_scythe", weight: 18 },
+      { itemId: "ravenous_fang", weight: 18 },
+      { itemId: "void_armor", weight: 24 },
+      { itemId: "chrono_bastion", weight: 18 },
+      { itemId: "nightweave_carapace", weight: 18 },
+      { itemId: "predator_mail", weight: 18 },
+      { itemId: "chaos_emerald", weight: 18 },
+      { itemId: "eclipse_prism", weight: 16 },
+      { itemId: "worldheart_orb", weight: 16 },
+      { itemId: "warpack_totem", weight: 16 },
+      { itemId: "bloodmark_charm", weight: 16 },
+      { itemId: "void_beast", weight: 10 },
+      { itemId: "astral_wolf", weight: 9 },
+      { itemId: "grove_colossus", weight: 9 },
+      { itemId: "storm_hydra", weight: 9 },
+      { itemId: "bloodletter_blade", weight: 18 },
+      { itemId: "bloodletter_garb", weight: 18 },
+      { itemId: "blood_raptor", weight: 10 },
+      { itemId: "windrazor_blade", weight: 18 },
+      { itemId: "windrazor_mail", weight: 18 },
+      { itemId: "windrazor_charm", weight: 16 },
+      { itemId: "windrazor_raptor", weight: 10 },
+      { itemId: "chaos_potion", weight: 14 },
+      { itemId: "wateringcan_unique", weight: 10 },
+      { itemId: "scythe_unique", weight: 10 },
+      { itemId: "sprinkler_unique", weight: 10 },
+      { itemId: "harvester_unique", weight: 10 },
+      { itemId: "planter_unique", weight: 10 },
+    ],
+  },
+};
+
+/**
+ * A level bracket entry for fight-mode-specific drop rate tuning.
+ * Brackets are matched by the highest `minLevel` that is <= the enemy level.
+ * The `dropRateMultiplier` of the matched bracket stacks (multiplied) with
+ * the parent `FightModeLootConfig.dropRateMultiplier`.
+ */
+export interface FightModeDropBracket {
+  minLevel: number;
+  dropRateMultiplier: number;
+}
+
+/**
+ * Per-fight-mode loot configuration.
+ * `dropRateMultiplier` is a global multiplier for all drops in this mode.
+ * `levelBrackets` lists per-level-range overrides sorted ascending by minLevel.
+ */
+export interface FightModeLootConfig {
+  /** Generic multiplier applied to all drop rates in this mode. 1 = no change. */
+  dropRateMultiplier: number;
+  /**
+   * Level-bracket overrides. The bracket with the highest minLevel <= enemy level
+   * is selected and its dropRateMultiplier stacks with the mode-level multiplier.
+   * Brackets should be sorted ascending by minLevel.
+   */
+  levelBrackets: FightModeDropBracket[];
+}
+
+/**
+ * Loot configuration per fight mode. Add new modes here as the game grows.
+ * Both multipliers default to 1 (no change from base drop rates).
+ */
+export const FIGHT_MODE_LOOT_CONFIGS: Record<string, FightModeLootConfig> = {
+  progression: {
+    dropRateMultiplier: 1,
+    levelBrackets: [{ minLevel: 1, dropRateMultiplier: 1 }],
+  },
+  farming: {
+    dropRateMultiplier: 1,
+    levelBrackets: [{ minLevel: 1, dropRateMultiplier: 1 }],
+  },
+};
+
+/**
+ * Returns the effective drop rate multiplier for a given fight mode and enemy level.
+ * Multiplies the mode-level multiplier by the best-matching bracket multiplier.
+ */
+export function getEffectiveDropRateMultiplier(
+  fightMode: string,
+  enemyLevel: number,
+): number {
+  const modeConfig =
+    FIGHT_MODE_LOOT_CONFIGS[fightMode] ??
+    FIGHT_MODE_LOOT_CONFIGS["progression"]!;
+  let bracketMultiplier = 1;
+  for (const bracket of modeConfig.levelBrackets) {
+    if (enemyLevel >= bracket.minLevel) {
+      bracketMultiplier = bracket.dropRateMultiplier;
+    }
+  }
+  return modeConfig.dropRateMultiplier * bracketMultiplier;
+}
+
+export const COMBAT_CHASE_DROP_CONFIG = {
+  unlocksAtLevel: 25,
+  chance: 0.03,
+  lootTableId: "boss_unique_chase",
+} as const;
+
+export const COMBAT_RUBY_DROP_CONFIG = {
+  unlocksAtLevel: 50,
+  levelsPerStep: 10,
+  amountPerDrop: 1,
+  // Index 0 covers levels 50-59, index 1 covers 60-69, and so on.
+  chanceByStep: [0.005, 0.005, 0.005, 0.005, 0.005],
+} as const;
+
+export function getRubyDropChanceForLevel(level: number): number {
+  if (level < COMBAT_RUBY_DROP_CONFIG.unlocksAtLevel) return 0;
+
+  const step = Math.max(
+    0,
+    Math.floor(
+      (level - COMBAT_RUBY_DROP_CONFIG.unlocksAtLevel) /
+        COMBAT_RUBY_DROP_CONFIG.levelsPerStep,
+    ),
+  );
+
+  if (step >= COMBAT_RUBY_DROP_CONFIG.chanceByStep.length) {
+    return (
+      COMBAT_RUBY_DROP_CONFIG.chanceByStep[
+        COMBAT_RUBY_DROP_CONFIG.chanceByStep.length - 1
+      ] ?? 0
+    );
+  }
+
+  return COMBAT_RUBY_DROP_CONFIG.chanceByStep[step] ?? 0;
+}

@@ -1,0 +1,198 @@
+import { describe, expect, it } from "vitest";
+import { defaultState } from "./state";
+import {
+  applyTokenRewards,
+  createSignedMockPlaytimeToken,
+  extractPlaytimeToken,
+  extractRewardToken,
+  normalizeTokenRewards,
+  removePlaytimeTokenFromUrl,
+  resolveRewardTokenDisplayName,
+  resolveTokenRewards,
+  resolvePlaytimeToken,
+  removeRewardTokenFromUrl,
+  toGrantedTokenRewards,
+  verifySignedMockPlaytimeToken,
+} from "./tokenRewards";
+
+describe("tokenRewards", () => {
+  it("extracts token from supported query parameters", () => {
+    expect(extractRewardToken("?token=abc123")).toBe("abc123");
+    expect(extractRewardToken("?rewardToken=xyz789")).toBe("xyz789");
+    expect(extractRewardToken("?foo=bar")).toBeNull();
+  });
+
+  it("extracts playtime token from supported query parameters", () => {
+    expect(extractPlaytimeToken("?playtimeToken=abc123")).toBe("abc123");
+    expect(extractPlaytimeToken("?gameTimeToken=xyz789")).toBe("xyz789");
+    expect(extractPlaytimeToken("?foo=bar")).toBeNull();
+  });
+
+  it("removes reward token params but preserves other params", () => {
+    expect(removeRewardTokenFromUrl("?token=abc&foo=bar")).toBe("?foo=bar");
+    expect(removeRewardTokenFromUrl("?rewardToken=abc")).toBe("");
+  });
+
+  it("removes playtime token params but preserves other params", () => {
+    expect(removePlaytimeTokenFromUrl("?playtimeToken=abc&foo=bar")).toBe(
+      "?foo=bar",
+    );
+    expect(removePlaytimeTokenFromUrl("?gameTimeToken=abc")).toBe("");
+  });
+
+  it("applies only valid reward items and enforces quantity minimum", () => {
+    const state = structuredClone(defaultState);
+
+    const next = applyTokenRewards(state, [
+      { itemId: "mana_potion", quantity: 2 },
+      { itemId: "not_real_item", quantity: 4 },
+      { itemId: "ring_1", quantity: 0 },
+    ]);
+
+    expect(next.inventory).toHaveLength(2);
+    expect(next.inventory[0].itemId).toBe("mana_potion");
+    expect(next.inventory[0].quantity).toBe(2);
+    expect(next.inventory[1].itemId).toBe("ring_1");
+    expect(next.inventory[1].quantity).toBe(1);
+  });
+
+  it("normalizes rewards into valid item entries", () => {
+    const normalized = normalizeTokenRewards([
+      { itemId: "mana_potion", quantity: 2.8 },
+      { itemId: "unknown", quantity: 9 },
+      { itemId: "ring_1", quantity: 0 },
+    ]);
+
+    expect(normalized).toEqual([
+      { itemId: "mana_potion", quantity: 2 },
+      { itemId: "ring_1", quantity: 1 },
+    ]);
+  });
+
+  it("maps normalized rewards to granted reward entries with level", () => {
+    expect(
+      toGrantedTokenRewards([
+        { itemId: "mana_potion", quantity: 2 },
+        { itemId: "ring_1", quantity: 1 },
+      ]),
+    ).toEqual([
+      { itemId: "mana_potion", quantity: 2, level: 1 },
+      { itemId: "ring_1", quantity: 1, level: 1 },
+    ]);
+  });
+
+  it("resolves starter pack mock rewards", async () => {
+    await expect(resolveTokenRewards("starter-pack")).resolves.toEqual([
+      { itemId: "health_potion", quantity: 3 },
+      { itemId: "mana_potion", quantity: 2 },
+      { itemId: "ring_1", quantity: 1 },
+    ]);
+  });
+
+  it("resolves legendary bundle mock rewards", async () => {
+    await expect(resolveTokenRewards("legendary-bundle")).resolves.toEqual([
+      { itemId: "excalibur", quantity: 1 },
+      { itemId: "excalibur_armor", quantity: 1 },
+      { itemId: "infinity_gem", quantity: 1 },
+    ]);
+  });
+
+  it("returns empty rewards for unknown token", async () => {
+    await expect(resolveTokenRewards("unknown-token")).resolves.toEqual([]);
+  });
+
+  it("resolves new farming and progression bundle rewards", async () => {
+    await expect(resolveTokenRewards("seed-bundle-rare")).resolves.toEqual([
+      { itemId: "rose_seed_rare", quantity: 35 },
+      { itemId: "starlime_seed_rare", quantity: 35 },
+      { itemId: "coralfern_seed_rare", quantity: 35 },
+      { itemId: "cabbage_seed_rare", quantity: 35 },
+      { itemId: "berry_seed_rare", quantity: 35 },
+      { itemId: "corn_seed_rare", quantity: 35 },
+    ]);
+    await expect(resolveTokenRewards("farm-automation-epic")).resolves.toEqual([
+      { itemId: "wateringcan_epic", quantity: 1 },
+      { itemId: "sprinkler_epic", quantity: 1 },
+      { itemId: "harvester_epic", quantity: 1 },
+      { itemId: "planter_epic", quantity: 1 },
+      { itemId: "seedbag_epic", quantity: 1 },
+    ]);
+    await expect(resolveTokenRewards("progression-late")).resolves.toEqual([
+      { itemId: "immortal_brew", quantity: 2 },
+      { itemId: "sunlance", quantity: 1 },
+      { itemId: "runesteel_plate", quantity: 1 },
+      { itemId: "storm_griffin", quantity: 1 },
+    ]);
+  });
+
+  it("resolves ruby reward packs with expected quantities", async () => {
+    await expect(resolveTokenRewards("ruby-pack-1")).resolves.toEqual([
+      { itemId: "ruby_currency", quantity: 1 },
+    ]);
+    await expect(resolveTokenRewards("ruby-pack-5")).resolves.toEqual([
+      { itemId: "ruby_currency", quantity: 5 },
+    ]);
+    await expect(resolveTokenRewards("ruby-pack-10")).resolves.toEqual([
+      { itemId: "ruby_currency", quantity: 10 },
+    ]);
+  });
+
+  it("resolves configured reward token display names", () => {
+    expect(resolveRewardTokenDisplayName("starter-pack")).toBe("Starter Pack");
+    expect(resolveRewardTokenDisplayName("harvest-surge")).toBe(
+      "Harvest Surge",
+    );
+    expect(resolveRewardTokenDisplayName("farm-automation-legendary")).toBe(
+      "Farm Automation Bundle: Legendary",
+    );
+    expect(resolveRewardTokenDisplayName("ruby-pack-10")).toBe(
+      "Ruby Pack (10)",
+    );
+    expect(resolveRewardTokenDisplayName("unknown-token")).toBeNull();
+  });
+
+  it("applies ruby token rewards directly to ruby resource", () => {
+    const state = structuredClone(defaultState);
+    state.resources.ruby = 2;
+
+    const next = applyTokenRewards(state, [
+      { itemId: "ruby_currency", quantity: 5 },
+    ]);
+
+    expect(next.resources.ruby).toBe(7);
+    expect(next.inventory).toHaveLength(0);
+  });
+
+  it("resolves simple mock playtime aliases", async () => {
+    await expect(resolvePlaytimeToken("play-15m=3u")).resolves.toEqual({
+      isValid: true,
+      units: 3,
+    });
+    await expect(resolvePlaytimeToken("unknown-playtime")).resolves.toEqual({
+      isValid: false,
+      units: 0,
+    });
+  });
+
+  it("creates and verifies signed mock playtime tokens", () => {
+    const token = createSignedMockPlaytimeToken({
+      units: 2,
+      expiresAt: Date.now() + 60_000,
+      nonce: "n1",
+    });
+
+    const payload = verifySignedMockPlaytimeToken(token);
+    expect(payload).not.toBeNull();
+    expect(payload?.units).toBe(2);
+    expect(payload?.nonce).toBe("n1");
+  });
+
+  it("rejects expired signed mock playtime tokens", () => {
+    const token = createSignedMockPlaytimeToken({
+      units: 1,
+      expiresAt: Date.now() - 1000,
+    });
+
+    expect(verifySignedMockPlaytimeToken(token)).toBeNull();
+  });
+});

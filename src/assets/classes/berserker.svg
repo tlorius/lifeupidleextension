@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="Berserker class art">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2f0b0b"/>
+      <stop offset="100%" stop-color="#c7431f"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="180" fill="url(#bg)"/>
+  <circle cx="84" cy="86" r="50" fill="#ff9350" opacity="0.55"/>
+  <path d="M160 26l32 52h-64z" fill="#ffd7a8" opacity="0.9"/>
+  <text x="20" y="160" fill="#fff2de" font-size="30" font-family="Verdana">BER</text>
+</svg>

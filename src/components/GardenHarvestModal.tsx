@@ -1,0 +1,144 @@
+import { ActionRow } from "./ui/ActionRow";
+import { GardenDetailCard } from "./ui/GardenDetailCard";
+import { ModalShell } from "./ui/ModalShell";
+import { SectionTitle } from "./ui/SectionTitle";
+import { ToneButton } from "./ui/ToneButton";
+import { ValueRow } from "./ui/ValueRow";
+
+interface HarvestPreview {
+  cropId: string;
+  cropIndex: number;
+  row: number;
+  col: number;
+  name: string;
+  category: string;
+  rarity: string;
+  isPerennial: boolean;
+  baseYield: number;
+  baseXP: number;
+  waterLevel: number;
+  yieldAmount: number;
+  waterBonus: number;
+  goldAmount: number;
+}
+
+interface GardenHarvestModalProps {
+  isOpen: boolean;
+  isMobile: boolean;
+  preview: HarvestPreview | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export function GardenHarvestModal({
+  isOpen,
+  isMobile,
+  preview,
+  onClose,
+  onConfirm,
+}: GardenHarvestModalProps) {
+  if (!isOpen || !preview) {
+    return null;
+  }
+
+  return (
+    <ModalShell
+      onClose={onClose}
+      overlayStyle={{ zIndex: 1000 }}
+      panelStyle={{
+        ["--modal-width" as string]: "500px",
+        ["--modal-width-mobile" as string]: isMobile ? "94vw" : "95vw",
+        ["--modal-max-height" as string]: "80vh",
+        ["--modal-max-height-mobile" as string]: isMobile ? "88vh" : "88vh",
+        ["--modal-padding" as string]: isMobile ? "12px" : "20px",
+      }}
+    >
+      <SectionTitle>🌾 Ready to Harvest!</SectionTitle>
+
+      <GardenDetailCard>
+        <div className="ui-garden-detail-title" style={{ marginBottom: 8 }}>
+          {preview.name}
+        </div>
+        <div className="ui-garden-detail-meta">
+          <div>Category: {preview.category}</div>
+          <div>Rarity: {preview.rarity}</div>
+          {preview.isPerennial && (
+            <div style={{ color: "#2f9e44" }}>
+              ♻️ This is a perennial - it will restart growing
+            </div>
+          )}
+        </div>
+      </GardenDetailCard>
+
+      <GardenDetailCard className="ui-garden-detail-card--summary">
+        <div className="ui-garden-detail-title" style={{ marginBottom: 10 }}>
+          Harvest Summary
+        </div>
+        <div style={{ fontSize: 12, lineHeight: "1.8" }}>
+          <ValueRow
+            className="ui-garden-summary-row"
+            left="Base Yield:"
+            right={`${preview.baseYield} ${preview.category}`}
+          />
+          <ValueRow
+            className="ui-garden-summary-row"
+            style={{ color: preview.waterLevel > 0 ? "#2f9e44" : "#999" }}
+            left={
+              <>
+                Water Bonus (+{Math.round((preview.waterLevel / 100) * 100)}%):
+              </>
+            }
+            right={`+${preview.waterBonus}`}
+          />
+          <ValueRow
+            className="ui-garden-summary-row ui-garden-summary-row--total"
+            left={`Total ${preview.category.toUpperCase()}:`}
+            right={
+              <span style={{ color: "#51cf66" }}>+{preview.yieldAmount}</span>
+            }
+          />
+          <ValueRow
+            className="ui-garden-summary-row"
+            style={{ marginTop: 8 }}
+            left="💰 Gold Reward:"
+            right={
+              <span style={{ color: "#FFD700" }}>+{preview.goldAmount}</span>
+            }
+          />
+          <ValueRow
+            className="ui-garden-summary-row"
+            style={{ marginTop: 4 }}
+            left="⭐ XP (Category):"
+            right={<span style={{ color: "#4169E1" }}>+{preview.baseXP}</span>}
+          />
+        </div>
+      </GardenDetailCard>
+
+      {preview.waterLevel > 0 && (
+        <GardenDetailCard
+          className="ui-garden-detail-card--compact ui-garden-detail-card--water"
+          style={{ fontSize: 12, color: "#8bc5ff" }}
+        >
+          <span>💧 Water bonus active!</span> Your crop's water level made it
+          more productive. Keep watering your crops for better yields!
+        </GardenDetailCard>
+      )}
+
+      <ActionRow>
+        <button
+          className="ui-modal-btn-secondary ui-touch-target"
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+        <ToneButton
+          className="ui-modal-btn-primary ui-touch-target"
+          toneClassName="ui-btn-tone--primary-green"
+          onClick={onConfirm}
+        >
+          Harvest Now!
+        </ToneButton>
+      </ActionRow>
+    </ModalShell>
+  );
+}
