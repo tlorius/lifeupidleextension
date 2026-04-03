@@ -6,5 +6,5 @@ import { initializeConfig } from "./game/configLoader";
  * This ensures all tests have access to the runtime config system.
  */
 beforeAll(() => {
-  initializeConfig();
+  return initializeConfig();
 });

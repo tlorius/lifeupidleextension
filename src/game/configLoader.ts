@@ -184,6 +184,12 @@ function loadConfigFromEnv(): Partial<GameConfig> {
  * Load config from JSON files in /public/config/
  */
 async function loadConfigFromJson(): Promise<Partial<GameConfig>> {
+  // In Node test runs there is no browser origin for relative fetch URLs,
+  // so skip JSON file loading and rely on defaults/env overrides.
+  if (typeof window === "undefined") {
+    return {};
+  }
+
   const domains = ["combat", "progression", "garden", "upgrades"];
   const loadedConfig: Partial<GameConfig> = {};
 
