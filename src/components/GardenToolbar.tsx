@@ -7,6 +7,8 @@ interface GardenToolbarProps {
   isMobile: boolean;
   isSeedMakerUnlocked: boolean;
   isSeedMakerRunning: boolean;
+  hasMinimapUnlock: boolean;
+  isMinimapExpanded: boolean;
   selectedSeedMakerPresentation: GardenSeedPresentation | null;
   seedMakerRemainingDurationLabel: string | null;
   toolbarButtonSize: number;
@@ -22,6 +24,7 @@ interface GardenToolbarProps {
   onOpenStorage: () => void;
   onOpenCropMastery: () => void;
   onOpenSeedMaker: () => void;
+  onToggleMinimap: () => void;
   onToggleEquippedToolMode: () => void;
   onUnequipTool: () => void;
   onOpenSeedBagSeedPicker: () => void;
@@ -32,6 +35,8 @@ export function GardenToolbar({
   isMobile,
   isSeedMakerUnlocked,
   isSeedMakerRunning,
+  hasMinimapUnlock,
+  isMinimapExpanded,
   selectedSeedMakerPresentation,
   seedMakerRemainingDurationLabel,
   toolbarButtonSize,
@@ -47,6 +52,7 @@ export function GardenToolbar({
   onOpenStorage,
   onOpenCropMastery,
   onOpenSeedMaker,
+  onToggleMinimap,
   onToggleEquippedToolMode,
   onUnequipTool,
   onOpenSeedBagSeedPicker,
@@ -171,6 +177,28 @@ export function GardenToolbar({
             aria-label="Open seedmaker"
           >
             🧪
+          </button>
+        )}
+
+        {hasMinimapUnlock && (
+          <button
+            className="btn-round-icon"
+            style={{
+              width: toolbarButtonSize,
+              height: toolbarButtonSize,
+              backgroundColor: isMinimapExpanded ? "#325f45" : "#2f4152",
+              border: "2px solid #6d5932",
+              fontSize: toolbarIconSize,
+            }}
+            onClick={onToggleMinimap}
+            title={
+              isMinimapExpanded ? "Close world map" : "Open world map minimap"
+            }
+            aria-label={
+              isMinimapExpanded ? "Close world map" : "Open world map minimap"
+            }
+          >
+            🗺️
           </button>
         )}
 

@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, type RefObject } from "react";
 
 interface GardenGridProps {
   previewRows: number;
@@ -6,6 +6,9 @@ interface GardenGridProps {
   minimumCellSize: number;
   isMobile: boolean;
   renderField: (row: number, col: number) => ReactNode;
+  containerRef?: RefObject<HTMLDivElement | null>;
+  contentRef?: RefObject<HTMLDivElement | null>;
+  onScroll?: () => void;
 }
 
 export function GardenGrid({
@@ -14,9 +17,14 @@ export function GardenGrid({
   minimumCellSize,
   isMobile,
   renderField,
+  containerRef,
+  contentRef,
+  onScroll,
 }: GardenGridProps) {
   return (
     <div
+      ref={containerRef}
+      onScroll={onScroll}
       style={{
         overflowX: "auto",
         overflowY: "auto",
@@ -26,6 +34,7 @@ export function GardenGrid({
       }}
     >
       <div
+        ref={contentRef}
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${previewCols}, minmax(${minimumCellSize}px, 1fr))`,

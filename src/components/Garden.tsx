@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { GardenGrid } from "./GardenGrid";
 import { GardenSeedMakerModal } from "./GardenSeedMakerModal";
 import { GardenTileDetailModal } from "./GardenTileDetailModal";
@@ -106,6 +106,13 @@ interface PendingPlanterActionState {
   planterId: string;
 }
 
+interface MinimapViewportBounds {
+  rowStart: number;
+  rowEnd: number;
+  colStart: number;
+  colEnd: number;
+}
+
 export function Garden() {
   const { state, dispatch } = useGame();
   const speedUpMinutes = 30;
@@ -160,6 +167,11 @@ export function Garden() {
   const [viewportWidth, setViewportWidth] = useState<number>(
     typeof window !== "undefined" ? window.innerWidth : 1024,
   );
+  const [isMinimapExpanded, setIsMinimapExpanded] = useState(false);
+  const [minimapViewportBounds, setMinimapViewportBounds] =
+    useState<MinimapViewportBounds | null>(null);
+  const gardenGridScrollRef = useRef<HTMLDivElement>(null);
+  const gardenGridContentRef = useRef<HTMLDivElement>(null);
 
   const garden = state.garden;
   const [toolTypeFilter, setToolTypeFilter] = useState<string | null>(null);
@@ -353,11 +365,172 @@ export function Garden() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const unlockedFieldSet = useMemo(() => {
+    const set = new Set<string>();
+    const explicitUnlocked = garden.unlockedFields;
+    if (explicitUnlocked && explicitUnlocked.length > 0) {
+      for (const field of explicitUnlocked) {
+        set.add(`${field.row},${field.col}`);
+      }
+      return set;
+    }
+
+    for (let row = 0; row < garden.gridSize.rows; row++) {
+      for (let col = 0; col < garden.gridSize.cols; col++) {
+        set.add(`${row},${col}`);
+      }
+    }
+    return set;
+  }, [garden.unlockedFields, garden.gridSize.rows, garden.gridSize.cols]);
+
+  const knownBounds = useMemo(() => {
+    let maxRow = Math.max(0, garden.gridSize.rows - 1);
+    let maxCol = Math.max(0, garden.gridSize.cols - 1);
+
+    const include = (row: number, col: number) => {
+      if (row > maxRow) maxRow = row;
+      if (col > maxCol) maxCol = col;
+    };
+
+    for (const key of unlockedFieldSet) {
+      const [rowText, colText] = key.split(",");
+      include(Number(rowText), Number(colText));
+    }
+
+    for (const positions of Object.values(garden.rocks)) {
+      for (const field of positions) {
+        include(field.row, field.col);
+      }
+    }
+
+    for (const crops of Object.values(garden.crops)) {
+      for (const crop of crops) {
+        if (crop.position) include(crop.position.row, crop.position.col);
+      }
+    }
+
+    for (const positions of Object.values(garden.sprinklers)) {
+      for (const field of positions) {
+        include(field.row, field.col);
+      }
+    }
+
+    for (const positions of Object.values(garden.harvesters ?? {})) {
+      for (const field of positions) {
+        include(field.row, field.col);
+      }
+    }
+
+    for (const positions of Object.values(garden.planters ?? {})) {
+      for (const field of positions) {
+        include(field.row, field.col);
+      }
+    }
+
+    return {
+      maxRow,
+      maxCol,
+    };
+  }, [
+    garden.crops,
+    garden.gridSize.cols,
+    garden.gridSize.rows,
+    garden.harvesters,
+    garden.planters,
+    garden.rocks,
+    garden.sprinklers,
+    unlockedFieldSet,
+  ]);
+
   // Get preview grid (showing adjacent fields that can be unlocked)
-  const previewRows = garden.gridSize.rows + 2;
-  const previewCols = garden.gridSize.cols + 2;
+  const previewRows = knownBounds.maxRow + 3;
+  const previewCols = knownBounds.maxCol + 3;
   const compactGridLabels = isMobile || previewCols >= 8;
   const minimumCellSize = isMobile ? 34 : 42;
+
+  const hasMinimapUnlock = useMemo(() => {
+    const rowCounts = new Map<number, number>();
+    const colCounts = new Map<number, number>();
+
+    for (const key of unlockedFieldSet) {
+      const [rowText, colText] = key.split(",");
+      const row = Number(rowText);
+      const col = Number(colText);
+      rowCounts.set(row, (rowCounts.get(row) ?? 0) + 1);
+      colCounts.set(col, (colCounts.get(col) ?? 0) + 1);
+    }
+
+    const maxRowUnlockCount = Math.max(0, ...rowCounts.values());
+    const maxColUnlockCount = Math.max(0, ...colCounts.values());
+    return maxRowUnlockCount >= 10 || maxColUnlockCount >= 10;
+  }, [unlockedFieldSet]);
+
+  const updateMinimapViewportBounds = () => {
+    const container = gardenGridScrollRef.current;
+    const content = gardenGridContentRef.current;
+    if (!container || !content || previewRows <= 0 || previewCols <= 0) {
+      setMinimapViewportBounds(null);
+      return;
+    }
+
+    const cellWidth = content.scrollWidth / previewCols;
+    const cellHeight = content.scrollHeight / previewRows;
+    if (!Number.isFinite(cellWidth) || !Number.isFinite(cellHeight)) {
+      setMinimapViewportBounds(null);
+      return;
+    }
+
+    const rowStart = Math.max(0, Math.floor(container.scrollTop / cellHeight));
+    const rowEnd = Math.min(
+      previewRows - 1,
+      Math.ceil((container.scrollTop + container.clientHeight) / cellHeight),
+    );
+    const colStart = Math.max(0, Math.floor(container.scrollLeft / cellWidth));
+    const colEnd = Math.min(
+      previewCols - 1,
+      Math.ceil((container.scrollLeft + container.clientWidth) / cellWidth),
+    );
+
+    setMinimapViewportBounds({
+      rowStart,
+      rowEnd,
+      colStart,
+      colEnd,
+    });
+  };
+
+  const centerGardenViewportAt = (row: number, col: number) => {
+    const container = gardenGridScrollRef.current;
+    const content = gardenGridContentRef.current;
+    if (!container || !content || previewRows <= 0 || previewCols <= 0) {
+      return;
+    }
+
+    const cellWidth = content.scrollWidth / previewCols;
+    const cellHeight = content.scrollHeight / previewRows;
+    if (!Number.isFinite(cellWidth) || !Number.isFinite(cellHeight)) {
+      return;
+    }
+
+    const targetLeft = (col + 0.5) * cellWidth - container.clientWidth / 2;
+    const targetTop = (row + 0.5) * cellHeight - container.clientHeight / 2;
+
+    container.scrollTo({
+      left: Math.max(0, targetLeft),
+      top: Math.max(0, targetTop),
+      behavior: "smooth",
+    });
+  };
+
+  useEffect(() => {
+    updateMinimapViewportBounds();
+  }, [previewRows, previewCols, garden]);
+
+  useEffect(() => {
+    if (!hasMinimapUnlock && isMinimapExpanded) {
+      setIsMinimapExpanded(false);
+    }
+  }, [hasMinimapUnlock, isMinimapExpanded]);
 
   const getRaritySortValue = (rarity: string | null | undefined): number => {
     const rarityOrder: Record<string, number> = {
@@ -367,7 +540,6 @@ export function Garden() {
       legendary: 3,
       unique: 4,
     };
-
     return rarityOrder[rarity ?? "common"] ?? rarityOrder.common;
   };
 
@@ -1440,6 +1612,8 @@ export function Garden() {
         isMobile={isMobile}
         isSeedMakerUnlocked={isSeedMakerUnlocked}
         isSeedMakerRunning={isSeedMakerRunning}
+        hasMinimapUnlock={hasMinimapUnlock}
+        isMinimapExpanded={isMinimapExpanded}
         selectedSeedMakerPresentation={selectedSeedMakerPresentation}
         seedMakerRemainingDurationLabel={
           isSeedMakerRunning ? formatDuration(seedMakerRemainingMs) : null
@@ -1461,6 +1635,10 @@ export function Garden() {
         onOpenStorage={() => setShowStorageModal(true)}
         onOpenCropMastery={() => setShowCropMasteryModal(true)}
         onOpenSeedMaker={handleOpenSeedMakerModal}
+        onToggleMinimap={() => {
+          setIsMinimapExpanded((previous) => !previous);
+          setTimeout(() => updateMinimapViewportBounds(), 0);
+        }}
         onToggleEquippedToolMode={handleToggleEquippedToolMode}
         onUnequipTool={handleUnequipTool}
         onOpenSeedBagSeedPicker={() => {
@@ -1550,7 +1728,121 @@ export function Garden() {
         minimumCellSize={minimumCellSize}
         isMobile={isMobile}
         renderField={renderField}
+        containerRef={gardenGridScrollRef}
+        contentRef={gardenGridContentRef}
+        onScroll={updateMinimapViewportBounds}
       />
+
+      {hasMinimapUnlock && isMinimapExpanded && (
+        <div
+          role="dialog"
+          aria-label="Garden world map"
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(8, 14, 22, 0.62)",
+            zIndex: 120,
+            display: "grid",
+            placeItems: "center",
+            padding: isMobile ? 10 : 20,
+          }}
+          onClick={() => setIsMinimapExpanded(false)}
+        >
+          <div
+            style={{
+              width: "min(92vw, 900px)",
+              maxHeight: "88vh",
+              overflow: "auto",
+              borderRadius: 10,
+              border: "2px solid #6d5932",
+              backgroundColor: "#142432",
+              padding: isMobile ? 10 : 14,
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+                gap: 8,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: isMobile ? 15 : 18 }}>
+                Garden World Map
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsMinimapExpanded(false)}
+                style={{
+                  border: "1px solid #6a7785",
+                  backgroundColor: "#213447",
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <p style={{ marginTop: 0, color: "#9db3c5", fontSize: 12 }}>
+              Click any unlocked tile to jump the garden viewport.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${previewCols}, ${isMobile ? 12 : 14}px)`,
+                gap: 2,
+                width: "max-content",
+                marginInline: "auto",
+                padding: 4,
+                border: "1px solid #4d5c68",
+                borderRadius: 8,
+                backgroundColor: "#0f1a23",
+              }}
+            >
+              {Array.from({ length: previewRows }).map((_, row) =>
+                Array.from({ length: previewCols }).map((__, col) => {
+                  const isUnlocked = unlockedFieldSet.has(`${row},${col}`);
+                  const inViewport =
+                    minimapViewportBounds !== null &&
+                    row >= minimapViewportBounds.rowStart &&
+                    row <= minimapViewportBounds.rowEnd &&
+                    col >= minimapViewportBounds.colStart &&
+                    col <= minimapViewportBounds.colEnd;
+
+                  return (
+                    <button
+                      type="button"
+                      key={`map-${row}-${col}`}
+                      title={`Row ${row}, Col ${col}${isUnlocked ? " (unlocked)" : ""}`}
+                      disabled={!isUnlocked}
+                      onClick={() => {
+                        centerGardenViewportAt(row, col);
+                        setIsMinimapExpanded(false);
+                      }}
+                      style={{
+                        width: isMobile ? 12 : 14,
+                        height: isMobile ? 12 : 14,
+                        minWidth: isMobile ? 12 : 14,
+                        minHeight: isMobile ? 12 : 14,
+                        padding: 0,
+                        borderRadius: 2,
+                        border: inViewport
+                          ? "1px solid #f7e07f"
+                          : "1px solid #2d3d4a",
+                        backgroundColor: isUnlocked ? "#4a8d5f" : "#2a3540",
+                        opacity: isUnlocked ? 1 : 0.5,
+                        cursor: isUnlocked ? "pointer" : "not-allowed",
+                      }}
+                    />
+                  );
+                }),
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <GardenPlantModal
         isOpen={plantModal.isOpen}
