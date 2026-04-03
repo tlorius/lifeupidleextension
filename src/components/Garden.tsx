@@ -1472,6 +1472,19 @@ export function Garden() {
             return;
           }
 
+          if (
+            isToolEffectActive &&
+            isShovelTool(equippedToolId) &&
+            !shovelMove
+          ) {
+            setShovelMove({
+              sourceRow: row,
+              sourceCol: col,
+              areaSize: getShovelAreaSize(),
+            });
+            return;
+          }
+
           if (isToolEffectActive && isWateringCanTool(equippedToolId)) {
             const result = computeWaterAreaResult(
               state,
@@ -1684,6 +1697,16 @@ export function Garden() {
         moveSprinklersWithShovel={moveSprinklersWithShovel}
         onToggleMoveSprinklersWithShovel={setMoveSprinklersWithShovel}
         onClearSelection={() => setShovelMove(null)}
+        onRemoveSelectedContents={() => {
+          if (!shovelMove) return;
+          dispatch({
+            type: "garden/clearCropAreaContents",
+            sourceRow: shovelMove.sourceRow,
+            sourceCol: shovelMove.sourceCol,
+            areaSize: shovelMove.areaSize,
+          });
+          setShovelMove(null);
+        }}
       />
 
       <GardenSeedBagModal

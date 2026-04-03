@@ -221,6 +221,51 @@ describe("garden action handler", () => {
     expect(first).toEqual(second);
   });
 
+  it("clears selected shovel area contents and returns automation tool to inventory", () => {
+    const state = createDefaultState();
+
+    const withCrop = applyGardenAction(state, {
+      type: "garden/plantCrop",
+      cropId: "sunflower_common",
+      row: 0,
+      col: 0,
+    });
+
+    const withPlanter = applyGardenAction(withCrop, {
+      type: "garden/placePlanter",
+      row: 0,
+      col: 0,
+      planterId: "planter_common",
+      seedId: null,
+    });
+
+    const cleared = applyGardenAction(withPlanter, {
+      type: "garden/clearCropAreaContents",
+      sourceRow: 0,
+      sourceCol: 0,
+      areaSize: 1,
+    });
+
+    expect(cleared.garden.crops.sunflower_common).toBeUndefined();
+    expect(cleared.garden.planters.planter_common ?? []).toEqual([]);
+    expect(
+      cleared.inventory.some((item) => item.itemId === "planter_common"),
+    ).toBe(true);
+  });
+
+  it("keeps state unchanged when clearing an empty shovel area", () => {
+    const state = createDefaultState();
+
+    const next = applyGardenAction(state, {
+      type: "garden/clearCropAreaContents",
+      sourceRow: 4,
+      sourceCol: 4,
+      areaSize: 1,
+    });
+
+    expect(next).toBe(state);
+  });
+
   it("applies configured 3x3 range for rare watering can", () => {
     const state = createDefaultState();
     const planted = applyGardenAction(state, {

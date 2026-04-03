@@ -8,6 +8,7 @@ import {
   unlockField,
   breakRock,
   moveCropArea,
+  clearCropAreaContents,
   setCropSprinkler,
   placeSprinklerOnField,
   removeSprinklerFromField,
@@ -81,6 +82,12 @@ export type GardenAction =
       targetCol: number;
       areaSize: number;
       moveSprinklers: boolean;
+    }
+  | {
+      type: "garden/clearCropAreaContents";
+      sourceRow: number;
+      sourceCol: number;
+      areaSize: number;
     }
   | { type: "garden/toggleSprinkler"; row: number; col: number }
   | {
@@ -656,6 +663,15 @@ export function applyGardenAction(
         { row: action.targetRow, col: action.targetCol },
         action.areaSize,
         action.moveSprinklers,
+      );
+      return result.success && result.newState ? result.newState : state;
+    }
+
+    case "garden/clearCropAreaContents": {
+      const result = clearCropAreaContents(
+        state,
+        { row: action.sourceRow, col: action.sourceCol },
+        action.areaSize,
       );
       return result.success && result.newState ? result.newState : state;
     }

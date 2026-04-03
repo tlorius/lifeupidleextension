@@ -324,6 +324,7 @@ export function applyGameAction(
     case "garden/removeSprinkler":
     case "garden/breakRock":
     case "garden/moveCropArea":
+    case "garden/clearCropAreaContents":
     case "garden/toggleSprinkler":
     case "garden/placeHarvester":
     case "garden/removeHarvester":

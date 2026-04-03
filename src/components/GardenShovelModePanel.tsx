@@ -12,6 +12,7 @@ interface GardenShovelModePanelProps {
   moveSprinklersWithShovel: boolean;
   onToggleMoveSprinklersWithShovel: (checked: boolean) => void;
   onClearSelection: () => void;
+  onRemoveSelectedContents: () => void;
 }
 
 export function GardenShovelModePanel({
@@ -22,6 +23,7 @@ export function GardenShovelModePanel({
   moveSprinklersWithShovel,
   onToggleMoveSprinklersWithShovel,
   onClearSelection,
+  onRemoveSelectedContents,
 }: GardenShovelModePanelProps) {
   if (!isVisible) {
     return null;
@@ -41,8 +43,8 @@ export function GardenShovelModePanel({
       <div style={{ fontWeight: "bold", marginBottom: 6 }}>🪏 Shovel Mode</div>
       <div style={{ color: "#6b4f1d", marginBottom: 8 }}>
         {shovelMove
-          ? `Source selected at (${shovelMove.sourceRow}, ${shovelMove.sourceCol}). Click an empty unlocked tile to move the area.`
-          : `Click a planted tile to select a ${shovelAreaSize}x${shovelAreaSize} area to move.`}
+          ? `Source selected at (${shovelMove.sourceRow}, ${shovelMove.sourceCol}). Click an empty unlocked tile to move the area or remove the selected area contents.`
+          : `Click an unlocked tile to select a ${shovelAreaSize}x${shovelAreaSize} area.`}
       </div>
       {shovelAreaSize > 1 && (
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -55,19 +57,34 @@ export function GardenShovelModePanel({
         </label>
       )}
       {shovelMove && (
-        <button
-          style={{
-            marginTop: 8,
-            padding: "6px 10px",
-            backgroundColor: "#f0f0f0",
-            border: "1px solid #ccc",
-            borderRadius: 4,
-            cursor: "pointer",
-          }}
-          onClick={onClearSelection}
+        <div
+          style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
         >
-          Clear Selection
-        </button>
+          <button
+            style={{
+              padding: "6px 10px",
+              backgroundColor: "#f0f0f0",
+              border: "1px solid #ccc",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+            onClick={onClearSelection}
+          >
+            Clear Selection
+          </button>
+          <button
+            style={{
+              padding: "6px 10px",
+              backgroundColor: "#ffe4dc",
+              border: "1px solid #e39a84",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+            onClick={onRemoveSelectedContents}
+          >
+            Remove Area Contents
+          </button>
+        </div>
       )}
     </div>
   );

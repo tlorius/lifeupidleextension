@@ -1338,6 +1338,108 @@ export function moveCropArea(
   };
 }
 
+export function clearCropAreaContents(
+  state: GameState,
+  sourceCenter: FieldPosition,
+  areaSize: number,
+): { success: boolean; reason?: string; newState?: GameState } {
+  const half = Math.floor(areaSize / 2);
+  const areaPositions = new Set<string>();
+
+  for (
+    let row = sourceCenter.row - half;
+    row <= sourceCenter.row + half;
+    row++
+  ) {
+    for (
+      let col = sourceCenter.col - half;
+      col <= sourceCenter.col + half;
+      col++
+    ) {
+      areaPositions.add(getFieldKey(row, col));
+    }
+  }
+
+  const nextCrops: Record<string, CropInstance[]> = {};
+  let removedCropCount = 0;
+
+  for (const [cropId, cropList] of Object.entries(state.garden.crops)) {
+    const kept = cropList.filter((crop) => {
+      const inArea = areaPositions.has(
+        getFieldKey(crop.position.row, crop.position.col),
+      );
+      if (inArea) removedCropCount += 1;
+      return !inArea;
+    });
+
+    if (kept.length > 0) {
+      nextCrops[cropId] = kept;
+    }
+  }
+
+  const removedAutomationItemIds: string[] = [];
+
+  const filterToolPlacements = (
+    placements: Record<string, FieldPosition[]>,
+  ): Record<string, FieldPosition[]> => {
+    const next: Record<string, FieldPosition[]> = {};
+    for (const [toolId, positions] of Object.entries(placements)) {
+      const kept = positions.filter((position) => {
+        const inArea = areaPositions.has(
+          getFieldKey(position.row, position.col),
+        );
+        if (inArea) {
+          removedAutomationItemIds.push(toolId);
+        }
+        return !inArea;
+      });
+      next[toolId] = kept;
+    }
+    return next;
+  };
+
+  const nextSprinklers = filterToolPlacements(state.garden.sprinklers);
+  const nextHarvesters = filterToolPlacements(state.garden.harvesters ?? {});
+  const nextPlanters = filterToolPlacements(state.garden.planters ?? {});
+
+  if (removedCropCount === 0 && removedAutomationItemIds.length === 0) {
+    return {
+      success: false,
+      reason: "No crop or automation found in the selected area.",
+    };
+  }
+
+  const nextPlanterSeedSelections = {
+    ...(state.garden.planterSeedSelections ?? {}),
+  };
+  for (const key of Object.keys(nextPlanterSeedSelections)) {
+    if (areaPositions.has(key)) {
+      delete nextPlanterSeedSelections[key];
+    }
+  }
+
+  let nextState: GameState = {
+    ...state,
+    garden: {
+      ...state.garden,
+      crops: nextCrops,
+      sprinklers: nextSprinklers,
+      harvesters: nextHarvesters,
+      planters: nextPlanters,
+      planterSeedSelections: nextPlanterSeedSelections,
+    },
+  };
+
+  for (const toolId of removedAutomationItemIds) {
+    nextState = addItem(nextState, toolId, 1);
+  }
+
+  return {
+    success: true,
+    newState: nextState,
+  };
+}
+
 /**
  * Apply garden idle tick (watering decay, growth progression)
  */
