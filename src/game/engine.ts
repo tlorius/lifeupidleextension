@@ -820,7 +820,9 @@ function addStats(target: Partial<Stats>, source: Partial<Stats>): void {
   }
 }
 
-function getActiveClassNodeStatBonuses(state: GameState): Partial<Stats> {
+export function getActiveClassNodeStatBonuses(
+  state: GameState,
+): Partial<Stats> {
   const activeClassId = state.character.activeClassId;
   if (!activeClassId) return {};
 

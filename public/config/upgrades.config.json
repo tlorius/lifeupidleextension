@@ -1,0 +1,9 @@
+{
+  "idleSurgeMultiplier": 10,
+  "overclock": {
+    "overclockMultiplierPerLevel": 0.25
+  },
+  "gemFinder": {
+    "gemRateMultiplierPerLevel": 0.08
+  }
+}

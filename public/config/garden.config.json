@@ -1,0 +1,15 @@
+{
+  "seedmaker": {
+    "defaultGemCost": 1,
+    "defaultResourceCost": 1
+  },
+  "terrain": {
+    "diamondCost": 100,
+    "breakChance": 0.25
+  },
+  "watering": {
+    "baseWaterAmount": 1,
+    "baseDuration": 0.15,
+    "baseDurationHours": 1
+  }
+}

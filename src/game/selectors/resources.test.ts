@@ -22,6 +22,29 @@ describe("resource selectors", () => {
     expect(result.totalGoldBonusPercent).toBe(35);
     expect(result.totalGoldMultiplier).toBeCloseTo(1.35);
     expect(result.calculatedGoldPerSecond).toBeCloseTo(13.5);
+    expect(result.attackSpeed.finalAps).toBeGreaterThan(0);
+    expect(result.defenseRawMitigationPercent).toBeGreaterThanOrEqual(0);
+    expect(result.passiveGemRatePerSecond).toBeGreaterThanOrEqual(0);
+    expect(result.intelligenceSpellBonus.arcaneBoltEffectiveBonusDamage).toBe(
+      result.intelligenceSpellBonus.arcaneBoltBaseBonusDamage *
+        result.intelligenceSpellBonus.classSpellDamageMultiplier *
+        result.intelligenceSpellBonus.arcaneBoltSetMultiplier,
+    );
+  });
+
+  it("derives passive gems per second from gem-finder formulas", () => {
+    const state = createDefaultState();
+    state.upgrades = [
+      { ...upgradeDefinitions.gem_hunter, level: 2 },
+      { ...upgradeDefinitions.chaos_gem_foundry, level: 3 },
+    ];
+
+    const result = selectResourcesDisplayView(state, 0);
+
+    expect(result.basePassiveGemRatePerSecond).toBeCloseTo(1.05);
+    expect(result.totalGemFinderLevels).toBe(5);
+    expect(result.gemRateMultiplier).toBeCloseTo(1.4);
+    expect(result.passiveGemRatePerSecond).toBeCloseTo(1.47);
   });
 
   it("tracks permanent potion stat changes against defaults", () => {

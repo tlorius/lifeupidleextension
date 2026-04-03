@@ -22,6 +22,8 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
     equipmentStats,
     upgradeStats,
     petStats,
+    setStats,
+    classNodeStats,
     activeGoldPotionBoost,
     activePotionMsLeft,
     permanentPotionStatChanges,
@@ -34,6 +36,16 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
     totalGoldBonusPercent,
     totalGoldMultiplier,
     calculatedGoldPerSecond,
+    passiveGemRatePerSecond,
+    basePassiveGemRatePerSecond,
+    totalGemFinderLevels,
+    gemRateMultiplier,
+    attackSpeed,
+    defenseRawMitigationPercent,
+    defenseEffectiveMitigationPercent,
+    defenseSampleRawDamage,
+    defenseSampleDamageAfterMitigation,
+    intelligenceSpellBonus,
   } = selectResourcesDisplayView(state);
 
   const formatDuration = (ms: number): string => {
@@ -211,6 +223,18 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 <strong>{formatStat(total.intelligence)}</strong>
               </div>
               <div>
+                <span className="ui-label-muted">Agility:</span>{" "}
+                <strong>{formatStat(total.agility)}</strong>
+              </div>
+              <div>
+                <span className="ui-label-muted">HP:</span>{" "}
+                <strong>{formatStat(total.hp)}</strong>
+              </div>
+              <div>
+                <span className="ui-label-muted">Crit Chance:</span>{" "}
+                <strong>{formatStat(total.critChance)}%</strong>
+              </div>
+              <div>
                 <span className="ui-label-muted">Gold Income:</span>{" "}
                 <strong style={{ color: "#FFD700" }}>
                   +{formatStat(total.goldIncome)}%
@@ -257,6 +281,14 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                 Upgrades: <strong>+{formatStat(upgradeGoldBonus)}%</strong>
               </div>
               <div>
+                Set Bonuses:{" "}
+                <strong>+{formatStat(setStats.goldIncome)}%</strong>
+              </div>
+              <div>
+                Class Nodes:{" "}
+                <strong>+{formatStat(classNodeStats.goldIncome)}%</strong>
+              </div>
+              <div>
                 Pets: <strong>+{formatStat(petGoldBonus)}%</strong>
               </div>
               <div>
@@ -279,6 +311,117 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
                   })}{" "}
                   gold/s
                 </strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="ui-card-tonal" style={{ marginTop: 10 }}>
+            <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+              Passive Gems (per second):
+            </div>
+            <div style={{ fontSize: 14, color: "#8fd6ff", fontWeight: "bold" }}>
+              {formatStat(passiveGemRatePerSecond)} 💎/s
+            </div>
+            <div className="ui-text-meta" style={{ marginTop: 4 }}>
+              Formula: gems/s = (chaos gem foundry level × 0.35) × (1 + total
+              gem-finder levels × 0.08)
+            </div>
+            <div className="ui-composition-card">
+              <div>
+                Base From Foundry:{" "}
+                <strong>{formatStat(basePassiveGemRatePerSecond)}</strong>
+              </div>
+              <div>
+                Gem-Finder Levels:{" "}
+                <strong>{formatStat(totalGemFinderLevels)}</strong>
+              </div>
+              <div>
+                Multiplier: <strong>{formatStat(gemRateMultiplier)}x</strong>
+              </div>
+              <div style={{ borderTop: "1px dashed #45637d", paddingTop: 4 }}>
+                Result:{" "}
+                <strong>{formatStat(passiveGemRatePerSecond)} gems/s</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="ui-card-tonal-alt" style={{ marginTop: 10 }}>
+            <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+              Derived Combat Conversions
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <div>
+                <span className="ui-label-muted">Agility → Attacks/s:</span>{" "}
+                <strong>{formatStat(attackSpeed.finalAps)} APS</strong>
+              </div>
+              <div className="ui-text-meta" style={{ marginTop: 2 }}>
+                APS = clamp[(base {formatStat(attackSpeed.baseAps)} + agility
+                contribution {formatStat(attackSpeed.agilityContribution)} +
+                class flat {formatStat(attackSpeed.classFlatBonus)}) × class
+                multiplier {formatStat(attackSpeed.classMultiplier)}, floor{" "}
+                {formatStat(attackSpeed.minApsFloor)}, cap{" "}
+                {formatStat(attackSpeed.hardCapAps)}]
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 6 }}>
+              <div>
+                <span className="ui-label-muted">
+                  Intelligence → Spell Bonus Damage:
+                </span>{" "}
+                <strong>
+                  Arcane Bolt +
+                  {formatStat(
+                    intelligenceSpellBonus.arcaneBoltEffectiveBonusDamage,
+                  )}{" "}
+                  / cast
+                </strong>
+              </div>
+              <div className="ui-text-meta" style={{ marginTop: 2 }}>
+                Arcane Bolt INT term = INT(
+                {formatStat(intelligenceSpellBonus.intelligence)}) ×{" "}
+                {formatStat(intelligenceSpellBonus.arcaneBoltBaseCoefficient)} ×
+                class spell multiplier{" "}
+                {formatStat(intelligenceSpellBonus.classSpellDamageMultiplier)}{" "}
+                × spell set multiplier{" "}
+                {formatStat(intelligenceSpellBonus.arcaneBoltSetMultiplier)}
+              </div>
+              <div>
+                <strong>
+                  Ember Lance +
+                  {formatStat(
+                    intelligenceSpellBonus.emberLanceEffectiveBonusDamage,
+                  )}{" "}
+                  / cast
+                </strong>
+              </div>
+              <div className="ui-text-meta" style={{ marginTop: 2 }}>
+                Ember Lance INT term = INT(
+                {formatStat(intelligenceSpellBonus.intelligence)}) ×{" "}
+                {formatStat(intelligenceSpellBonus.emberLanceBaseCoefficient)} ×
+                class spell multiplier{" "}
+                {formatStat(intelligenceSpellBonus.classSpellDamageMultiplier)}{" "}
+                × spell set multiplier{" "}
+                {formatStat(intelligenceSpellBonus.emberLanceSetMultiplier)}
+              </div>
+            </div>
+
+            <div>
+              <div>
+                <span className="ui-label-muted">
+                  Defense → Damage Reduction:
+                </span>{" "}
+                <strong>{formatStat(defenseRawMitigationPercent)}% raw</strong>{" "}
+                <span className="ui-text-meta">
+                  ({formatStat(defenseEffectiveMitigationPercent)}% effective vs
+                  current enemy hit)
+                </span>
+              </div>
+              <div className="ui-text-meta" style={{ marginTop: 2 }}>
+                Raw mitigation = DEF / (DEF + 100). Effective includes minimum
+                damage floor using enemy hit{" "}
+                {formatStat(defenseSampleRawDamage)} →{" "}
+                {formatStat(defenseSampleDamageAfterMitigation)}.
               </div>
             </div>
           </div>
@@ -353,24 +496,41 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
               <span>
                 Attack = Base({formatStat(baseStats.attack)}) + Items(
                 {formatStat(equipmentStats.attack)}) + Upgrades(
-                {formatStat(upgradeStats.attack)}) + Pets(
+                {formatStat(upgradeStats.attack)}) + Sets(
+                {formatStat(setStats.attack)}) + Class Nodes(
+                {formatStat(classNodeStats.attack)}) + Pets(
                 {formatStat(petStats.attack)})
               </span>
             </div>
             <div style={{ marginBottom: 4 }}>
               <span>
-                Defense = Items(
+                Defense = Base({formatStat(baseStats.defense)}) + Items(
                 {formatStat(equipmentStats.defense)}) + Upgrades(
-                {formatStat(upgradeStats.defense)}) + Pets(
+                {formatStat(upgradeStats.defense)}) + Sets(
+                {formatStat(setStats.defense)}) + Class Nodes(
+                {formatStat(classNodeStats.defense)}) + Pets(
                 {formatStat(petStats.defense)})
               </span>
             </div>
             <div style={{ marginBottom: 8 }}>
               <span>
-                Intelligence = Items(
+                Intelligence = Base({formatStat(baseStats.intelligence)}) +
+                Items(
                 {formatStat(equipmentStats.intelligence)}) + Upgrades(
-                {formatStat(upgradeStats.intelligence)}) + Pets(
+                {formatStat(upgradeStats.intelligence)}) + Sets(
+                {formatStat(setStats.intelligence)}) + Class Nodes(
+                {formatStat(classNodeStats.intelligence)}) + Pets(
                 {formatStat(petStats.intelligence)})
+              </span>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <span>
+                Agility = Base({formatStat(baseStats.agility)}) + Items(
+                {formatStat(equipmentStats.agility)}) + Upgrades(
+                {formatStat(upgradeStats.agility)}) + Sets(
+                {formatStat(setStats.agility)}) + Class Nodes(
+                {formatStat(classNodeStats.agility)}) + Pets(
+                {formatStat(petStats.agility)})
               </span>
             </div>
 
@@ -380,7 +540,9 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
             <div style={{ marginBottom: 4 }}>
               <span>
                 Gold Income = Upgrades(
-                {formatStat(upgradeStats.goldIncome)}%) + Pets(
+                {formatStat(upgradeStats.goldIncome)}%) + Sets(
+                {formatStat(setStats.goldIncome)}%) + Class Nodes(
+                {formatStat(classNodeStats.goldIncome)}%) + Pets(
                 {formatStat(petStats.goldIncome)}%) + Temporary(
                 {formatStat(activeGoldPotionBoost)}%)
               </span>
@@ -389,7 +551,9 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
               <div style={{ marginBottom: 4 }}>
                 <span>
                   Mana Regen = Upgrades(
-                  {formatStat(upgradeStats.energyRegeneration)}%) + Pets(
+                  {formatStat(upgradeStats.energyRegeneration)}%) + Sets(
+                  {formatStat(setStats.energyRegeneration)}%) + Class Nodes(
+                  {formatStat(classNodeStats.energyRegeneration)}%) + Pets(
                   {formatStat(petStats.energyRegeneration)}%)
                 </span>
               </div>
@@ -398,7 +562,9 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
               <div style={{ marginBottom: 4 }}>
                 <span>
                   Plant Growth = Upgrades(
-                  {formatStat(upgradeStats.plantGrowth)}%) + Pets(
+                  {formatStat(upgradeStats.plantGrowth)}%) + Sets(
+                  {formatStat(setStats.plantGrowth)}%) + Class Nodes(
+                  {formatStat(classNodeStats.plantGrowth)}%) + Pets(
                   {formatStat(petStats.plantGrowth)}%)
                 </span>
               </div>
@@ -410,6 +576,8 @@ export function ResourcesDisplay({ compact = false }: ResourcesDisplayProps) {
             <StatSection title="Base" stats={baseStats} />
             <StatSection title="Items" stats={equipmentStats} />
             <StatSection title="Upgrades" stats={upgradeStats} />
+            <StatSection title="Set Bonuses" stats={setStats} />
+            <StatSection title="Class Nodes" stats={classNodeStats} />
             <StatSection title="Pets" stats={petStats} />
           </div>
         </ModalShell>

@@ -1,7 +1,7 @@
 import {
   COMBAT_LEVELS,
-  COMBAT_PLAYER_CONFIG,
-  COMBAT_PROGRESS_CONFIG,
+  getCOMBAT_PLAYER_CONFIG,
+  getCOMBAT_PROGRESS_CONFIG,
   type CombatEncounterKind,
   type CombatLevelConfig,
 } from "./combatConfig";
@@ -433,15 +433,15 @@ function applyEnemyReward(
 function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
   const highestDefined = COMBAT_LEVELS[COMBAT_LEVELS.length - 1];
   const levelDelta = Math.max(0, level - highestDefined.level);
+  const cfg = getCOMBAT_PROGRESS_CONFIG();
   const majorFrom = Math.floor(
-    (highestDefined.level - 1) /
-      COMBAT_PROGRESS_CONFIG.majorDifficultySpikeIntervalLevels,
+    (highestDefined.level - 1) / cfg.majorDifficultySpikeIntervalLevels,
   );
   const majorTo = Math.floor(
-    (level - 1) / COMBAT_PROGRESS_CONFIG.majorDifficultySpikeIntervalLevels,
+    (level - 1) / cfg.majorDifficultySpikeIntervalLevels,
   );
   const majorSteps = Math.max(0, majorTo - majorFrom);
-  const isBoss = level % COMBAT_PROGRESS_CONFIG.bossIntervalLevels === 0;
+  const isBoss = level % cfg.bossIntervalLevels === 0;
 
   const hp = Math.round(
     highestDefined.hp * Math.pow(1.11, levelDelta) * Math.pow(1.35, majorSteps),
@@ -558,17 +558,57 @@ export function getPlayerAttacksPerSecond(state: GameState): number {
   const stats = getTotalStats(state);
   const agility = Math.max(0, stats.agility ?? 0);
   const combatModifiers = getActiveClassCombatModifiers(state);
-  let aps =
-    COMBAT_PLAYER_CONFIG.baseAttacksPerSecond +
-    agility * COMBAT_PLAYER_CONFIG.agilityToApsScale;
+  const cfg = getCOMBAT_PLAYER_CONFIG();
+  let aps = cfg.baseAttacksPerSecond + agility * cfg.agilityToApsScale;
   aps = (aps + combatModifiers.apsFlat) * combatModifiers.apsMultiplier;
 
   const capBonus = combatModifiers.apsCapBonus;
-  const hardCap = Math.min(
-    100,
-    COMBAT_PLAYER_CONFIG.maxAttacksPerSecond + capBonus,
-  );
+  const hardCap = Math.min(100, cfg.maxAttacksPerSecond + capBonus);
   return Math.min(hardCap, Math.max(0.2, aps));
+}
+
+export interface PlayerAttackSpeedBreakdown {
+  agility: number;
+  baseAps: number;
+  agilityContribution: number;
+  classFlatBonus: number;
+  classMultiplier: number;
+  preCapAps: number;
+  minApsFloor: number;
+  hardCapAps: number;
+  finalAps: number;
+}
+
+export function getPlayerAttackSpeedBreakdown(
+  state: GameState,
+): PlayerAttackSpeedBreakdown {
+  const stats = getTotalStats(state);
+  const agility = Math.max(0, stats.agility ?? 0);
+  const combatModifiers = getActiveClassCombatModifiers(state);
+  const cfg = getCOMBAT_PLAYER_CONFIG();
+  const baseAps = cfg.baseAttacksPerSecond;
+  const agilityContribution = agility * cfg.agilityToApsScale;
+  const preCapAps =
+    (baseAps + agilityContribution + combatModifiers.apsFlat) *
+    combatModifiers.apsMultiplier;
+  const minApsFloor = 0.2;
+  const hardCapAps = Math.min(
+    100,
+    cfg.maxAttacksPerSecond + combatModifiers.apsCapBonus,
+  );
+  const finalAps = Math.min(hardCapAps, Math.max(minApsFloor, preCapAps));
+
+  return {
+    agility,
+    baseAps,
+    agilityContribution,
+    classFlatBonus: combatModifiers.apsFlat,
+    classMultiplier: combatModifiers.apsMultiplier,
+    preCapAps,
+    minApsFloor,
+    hardCapAps,
+    finalAps,
+  };
 }
 
 export function getPlayerCritChance(state: GameState): number {
@@ -612,6 +652,24 @@ export function getDamageAfterDefense(
     Math.round(safeDamage * MIN_DAMAGE_PORTION_AFTER_DEFENSE),
   );
   return Math.max(minimumByRawDamage, Math.round(reduced));
+}
+
+export function getDefenseMitigationRatio(defense: number): number {
+  const safeDefense = Math.max(0, defense);
+  return safeDefense / (safeDefense + 100);
+}
+
+export interface CombatSpellDamageBreakdown {
+  classSpellDamageMultiplier: number;
+}
+
+export function getCombatSpellDamageBreakdown(
+  state: GameState,
+): CombatSpellDamageBreakdown {
+  const combatModifiers = getActiveClassCombatModifiers(state);
+  return {
+    classSpellDamageMultiplier: combatModifiers.spellDamageMultiplier,
+  };
 }
 
 export function calculatePlayerHit(

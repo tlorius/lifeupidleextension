@@ -1,12 +1,12 @@
-import { PROGRESSION_CONFIG } from "./progressionConfig";
+import { getPROGRESSION_CONFIG } from "./progressionConfig";
 import type { GameState, Stats } from "./types";
 
 export function isSpellSystemUnlocked(level: number): boolean {
-  return level >= PROGRESSION_CONFIG.unlocks.spellsAtLevel;
+  return level >= getPROGRESSION_CONFIG().unlocks.spellsAtLevel;
 }
 
 export function isClassSystemUnlocked(level: number): boolean {
-  return level >= PROGRESSION_CONFIG.unlocks.classesAtLevel;
+  return level >= getPROGRESSION_CONFIG().unlocks.classesAtLevel;
 }
 
 export function isDpsMeterUnlocked(state: GameState): boolean {
@@ -15,7 +15,7 @@ export function isDpsMeterUnlocked(state: GameState): boolean {
 }
 
 export function getHardLevelCap(state?: GameState): number {
-  const baseCap = PROGRESSION_CONFIG.levelCaps.hardCapLevel;
+  const baseCap = getPROGRESSION_CONFIG().levelCaps.hardCapLevel;
   if (!state) {
     return baseCap;
   }
@@ -35,6 +35,7 @@ export function getXpForNextLevel(level: number, state?: GameState): number {
     return Number.POSITIVE_INFINITY;
   }
 
+  const cfg = getPROGRESSION_CONFIG();
   const {
     base,
     quadratic,
@@ -42,7 +43,7 @@ export function getXpForNextLevel(level: number, state?: GameState): number {
     postTenLinearMultiplierPerLevel,
     postSixtyLinearMultiplierPerLevel,
     postSoftCapExponentialMultiplier,
-  } = PROGRESSION_CONFIG.xpFormula;
+  } = cfg.xpFormula;
 
   const baseXp =
     base + normalizedLevel ** 2 * quadratic + normalizedLevel * linear;
@@ -53,7 +54,7 @@ export function getXpForNextLevel(level: number, state?: GameState): number {
     1 + postSixtyLevels * postSixtyLinearMultiplierPerLevel;
   const postSoftCapLevels = Math.max(
     0,
-    normalizedLevel - PROGRESSION_CONFIG.levelCaps.softCapLevel,
+    normalizedLevel - cfg.levelCaps.softCapLevel,
   );
   const postSoftCapMultiplier =
     postSoftCapLevels > 0
@@ -67,48 +68,40 @@ export function getXpForNextLevel(level: number, state?: GameState): number {
 
 export function getLevelUpGains(reachedLevel: number): Partial<Stats> {
   const level = Math.max(1, Math.floor(reachedLevel));
+  const cfg = getPROGRESSION_CONFIG();
   const gains: Partial<Stats> = {
-    hp: PROGRESSION_CONFIG.levelUpGains.hpPerLevel,
-    attack: PROGRESSION_CONFIG.levelUpGains.attackPerLevel,
+    hp: cfg.levelUpGains.hpPerLevel,
+    attack: cfg.levelUpGains.attackPerLevel,
   };
 
-  if (level >= PROGRESSION_CONFIG.levelUpGains.midgameBoostStartsAtLevel) {
-    gains.hp =
-      (gains.hp ?? 0) + PROGRESSION_CONFIG.levelUpGains.midgameHpBonusPerLevel;
+  if (level >= cfg.levelUpGains.midgameBoostStartsAtLevel) {
+    gains.hp = (gains.hp ?? 0) + cfg.levelUpGains.midgameHpBonusPerLevel;
     gains.attack =
-      (gains.attack ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.midgameAttackBonusPerLevel;
+      (gains.attack ?? 0) + cfg.levelUpGains.midgameAttackBonusPerLevel;
   }
 
-  if (level >= PROGRESSION_CONFIG.levelUpGains.endgameBoostStartsAtLevel) {
-    gains.hp =
-      (gains.hp ?? 0) + PROGRESSION_CONFIG.levelUpGains.endgameHpBonusPerLevel;
+  if (level >= cfg.levelUpGains.endgameBoostStartsAtLevel) {
+    gains.hp = (gains.hp ?? 0) + cfg.levelUpGains.endgameHpBonusPerLevel;
     gains.attack =
-      (gains.attack ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.endgameAttackBonusPerLevel;
+      (gains.attack ?? 0) + cfg.levelUpGains.endgameAttackBonusPerLevel;
     gains.defense =
-      (gains.defense ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.endgameDefenseBonusPerLevel;
+      (gains.defense ?? 0) + cfg.levelUpGains.endgameDefenseBonusPerLevel;
     gains.intelligence =
       (gains.intelligence ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.endgameIntelligenceBonusPerLevel;
+      cfg.levelUpGains.endgameIntelligenceBonusPerLevel;
     gains.agility =
-      (gains.agility ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.endgameAgilityBonusPerLevel;
+      (gains.agility ?? 0) + cfg.levelUpGains.endgameAgilityBonusPerLevel;
   }
 
-  if (level % PROGRESSION_CONFIG.levelUpGains.agilityEveryLevels === 0) {
-    gains.agility =
-      (gains.agility ?? 0) + PROGRESSION_CONFIG.levelUpGains.agilityPerTrigger;
+  if (level % cfg.levelUpGains.agilityEveryLevels === 0) {
+    gains.agility = (gains.agility ?? 0) + cfg.levelUpGains.agilityPerTrigger;
   }
 
-  if (level % PROGRESSION_CONFIG.levelUpGains.milestoneEveryLevels === 0) {
+  if (level % cfg.levelUpGains.milestoneEveryLevels === 0) {
     gains.defense =
-      (gains.defense ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.milestoneDefenseBonus;
+      (gains.defense ?? 0) + cfg.levelUpGains.milestoneDefenseBonus;
     gains.intelligence =
-      (gains.intelligence ?? 0) +
-      PROGRESSION_CONFIG.levelUpGains.milestoneIntelligenceBonus;
+      (gains.intelligence ?? 0) + cfg.levelUpGains.milestoneIntelligenceBonus;
   }
 
   return gains;
@@ -140,7 +133,7 @@ export function grantPlayerXp(state: GameState, xpAmount: number): GameState {
     nextProgress.level += 1;
     leveledUp = true;
 
-    if (nextProgress.level >= PROGRESSION_CONFIG.unlocks.classesAtLevel) {
+    if (nextProgress.level >= getPROGRESSION_CONFIG().unlocks.classesAtLevel) {
       state = {
         ...state,
         character: {

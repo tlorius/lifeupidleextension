@@ -1,12 +1,26 @@
 import {
+  getActiveClassNodeStatBonuses,
   getBaseStats,
   getEquipmentStats,
   getGoldIncome,
   getPetStats,
   getTotalStats,
+  getUniqueSetStats,
   getUpgradeStats,
 } from "../engine";
+import {
+  getCombatSpellDamageBreakdown,
+  getDamageAfterDefense,
+  getDefenseMitigationRatio,
+  getPlayerAttackSpeedBreakdown,
+} from "../combat";
+import { getActiveSpellSetDamageMultiplier } from "../itemSets";
 import { defaultState } from "../state";
+import {
+  getPassiveGemRatePerSecond,
+  getUpgradeDef,
+  getUpgradeLevel,
+} from "../upgrades";
 import type { GameState, Stats } from "../types";
 
 export interface ResourcesDisplayViewModel {
@@ -15,6 +29,8 @@ export interface ResourcesDisplayViewModel {
   equipmentStats: ReturnType<typeof getEquipmentStats>;
   upgradeStats: ReturnType<typeof getUpgradeStats>;
   petStats: ReturnType<typeof getPetStats>;
+  setStats: ReturnType<typeof getUniqueSetStats>;
+  classNodeStats: ReturnType<typeof getActiveClassNodeStatBonuses>;
   activeGoldPotionBoost: number;
   activePotionMsLeft: number;
   permanentPotionStatChanges: Partial<Stats>;
@@ -27,6 +43,27 @@ export interface ResourcesDisplayViewModel {
   totalGoldBonusPercent: number;
   totalGoldMultiplier: number;
   calculatedGoldPerSecond: number;
+  passiveGemRatePerSecond: number;
+  basePassiveGemRatePerSecond: number;
+  totalGemFinderLevels: number;
+  gemRateMultiplier: number;
+  attackSpeed: ReturnType<typeof getPlayerAttackSpeedBreakdown>;
+  defenseRawMitigationPercent: number;
+  defenseEffectiveMitigationPercent: number;
+  defenseSampleRawDamage: number;
+  defenseSampleDamageAfterMitigation: number;
+  intelligenceSpellBonus: {
+    intelligence: number;
+    arcaneBoltBaseCoefficient: number;
+    arcaneBoltBaseBonusDamage: number;
+    arcaneBoltEffectiveBonusDamage: number;
+    emberLanceBaseCoefficient: number;
+    emberLanceBaseBonusDamage: number;
+    emberLanceEffectiveBonusDamage: number;
+    classSpellDamageMultiplier: number;
+    arcaneBoltSetMultiplier: number;
+    emberLanceSetMultiplier: number;
+  };
 }
 
 export function selectResourcesDisplayView(
@@ -38,6 +75,8 @@ export function selectResourcesDisplayView(
   const equipmentStats = getEquipmentStats(state);
   const upgradeStats = getUpgradeStats(state);
   const petStats = getPetStats(state);
+  const setStats = getUniqueSetStats(state);
+  const classNodeStats = getActiveClassNodeStatBonuses(state);
 
   const activeGoldPotionBoost =
     (state.temporaryEffects?.goldIncomeBoostUntil ?? 0) > now
@@ -69,12 +108,62 @@ export function selectResourcesDisplayView(
   const totalGoldMultiplier = 1 + totalGoldBonusPercent / 100;
   const calculatedGoldPerSecond = baseGoldPerSecond * totalGoldMultiplier;
 
+  const passiveGemRatePerSecond = getPassiveGemRatePerSecond(state);
+  const chaosGemFoundryLevel = getUpgradeLevel(state, "chaos_gem_foundry");
+  const basePassiveGemRatePerSecond = Math.max(0, chaosGemFoundryLevel) * 0.35;
+  const totalGemFinderLevels = state.upgrades.reduce((sum, upgrade) => {
+    const def = getUpgradeDef(upgrade.id);
+    if (!def || def.type !== "gemFinder") {
+      return sum;
+    }
+    return sum + Math.max(0, upgrade.level);
+  }, 0);
+  const gemRateMultiplier = 1 + totalGemFinderLevels * 0.08;
+
+  const attackSpeed = getPlayerAttackSpeedBreakdown(state);
+
+  const defenseValue = Math.max(0, total.defense ?? 0);
+  const defenseRawMitigationPercent =
+    getDefenseMitigationRatio(defenseValue) * 100;
+  const defenseSampleRawDamage = Math.max(1, state.combat.enemy.damage);
+  const defenseSampleDamageAfterMitigation = getDamageAfterDefense(
+    defenseSampleRawDamage,
+    defenseValue,
+  );
+  const defenseEffectiveMitigationPercent =
+    (1 - defenseSampleDamageAfterMitigation / defenseSampleRawDamage) * 100;
+
+  const intelligence = Math.max(0, total.intelligence ?? 0);
+  const arcaneBoltBaseCoefficient = 5;
+  const emberLanceBaseCoefficient = 7;
+  const spellBreakdown = getCombatSpellDamageBreakdown(state);
+  const arcaneBoltSetMultiplier = getActiveSpellSetDamageMultiplier(
+    state,
+    "arcane_bolt",
+  );
+  const emberLanceSetMultiplier = getActiveSpellSetDamageMultiplier(
+    state,
+    "ember_lance",
+  );
+  const arcaneBoltBaseBonusDamage = intelligence * arcaneBoltBaseCoefficient;
+  const emberLanceBaseBonusDamage = intelligence * emberLanceBaseCoefficient;
+  const arcaneBoltEffectiveBonusDamage =
+    arcaneBoltBaseBonusDamage *
+    spellBreakdown.classSpellDamageMultiplier *
+    arcaneBoltSetMultiplier;
+  const emberLanceEffectiveBonusDamage =
+    emberLanceBaseBonusDamage *
+    spellBreakdown.classSpellDamageMultiplier *
+    emberLanceSetMultiplier;
+
   return {
     total,
     baseStats,
     equipmentStats,
     upgradeStats,
     petStats,
+    setStats,
+    classNodeStats,
     activeGoldPotionBoost,
     activePotionMsLeft,
     permanentPotionStatChanges,
@@ -87,5 +176,26 @@ export function selectResourcesDisplayView(
     totalGoldBonusPercent,
     totalGoldMultiplier,
     calculatedGoldPerSecond,
+    passiveGemRatePerSecond,
+    basePassiveGemRatePerSecond,
+    totalGemFinderLevels,
+    gemRateMultiplier,
+    attackSpeed,
+    defenseRawMitigationPercent,
+    defenseEffectiveMitigationPercent,
+    defenseSampleRawDamage,
+    defenseSampleDamageAfterMitigation,
+    intelligenceSpellBonus: {
+      intelligence,
+      arcaneBoltBaseCoefficient,
+      arcaneBoltBaseBonusDamage,
+      arcaneBoltEffectiveBonusDamage,
+      emberLanceBaseCoefficient,
+      emberLanceBaseBonusDamage,
+      emberLanceEffectiveBonusDamage,
+      classSpellDamageMultiplier: spellBreakdown.classSpellDamageMultiplier,
+      arcaneBoltSetMultiplier,
+      emberLanceSetMultiplier,
+    },
   };
 }

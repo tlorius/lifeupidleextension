@@ -1,10 +1,48 @@
 import { useState } from "react";
 import { useGameActions } from "../game/useGameActions";
+import { useGame } from "../game/GameContext";
 import { createSignedMockPlaytimeToken } from "../game/tokenRewards";
 
 interface MainProps {
   isDebugShopEnabled: boolean;
   onDebugShopToggle: (enabled: boolean) => void;
+}
+
+function ConfigReloadButton() {
+  const { reloadConfig } = useGame();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleReload = async () => {
+    setIsLoading(true);
+    try {
+      reloadConfig();
+      alert("✓ Game config reloaded successfully!");
+    } catch (error) {
+      console.error("Failed to reload config:", error);
+      alert("✗ Failed to reload config. Check console for details.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <button
+      style={{
+        padding: "12px",
+        fontSize: "15px",
+        width: "100%",
+        marginBottom: 8,
+        background: "#5a4a3a",
+        borderColor: "#7a6a5a",
+        opacity: isLoading ? 0.7 : 1,
+        cursor: isLoading ? "not-allowed" : "pointer",
+      }}
+      onClick={handleReload}
+      disabled={isLoading}
+    >
+      {isLoading ? "Reloading..." : "Reload Game Config"}
+    </button>
+  );
 }
 
 export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
@@ -406,6 +444,28 @@ export function Main({ isDebugShopEnabled, onDebugShopToggle }: MainProps) {
       >
         Reset Game State
       </button>
+
+      <div
+        style={{
+          marginTop: 14,
+          marginBottom: 14,
+          padding: 10,
+          border: "1px solid #5a4a3a",
+          borderRadius: 8,
+          background: "rgba(47, 37, 27, 0.6)",
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 13 }}>
+          Developer Config Settings
+        </div>
+        <ConfigReloadButton />
+        <div style={{ fontSize: 11, color: "#d2d2a0", marginTop: 8 }}>
+          Reloads config from public/config/ JSON files and environment
+          variables.
+          <br />
+          Changes take effect immediately for new game mechanics.
+        </div>
+      </div>
     </div>
   );
 }

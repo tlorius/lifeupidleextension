@@ -23,6 +23,7 @@ import {
   toGrantedTokenRewards,
 } from "./tokenRewards";
 import { applyGameAction, type GameAction } from "./actions";
+import { reloadConfig } from "./configLoader";
 
 export interface IdleEarningItem {
   resourceId: string;
@@ -160,6 +161,7 @@ function initializeGameState(): InitializationResult {
 const GameContext = createContext<{
   state: GameState;
   dispatch: (action: GameAction) => void;
+  reloadConfig: () => void;
   tickSpeedMultiplier: number;
   setTickSpeedMultiplier: (multiplier: number) => void;
   tokenRewardModalItems: GrantedTokenRewardItem[];
@@ -207,6 +209,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const dispatch = (action: GameAction) => {
     let nextCombatEvents: CombatEvent[] = [];
+
+    // Handle config reload separately before state update
+    if (action.type === "config/reload") {
+      try {
+        reloadConfig();
+        console.log("Game config reloaded successfully");
+      } catch (error) {
+        console.error("Failed to reload config", error);
+      }
+      return;
+    }
 
     setState((prev) => {
       const result = applyGameAction(prev, action);
@@ -347,6 +360,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       value={{
         state,
         dispatch,
+        reloadConfig: () => dispatch({ type: "config/reload" }),
         tickSpeedMultiplier,
         setTickSpeedMultiplier,
         tokenRewardModalItems,

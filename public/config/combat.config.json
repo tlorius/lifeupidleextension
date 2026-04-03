@@ -1,0 +1,29 @@
+{
+  "player": {
+    "baseAttacksPerSecond": 1,
+    "agilityToApsScale": 0.2,
+    "maxAttacksPerSecond": 100,
+    "autoAdvanceAfterVictory": true,
+    "deathCheckpointMode": "boss",
+    "offlineResolutionMode": "expected-value"
+  },
+  "progression": {
+    "bossIntervalLevels": 5,
+    "majorDifficultySpikeIntervalLevels": 20
+  },
+  "damageFormula": {
+    "minDamagePortionAfterDefense": 0.05
+  },
+  "crit": {
+    "damageMultiplier": 3.8,
+    "clickBonusMultiplier": 1.25,
+    "nonCritSetCap": 6,
+    "normalHitVarianceMin": 0.92,
+    "normalHitVarianceMax": 1.08,
+    "critVarianceMin": 1.02,
+    "critVarianceMax": 1.34
+  },
+  "click": {
+    "baseDamageMultiplier": 1.45
+  }
+}

@@ -68,7 +68,8 @@ export type GameAction =
       type: "rewards/redeemInboxBundle";
       bundleId: number;
     }
-  | { type: "state/resetToDefault" };
+  | { type: "state/resetToDefault" }
+  | { type: "config/reload" };
 
 export interface GameActionResult {
   state: GameState;
@@ -341,6 +342,13 @@ export function applyGameAction(
     case "state/resetToDefault":
       return {
         state: createDefaultState(),
+        combatEvents: [],
+      };
+
+    case "config/reload":
+      // Config reload doesn't mutate state, but triggers side effects in GameContext
+      return {
+        state,
         combatEvents: [],
       };
 

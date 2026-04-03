@@ -1,3 +1,5 @@
+import { getCombatConfig } from "./config";
+
 export type CombatEncounterKind = "normal" | "boss";
 
 export interface CombatLevelConfig {
@@ -27,6 +29,32 @@ export interface CombatLootTable {
   weightedRolls?: number;
 }
 
+/**
+ * Dynamic getters that pull current config values from runtime config system.
+ * Enables balance changes without redeployment.
+ */
+export function getCOMBAT_PLAYER_CONFIG() {
+  const cfg = getCombatConfig();
+  return {
+    baseAttacksPerSecond: cfg.player.baseAttacksPerSecond,
+    agilityToApsScale: cfg.player.agilityToApsScale,
+    maxAttacksPerSecond: cfg.player.maxAttacksPerSecond,
+    autoAdvanceAfterVictory: cfg.player.autoAdvanceAfterVictory,
+    deathCheckpointMode: cfg.player.deathCheckpointMode,
+    offlineResolutionMode: cfg.player.offlineResolutionMode,
+  };
+}
+
+export function getCOMBAT_PROGRESS_CONFIG() {
+  const cfg = getCombatConfig();
+  return {
+    bossIntervalLevels: cfg.progression.bossIntervalLevels,
+    majorDifficultySpikeIntervalLevels:
+      cfg.progression.majorDifficultySpikeIntervalLevels,
+  };
+}
+
+// Legacy exports for backward compatibility (no longer used after refactor)
 export const COMBAT_PLAYER_CONFIG = {
   baseAttacksPerSecond: 1,
   agilityToApsScale: 0.2,
