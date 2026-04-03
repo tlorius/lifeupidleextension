@@ -35,6 +35,59 @@ export const CombatConfigSchema = z.object({
   click: z.object({
     baseDamageMultiplier: z.number().default(1.45),
   }),
+  loot: z.object({
+    fightModes: z.object({
+      progression: z.object({
+        dropRateMultiplier: z.number().default(0.7),
+        levelBrackets: z
+          .array(
+            z.object({
+              minLevel: z.number().default(1),
+              dropRateMultiplier: z.number().default(1),
+            }),
+          )
+          .default([
+            { minLevel: 1, dropRateMultiplier: 1 },
+            { minLevel: 40, dropRateMultiplier: 0.8 },
+            { minLevel: 80, dropRateMultiplier: 0.65 },
+          ]),
+      }),
+      farming: z.object({
+        dropRateMultiplier: z.number().default(0.55),
+        levelBrackets: z
+          .array(
+            z.object({
+              minLevel: z.number().default(1),
+              dropRateMultiplier: z.number().default(1),
+            }),
+          )
+          .default([
+            { minLevel: 1, dropRateMultiplier: 1 },
+            { minLevel: 60, dropRateMultiplier: 0.75 },
+            { minLevel: 100, dropRateMultiplier: 0.6 },
+          ]),
+      }),
+    }),
+    chaseDrop: z.object({
+      unlocksAtLevel: z.number().default(45),
+      chance: z.number().default(0.012),
+      lootTableId: z.string().default("boss_unique_chase"),
+    }),
+    rubyDrop: z.object({
+      unlocksAtLevel: z.number().default(80),
+      levelsPerStep: z.number().default(10),
+      amountPerDrop: z.number().default(1),
+      chanceByStep: z
+        .array(z.number())
+        .default([0.003, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, 0.012]),
+    }),
+    bossEquipmentLevels: z.object({
+      baseLevel: z.number().default(1),
+      startingLevel: z.number().default(1),
+      levelsPerTier: z.number().default(10),
+      chaseBonusLevels: z.number().default(1),
+    }),
+  }),
 });
 
 export const ProgressionConfigSchema = z.object({

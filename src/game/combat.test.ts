@@ -319,7 +319,7 @@ describe("combat engine", () => {
   });
 
   it("resolves boss loot with guaranteed equipment and improved rewards", () => {
-    const boss = createEnemyInstance(5);
+    const boss = createEnemyInstance(15);
     const drops = resolveBossLootDrops(boss, () => 0);
 
     expect(drops.length).toBeGreaterThan(2);
@@ -367,15 +367,15 @@ describe("combat engine", () => {
     });
 
     expect(leveledEquipment).toBeDefined();
-    expect(leveledEquipment?.level).toBeGreaterThanOrEqual(4);
+    expect(leveledEquipment?.level).toBeGreaterThanOrEqual(2);
   });
 
   it("emits loot events with item levels for boss equipment drops", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     const state = createDefaultState();
     const runtime = createInitialCombatRuntime(state);
-    runtime.currentLevel = 10;
-    runtime.enemy = createEnemyInstance(10);
+    runtime.currentLevel = 20;
+    runtime.enemy = createEnemyInstance(20);
     runtime.enemy.currentHp = 1;
 
     const result = runCombatTick(runtime, state, 2000, () => 0);
@@ -470,12 +470,12 @@ describe("combat engine", () => {
     ).toBe(true);
   });
 
-  it("grants ruby drops for level 50+ enemies when roll succeeds", () => {
+  it("grants ruby drops for level 80+ enemies when roll succeeds", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     const state = createDefaultState();
     const runtime = createInitialCombatRuntime(state);
-    runtime.currentLevel = 50;
-    runtime.enemy = createEnemyInstance(50);
+    runtime.currentLevel = 80;
+    runtime.enemy = createEnemyInstance(80);
     runtime.enemy.currentHp = 1;
 
     const result = runCombatTick(runtime, state, 2000, () => 0);
@@ -489,12 +489,12 @@ describe("combat engine", () => {
     ).toBe(true);
   });
 
-  it("does not grant ruby drops below level 50", () => {
+  it("does not grant ruby drops below level 80", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     const state = createDefaultState();
     const runtime = createInitialCombatRuntime(state);
-    runtime.currentLevel = 49;
-    runtime.enemy = createEnemyInstance(49);
+    runtime.currentLevel = 79;
+    runtime.enemy = createEnemyInstance(79);
     runtime.enemy.currentHp = 1;
 
     const result = runCombatTick(runtime, state, 2000, () => 0);
@@ -509,10 +509,11 @@ describe("combat engine", () => {
   });
 
   it("resolves ruby chance by level decade steps", () => {
-    expect(getRubyDropChanceForLevel(49)).toBe(0);
-    expect(getRubyDropChanceForLevel(50)).toBe(0.005);
-    expect(getRubyDropChanceForLevel(59)).toBe(0.005);
-    expect(getRubyDropChanceForLevel(60)).toBe(0.005);
-    expect(getRubyDropChanceForLevel(200)).toBe(0.005);
+    expect(getRubyDropChanceForLevel(79)).toBe(0);
+    expect(getRubyDropChanceForLevel(80)).toBe(0.003);
+    expect(getRubyDropChanceForLevel(89)).toBe(0.003);
+    expect(getRubyDropChanceForLevel(90)).toBe(0.003);
+    expect(getRubyDropChanceForLevel(120)).toBe(0.006);
+    expect(getRubyDropChanceForLevel(200)).toBe(0.012);
   });
 });

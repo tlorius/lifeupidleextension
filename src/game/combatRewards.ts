@@ -1,7 +1,8 @@
 import {
-  COMBAT_CHASE_DROP_CONFIG,
+  getCOMBAT_CHASE_DROP_CONFIG,
+  getCOMBAT_BOSS_EQUIPMENT_LEVEL_CONFIG,
   COMBAT_LOOT_TABLES,
-  COMBAT_RUBY_DROP_CONFIG,
+  getCOMBAT_RUBY_DROP_CONFIG,
   getEffectiveDropRateMultiplier,
   getRubyDropChanceForLevel,
   type CombatLootEntry,
@@ -64,8 +65,15 @@ function isEquipmentItem(itemId: string): boolean {
 }
 
 function getBossEquipmentItemLevel(enemy: CombatEnemyInstance): number {
-  const tierBonus = Math.max(1, Math.floor(enemy.level / 5));
-  return 1 + tierBonus;
+  const levelConfig = getCOMBAT_BOSS_EQUIPMENT_LEVEL_CONFIG();
+  const tierBonus = Math.max(
+    0,
+    Math.floor(
+      Math.max(0, enemy.level - levelConfig.startingLevel) /
+        Math.max(1, levelConfig.levelsPerTier),
+    ),
+  );
+  return Math.max(1, levelConfig.baseLevel + tierBonus);
 }
 
 function applyLootDrops(state: GameState, drops: CombatLootDrop[]): GameState {
@@ -82,6 +90,8 @@ export function resolveBossLootDrops(
   dropRateMultiplier: number = 1,
 ): CombatLootDrop[] {
   if (enemy.kind !== "boss") return [];
+  const chaseConfig = getCOMBAT_CHASE_DROP_CONFIG();
+  const levelConfig = getCOMBAT_BOSS_EQUIPMENT_LEVEL_CONFIG();
 
   const drops: CombatLootDrop[] = [];
   const lootTableId = enemy.lootTableId;
@@ -128,10 +138,10 @@ export function resolveBossLootDrops(
   }
 
   if (
-    enemy.level >= COMBAT_CHASE_DROP_CONFIG.unlocksAtLevel &&
-    rng() < COMBAT_CHASE_DROP_CONFIG.chance * dropRateMultiplier
+    enemy.level >= chaseConfig.unlocksAtLevel &&
+    rng() < chaseConfig.chance * dropRateMultiplier
   ) {
-    const chaseTable = COMBAT_LOOT_TABLES[COMBAT_CHASE_DROP_CONFIG.lootTableId];
+    const chaseTable = COMBAT_LOOT_TABLES[chaseConfig.lootTableId];
     const chaseEntry = chaseTable
       ? pickWeightedEntry(chaseTable.weighted, rng)
       : null;
@@ -140,7 +150,7 @@ export function resolveBossLootDrops(
         itemId: chaseEntry.itemId,
         quantity: rollQuantity(chaseEntry, rng),
         itemLevel: isEquipmentItem(chaseEntry.itemId)
-          ? getBossEquipmentItemLevel(enemy) + 1
+          ? getBossEquipmentItemLevel(enemy) + levelConfig.chaseBonusLevels
           : undefined,
       });
     }
@@ -173,7 +183,7 @@ export function applyEnemyReward(
 
   const rubyDropChance = getRubyDropChanceForLevel(runtime.enemy.level);
   if (rubyDropChance > 0 && rng() < rubyDropChance) {
-    const rubyAmount = Math.max(1, COMBAT_RUBY_DROP_CONFIG.amountPerDrop);
+    const rubyAmount = Math.max(1, getCOMBAT_RUBY_DROP_CONFIG().amountPerDrop);
     nextState = {
       ...nextState,
       resources: {

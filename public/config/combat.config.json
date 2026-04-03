@@ -25,5 +25,60 @@
   },
   "click": {
     "baseDamageMultiplier": 1.45
+  },
+  "loot": {
+    "fightModes": {
+      "progression": {
+        "dropRateMultiplier": 0.7,
+        "levelBrackets": [
+          {
+            "minLevel": 1,
+            "dropRateMultiplier": 1
+          },
+          {
+            "minLevel": 40,
+            "dropRateMultiplier": 0.8
+          },
+          {
+            "minLevel": 80,
+            "dropRateMultiplier": 0.65
+          }
+        ]
+      },
+      "farming": {
+        "dropRateMultiplier": 0.55,
+        "levelBrackets": [
+          {
+            "minLevel": 1,
+            "dropRateMultiplier": 1
+          },
+          {
+            "minLevel": 60,
+            "dropRateMultiplier": 0.75
+          },
+          {
+            "minLevel": 100,
+            "dropRateMultiplier": 0.6
+          }
+        ]
+      }
+    },
+    "chaseDrop": {
+      "unlocksAtLevel": 45,
+      "chance": 0.012,
+      "lootTableId": "boss_unique_chase"
+    },
+    "rubyDrop": {
+      "unlocksAtLevel": 80,
+      "levelsPerStep": 10,
+      "amountPerDrop": 1,
+      "chanceByStep": [0.003, 0.003, 0.004, 0.005, 0.006, 0.008, 0.01, 0.012]
+    },
+    "bossEquipmentLevels": {
+      "baseLevel": 1,
+      "startingLevel": 1,
+      "levelsPerTier": 10,
+      "chaseBonusLevels": 1
+    }
   }
 }

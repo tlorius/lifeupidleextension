@@ -54,6 +54,22 @@ export function getCOMBAT_PROGRESS_CONFIG() {
   };
 }
 
+export function getFIGHT_MODE_LOOT_CONFIGS() {
+  return getCombatConfig().loot.fightModes;
+}
+
+export function getCOMBAT_CHASE_DROP_CONFIG() {
+  return getCombatConfig().loot.chaseDrop;
+}
+
+export function getCOMBAT_RUBY_DROP_CONFIG() {
+  return getCombatConfig().loot.rubyDrop;
+}
+
+export function getCOMBAT_BOSS_EQUIPMENT_LEVEL_CONFIG() {
+  return getCombatConfig().loot.bossEquipmentLevels;
+}
+
 // Legacy exports for backward compatibility (no longer used after refactor)
 export const COMBAT_PLAYER_CONFIG = {
   baseAttacksPerSecond: 1,
@@ -571,9 +587,10 @@ export function getEffectiveDropRateMultiplier(
   fightMode: string,
   enemyLevel: number,
 ): number {
+  const lootConfigs = getFIGHT_MODE_LOOT_CONFIGS();
   const modeConfig =
-    FIGHT_MODE_LOOT_CONFIGS[fightMode] ??
-    FIGHT_MODE_LOOT_CONFIGS["progression"]!;
+    lootConfigs[fightMode as keyof typeof lootConfigs] ??
+    lootConfigs.progression;
   let bracketMultiplier = 1;
   for (const bracket of modeConfig.levelBrackets) {
     if (enemyLevel >= bracket.minLevel) {
@@ -601,23 +618,17 @@ export const COMBAT_RUBY_DROP_CONFIG = {
 } as const;
 
 export function getRubyDropChanceForLevel(level: number): number {
-  if (level < COMBAT_RUBY_DROP_CONFIG.unlocksAtLevel) return 0;
+  const rubyConfig = getCOMBAT_RUBY_DROP_CONFIG();
+  if (level < rubyConfig.unlocksAtLevel) return 0;
 
   const step = Math.max(
     0,
-    Math.floor(
-      (level - COMBAT_RUBY_DROP_CONFIG.unlocksAtLevel) /
-        COMBAT_RUBY_DROP_CONFIG.levelsPerStep,
-    ),
+    Math.floor((level - rubyConfig.unlocksAtLevel) / rubyConfig.levelsPerStep),
   );
 
-  if (step >= COMBAT_RUBY_DROP_CONFIG.chanceByStep.length) {
-    return (
-      COMBAT_RUBY_DROP_CONFIG.chanceByStep[
-        COMBAT_RUBY_DROP_CONFIG.chanceByStep.length - 1
-      ] ?? 0
-    );
+  if (step >= rubyConfig.chanceByStep.length) {
+    return rubyConfig.chanceByStep[rubyConfig.chanceByStep.length - 1] ?? 0;
   }
 
-  return COMBAT_RUBY_DROP_CONFIG.chanceByStep[step] ?? 0;
+  return rubyConfig.chanceByStep[step] ?? 0;
 }

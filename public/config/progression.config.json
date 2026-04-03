@@ -17,12 +17,12 @@
     "hardCapLevel": 136
   },
   "xpFormula": {
-    "base": 60,
-    "quadratic": 12,
-    "linear": 28,
-    "postTenLinearMultiplierPerLevel": 0.025,
-    "postSixtyLinearMultiplierPerLevel": 0.06,
-    "postSoftCapExponentialMultiplier": 1.32
+    "base": 90,
+    "quadratic": 20,
+    "linear": 45,
+    "postTenLinearMultiplierPerLevel": 0.035,
+    "postSixtyLinearMultiplierPerLevel": 0.085,
+    "postSoftCapExponentialMultiplier": 1.42
   },
   "unlocks": {
     "spellsAtLevel": 8,
