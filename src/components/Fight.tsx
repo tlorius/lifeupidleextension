@@ -972,7 +972,7 @@ export function Fight() {
       >
         <div style={{ display: "flex", gap: 4 }}>
           <button
-            className={combat.fightMode !== "farming" ? "btn-selected" : ""}
+            className={combat.fightMode === "progression" ? "btn-selected" : ""}
             onClick={() => combatSetFightMode("progression")}
             style={{ fontSize: 13, padding: "4px 12px" }}
           >
@@ -990,8 +990,21 @@ export function Fight() {
           >
             Farming
           </button>
+          <button
+            className={combat.fightMode === "bossBattle" ? "btn-selected" : ""}
+            onClick={() => combatSetFightMode("bossBattle")}
+            style={{ fontSize: 13, padding: "4px 12px" }}
+          >
+            Boss Battle
+          </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div
+          style={{
+            display: combat.fightMode === "farming" ? "flex" : "none",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
           <span style={{ fontSize: 12, opacity: 0.75 }}>Target Lv:</span>
           <input
             type="number"

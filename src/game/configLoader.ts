@@ -42,6 +42,8 @@ const HARDCODED_DEFAULTS: GameConfig = {
       fightModes: {
         progression: {
           dropRateMultiplier: 0.7,
+          chaseDropChanceMultiplier: 1,
+          rubyDropChanceMultiplier: 1,
           levelBrackets: [
             { minLevel: 1, dropRateMultiplier: 1 },
             { minLevel: 40, dropRateMultiplier: 0.8 },
@@ -50,10 +52,22 @@ const HARDCODED_DEFAULTS: GameConfig = {
         },
         farming: {
           dropRateMultiplier: 0.55,
+          chaseDropChanceMultiplier: 1,
+          rubyDropChanceMultiplier: 1,
           levelBrackets: [
             { minLevel: 1, dropRateMultiplier: 1 },
             { minLevel: 60, dropRateMultiplier: 0.75 },
             { minLevel: 100, dropRateMultiplier: 0.6 },
+          ],
+        },
+        bossBattle: {
+          dropRateMultiplier: 0.6,
+          chaseDropChanceMultiplier: 0.65,
+          rubyDropChanceMultiplier: 0.5,
+          levelBrackets: [
+            { minLevel: 1, dropRateMultiplier: 0.9 },
+            { minLevel: 40, dropRateMultiplier: 0.75 },
+            { minLevel: 80, dropRateMultiplier: 0.6 },
           ],
         },
       },

@@ -39,6 +39,8 @@ export const CombatConfigSchema = z.object({
     fightModes: z.object({
       progression: z.object({
         dropRateMultiplier: z.number().default(0.7),
+        chaseDropChanceMultiplier: z.number().default(1),
+        rubyDropChanceMultiplier: z.number().default(1),
         levelBrackets: z
           .array(
             z.object({
@@ -54,6 +56,8 @@ export const CombatConfigSchema = z.object({
       }),
       farming: z.object({
         dropRateMultiplier: z.number().default(0.55),
+        chaseDropChanceMultiplier: z.number().default(1),
+        rubyDropChanceMultiplier: z.number().default(1),
         levelBrackets: z
           .array(
             z.object({
@@ -65,6 +69,23 @@ export const CombatConfigSchema = z.object({
             { minLevel: 1, dropRateMultiplier: 1 },
             { minLevel: 60, dropRateMultiplier: 0.75 },
             { minLevel: 100, dropRateMultiplier: 0.6 },
+          ]),
+      }),
+      bossBattle: z.object({
+        dropRateMultiplier: z.number().default(0.6),
+        chaseDropChanceMultiplier: z.number().default(0.65),
+        rubyDropChanceMultiplier: z.number().default(0.5),
+        levelBrackets: z
+          .array(
+            z.object({
+              minLevel: z.number().default(1),
+              dropRateMultiplier: z.number().default(1),
+            }),
+          )
+          .default([
+            { minLevel: 1, dropRateMultiplier: 0.9 },
+            { minLevel: 40, dropRateMultiplier: 0.75 },
+            { minLevel: 80, dropRateMultiplier: 0.6 },
           ]),
       }),
     }),

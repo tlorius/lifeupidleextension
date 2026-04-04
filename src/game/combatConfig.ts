@@ -556,6 +556,10 @@ export interface FightModeDropBracket {
 export interface FightModeLootConfig {
   /** Generic multiplier applied to all drop rates in this mode. 1 = no change. */
   dropRateMultiplier: number;
+  /** Additional multiplier applied to chase-drop chance in this mode. */
+  chaseDropChanceMultiplier: number;
+  /** Additional multiplier applied to ruby-drop chance in this mode. */
+  rubyDropChanceMultiplier: number;
   /**
    * Level-bracket overrides. The bracket with the highest minLevel <= enemy level
    * is selected and its dropRateMultiplier stacks with the mode-level multiplier.
@@ -571,13 +575,31 @@ export interface FightModeLootConfig {
 export const FIGHT_MODE_LOOT_CONFIGS: Record<string, FightModeLootConfig> = {
   progression: {
     dropRateMultiplier: 1,
+    chaseDropChanceMultiplier: 1,
+    rubyDropChanceMultiplier: 1,
     levelBrackets: [{ minLevel: 1, dropRateMultiplier: 1 }],
   },
   farming: {
     dropRateMultiplier: 1,
+    chaseDropChanceMultiplier: 1,
+    rubyDropChanceMultiplier: 1,
+    levelBrackets: [{ minLevel: 1, dropRateMultiplier: 1 }],
+  },
+  bossBattle: {
+    dropRateMultiplier: 1,
+    chaseDropChanceMultiplier: 1,
+    rubyDropChanceMultiplier: 1,
     levelBrackets: [{ minLevel: 1, dropRateMultiplier: 1 }],
   },
 };
+
+function getFightModeLootConfig(fightMode: string): FightModeLootConfig {
+  const lootConfigs = getFIGHT_MODE_LOOT_CONFIGS();
+  return (
+    lootConfigs[fightMode as keyof typeof lootConfigs] ??
+    lootConfigs.progression
+  );
+}
 
 /**
  * Returns the effective drop rate multiplier for a given fight mode and enemy level.
@@ -587,10 +609,7 @@ export function getEffectiveDropRateMultiplier(
   fightMode: string,
   enemyLevel: number,
 ): number {
-  const lootConfigs = getFIGHT_MODE_LOOT_CONFIGS();
-  const modeConfig =
-    lootConfigs[fightMode as keyof typeof lootConfigs] ??
-    lootConfigs.progression;
+  const modeConfig = getFightModeLootConfig(fightMode);
   let bracketMultiplier = 1;
   for (const bracket of modeConfig.levelBrackets) {
     if (enemyLevel >= bracket.minLevel) {
@@ -598,6 +617,18 @@ export function getEffectiveDropRateMultiplier(
     }
   }
   return modeConfig.dropRateMultiplier * bracketMultiplier;
+}
+
+export function getFightModeChaseDropChanceMultiplier(
+  fightMode: string,
+): number {
+  return getFightModeLootConfig(fightMode).chaseDropChanceMultiplier;
+}
+
+export function getFightModeRubyDropChanceMultiplier(
+  fightMode: string,
+): number {
+  return getFightModeLootConfig(fightMode).rubyDropChanceMultiplier;
 }
 
 export const COMBAT_CHASE_DROP_CONFIG = {

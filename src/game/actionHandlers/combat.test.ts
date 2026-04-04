@@ -90,4 +90,20 @@ describe("combat action handler", () => {
     expect(playerHit).toBeTruthy();
     expect(playerHit?.value ?? 0).toBeGreaterThan(1_000_000_000);
   });
+
+  it("switches to boss battle mode at the highest reached level", () => {
+    const state = createDefaultState();
+    state.combat.currentLevel = 20;
+    state.combat.highestLevelReached = 12;
+
+    const next = applyCombatAction(state, {
+      type: "combat/setFightMode",
+      mode: "bossBattle",
+    });
+
+    expect(next.state.combat.fightMode).toBe("bossBattle");
+    expect(next.state.combat.currentLevel).toBe(12);
+    expect(next.state.combat.enemy.kind).toBe("boss");
+    expect(next.state.combat.enemy.level).toBe(12);
+  });
 });

@@ -14,7 +14,10 @@ interface OfflineSimulationDeps {
   ) => number;
   getDamageAfterDefense: (rawDamage: number, defense: number) => number;
   getPlayerMaxHp: (state: GameState) => number;
-  createEnemyInstance: (level: number) => any;
+  createEnemyInstance: (
+    level: number,
+    fightMode?: CombatRuntimeState["fightMode"],
+  ) => any;
   applyEnemyReward: (
     runtime: CombatRuntimeState,
     state: GameState,
@@ -95,7 +98,7 @@ export function resolveOfflineCombatExpected(
         ...nextRuntime,
         currentLevel: resetLevel,
         playerCurrentHp: deps.getPlayerMaxHp(nextState),
-        enemy: deps.createEnemyInstance(resetLevel),
+        enemy: deps.createEnemyInstance(resetLevel, nextRuntime.fightMode),
         playerAttackRemainderMs: 0,
         enemyAttackRemainderMs: 0,
       };

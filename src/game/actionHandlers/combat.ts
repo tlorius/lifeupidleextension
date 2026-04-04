@@ -5,7 +5,7 @@ import {
   useCombatConsumable,
   type CombatEvent,
 } from "../combat";
-import type { GameState } from "../types";
+import type { CombatFightMode, GameState } from "../types";
 
 export type CombatAction =
   | { type: "combat/clickAttack" }
@@ -13,7 +13,7 @@ export type CombatAction =
   | { type: "combat/castSpell"; spellId: string }
   | {
       type: "combat/setFightMode";
-      mode: "progression" | "farming";
+      mode: CombatFightMode;
       targetLevel?: number;
     };
 
@@ -83,6 +83,8 @@ function applySetFightModeAction(
   state: GameState,
   action: CombatSetFightModeAction,
 ): CombatActionResult {
+  const currentFightMode = state.combat.fightMode ?? "progression";
+
   if (action.mode === "farming") {
     const targetLevel = Math.max(
       1,
@@ -96,7 +98,31 @@ function applySetFightModeAction(
           fightMode: "farming",
           farmingTargetLevel: targetLevel,
           currentLevel: targetLevel,
-          enemy: createEnemyInstance(targetLevel),
+          enemy: createEnemyInstance(targetLevel, "farming"),
+          playerAttackRemainderMs: 0,
+          enemyAttackRemainderMs: 0,
+        },
+      },
+      combatEvents: [],
+    };
+  }
+
+  if (action.mode === "bossBattle") {
+    const bossBattleLevel = Math.max(
+      1,
+      currentFightMode === "bossBattle"
+        ? state.combat.currentLevel
+        : state.combat.highestLevelReached || 1,
+    );
+
+    return {
+      state: {
+        ...state,
+        combat: {
+          ...state.combat,
+          fightMode: "bossBattle",
+          currentLevel: bossBattleLevel,
+          enemy: createEnemyInstance(bossBattleLevel, "bossBattle"),
           playerAttackRemainderMs: 0,
           enemyAttackRemainderMs: 0,
         },
@@ -106,7 +132,12 @@ function applySetFightModeAction(
   }
 
   // Switching back to progression — resume from the highest level reached
-  const progressionLevel = Math.max(1, state.combat.highestLevelReached || 1);
+  const progressionLevel = Math.max(
+    1,
+    currentFightMode === "progression"
+      ? state.combat.currentLevel
+      : state.combat.highestLevelReached || 1,
+  );
   return {
     state: {
       ...state,
@@ -114,7 +145,7 @@ function applySetFightModeAction(
         ...state.combat,
         fightMode: "progression",
         currentLevel: progressionLevel,
-        enemy: createEnemyInstance(progressionLevel),
+        enemy: createEnemyInstance(progressionLevel, "progression"),
         playerAttackRemainderMs: 0,
         enemyAttackRemainderMs: 0,
       },

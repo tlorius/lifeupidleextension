@@ -540,8 +540,13 @@ export function selectFightEncounterSummary(
   state: GameState,
 ): FightEncounterSummaryViewModel {
   const combat = state.combat;
+  const levelLabel =
+    combat.fightMode === "bossBattle"
+      ? `Level ${combat.currentLevel} • Highest ${combat.highestLevelReached} • Boss every level`
+      : `Level ${combat.currentLevel} • Highest ${combat.highestLevelReached} • Next boss Lv ${nextBossLevel(combat.currentLevel)}`;
+
   return {
-    levelLabel: `Level ${combat.currentLevel} • Highest ${combat.highestLevelReached} • Next boss Lv ${nextBossLevel(combat.currentLevel)}`,
+    levelLabel,
     rewardsLabel: `Enemy rewards: +${combat.enemy.goldReward} Gold, +${combat.enemy.gemsReward} Gems, +${combat.enemy.xpReward} XP`,
   };
 }

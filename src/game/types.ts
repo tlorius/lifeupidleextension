@@ -254,6 +254,8 @@ export interface CombatEnemySnapshot {
   lootTableId?: string;
 }
 
+export type CombatFightMode = "progression" | "farming" | "bossBattle";
+
 export interface CombatState {
   currentLevel: number;
   highestLevelReached: number;
@@ -268,7 +270,7 @@ export interface CombatState {
     sourceClassId?: ClassId;
     nextClassSpellMultiplier?: number;
   };
-  fightMode?: "progression" | "farming";
+  fightMode?: CombatFightMode;
   farmingTargetLevel?: number;
 }
 

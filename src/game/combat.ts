@@ -34,7 +34,7 @@ import {
 import { getTotalStats, usePotion } from "./engine";
 import { hasSetPieceThreshold, uniqueSetDefinitions } from "./itemSets";
 import { getItemDefSafe } from "./items";
-import type { GameState } from "./types";
+import type { CombatFightMode, GameState } from "./types";
 
 export { COMBAT_SPELL_DEFINITIONS };
 
@@ -70,7 +70,7 @@ export interface CombatRuntimeState {
     sourceClassId?: ClassId;
     nextClassSpellMultiplier?: number;
   };
-  fightMode?: "progression" | "farming";
+  fightMode?: CombatFightMode;
   farmingTargetLevel?: number;
 }
 
@@ -430,7 +430,63 @@ function applyEnemyReward(
   });
 }
 
-function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
+const FORCED_BOSS_SCALE = {
+  hp: 2.1,
+  damage: 1.55,
+  aps: 1.08,
+  gold: 2.1,
+  gems: 2,
+  xp: 2.3,
+} as const;
+
+function getBossLootTableIdForLevel(level: number): string {
+  const normalizedLevel = Math.max(1, Math.floor(level));
+  const highestDefined = COMBAT_LEVELS[COMBAT_LEVELS.length - 1];
+
+  if (normalizedLevel > highestDefined.level) {
+    return "boss_tier_4";
+  }
+
+  let lootTableId =
+    COMBAT_LEVELS.find((entry) => entry.kind === "boss")?.lootTableId ??
+    "boss_tier_1";
+
+  for (const entry of COMBAT_LEVELS) {
+    if (entry.kind !== "boss") continue;
+    if (entry.level > normalizedLevel) break;
+    lootTableId = entry.lootTableId ?? lootTableId;
+  }
+
+  return lootTableId;
+}
+
+function forceBossLevelConfig(config: CombatLevelConfig): CombatLevelConfig {
+  if (config.kind === "boss") {
+    return config;
+  }
+
+  return {
+    ...config,
+    enemyId: `boss_${config.enemyId}`,
+    name: `Boss ${config.name}`,
+    kind: "boss",
+    hp: Math.max(1, Math.round(config.hp * FORCED_BOSS_SCALE.hp)),
+    damage: Math.max(1, Math.round(config.damage * FORCED_BOSS_SCALE.damage)),
+    attacksPerSecond: Math.max(
+      0.2,
+      config.attacksPerSecond * FORCED_BOSS_SCALE.aps,
+    ),
+    gold: Math.max(1, Math.round(config.gold * FORCED_BOSS_SCALE.gold)),
+    gems: Math.max(0, Math.round(config.gems * FORCED_BOSS_SCALE.gems)),
+    xp: Math.max(1, Math.round(config.xp * FORCED_BOSS_SCALE.xp)),
+    lootTableId: getBossLootTableIdForLevel(config.level),
+  };
+}
+
+function fallbackCombatLevelConfig(
+  level: number,
+  forceBoss: boolean = false,
+): CombatLevelConfig {
   const highestDefined = COMBAT_LEVELS[COMBAT_LEVELS.length - 1];
   const levelDelta = Math.max(0, level - highestDefined.level);
   const cfg = getCOMBAT_PROGRESS_CONFIG();
@@ -441,7 +497,7 @@ function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
     (level - 1) / cfg.majorDifficultySpikeIntervalLevels,
   );
   const majorSteps = Math.max(0, majorTo - majorFrom);
-  const isBoss = level % cfg.bossIntervalLevels === 0;
+  const isBoss = forceBoss || level % cfg.bossIntervalLevels === 0;
 
   const hp = Math.round(
     highestDefined.hp * Math.pow(1.11, levelDelta) * Math.pow(1.35, majorSteps),
@@ -473,14 +529,7 @@ function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
   );
 
   const bossScale = isBoss
-    ? {
-        hp: 2.1,
-        damage: 1.55,
-        aps: 1.08,
-        gold: 2.1,
-        gems: 2,
-        xp: 2.3,
-      }
+    ? FORCED_BOSS_SCALE
     : {
         hp: 1,
         damage: 1,
@@ -501,7 +550,7 @@ function fallbackCombatLevelConfig(level: number): CombatLevelConfig {
     gold: Math.max(1, Math.round(gold * bossScale.gold)),
     gems: Math.max(0, Math.round(gems * bossScale.gems)),
     xp: Math.max(1, Math.round(xp * bossScale.xp)),
-    lootTableId: isBoss ? "boss_tier_4" : undefined,
+    lootTableId: isBoss ? getBossLootTableIdForLevel(level) : undefined,
   };
 }
 
@@ -519,16 +568,28 @@ export function resetEnemyInstanceIdCounter(): void {
   enemyInstanceIdCounter = 0;
 }
 
-export function getCombatLevelConfig(level: number): CombatLevelConfig {
+export function getCombatLevelConfig(
+  level: number,
+  fightMode: CombatFightMode = "progression",
+): CombatLevelConfig {
   const normalizedLevel = Math.max(1, Math.floor(level));
   const authored = COMBAT_LEVELS.find(
     (entry) => entry.level === normalizedLevel,
   );
-  return authored ?? fallbackCombatLevelConfig(normalizedLevel);
+  if (authored) {
+    return fightMode === "bossBattle"
+      ? forceBossLevelConfig(authored)
+      : authored;
+  }
+
+  return fallbackCombatLevelConfig(normalizedLevel, fightMode === "bossBattle");
 }
 
-export function createEnemyInstance(level: number): CombatEnemyInstance {
-  const config = getCombatLevelConfig(level);
+export function createEnemyInstance(
+  level: number,
+  fightMode: CombatFightMode = "progression",
+): CombatEnemyInstance {
+  const config = getCombatLevelConfig(level, fightMode);
   // Generate a unique instance ID so repeated enemies at the same level in farming mode
   // still trigger the death animation (which keys off enemy ID changes).
   // The counter is deterministic and monotonically increasing.
@@ -724,16 +785,19 @@ export function resolveBossLootDrops(
 export function createInitialCombatRuntime(
   state: GameState,
 ): CombatRuntimeState {
+  const fightMode = state.combat.fightMode ?? "progression";
   return {
     currentLevel: 1,
     highestLevelReached: 1,
     lastBossCheckpointLevel: 0,
     playerCurrentHp: getPlayerMaxHp(state),
-    enemy: createEnemyInstance(1),
+    enemy: createEnemyInstance(1, fightMode),
     playerAttackRemainderMs: 0,
     enemyAttackRemainderMs: 0,
     spellCooldowns: {},
     consumableCooldowns: {},
+    fightMode,
+    farmingTargetLevel: state.combat.farmingTargetLevel,
   };
 }
 

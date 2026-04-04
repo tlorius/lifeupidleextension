@@ -217,6 +217,19 @@ describe("fight selectors", () => {
     );
   });
 
+  it("builds boss battle encounter summary copy", () => {
+    const state = createDefaultState();
+    state.combat.currentLevel = 12;
+    state.combat.highestLevelReached = 18;
+    state.combat.fightMode = "bossBattle";
+
+    const summary = selectFightEncounterSummary(state);
+
+    expect(summary.levelLabel).toContain("Level 12");
+    expect(summary.levelLabel).toContain("Highest 18");
+    expect(summary.levelLabel).toContain("Boss every level");
+  });
+
   it("handles hidden spell panel and empty consumable modal states", () => {
     const state = createDefaultState();
     state.playerProgress.level = 5;

@@ -3,7 +3,9 @@ import {
   getCOMBAT_BOSS_EQUIPMENT_LEVEL_CONFIG,
   COMBAT_LOOT_TABLES,
   getCOMBAT_RUBY_DROP_CONFIG,
+  getFightModeChaseDropChanceMultiplier,
   getEffectiveDropRateMultiplier,
+  getFightModeRubyDropChanceMultiplier,
   getRubyDropChanceForLevel,
   type CombatLootEntry,
 } from "./combatConfig";
@@ -25,7 +27,10 @@ export interface CombatLootDrop {
 }
 
 interface ApplyEnemyRewardOptions {
-  createEnemyInstance: (level: number) => CombatEnemyInstance;
+  createEnemyInstance: (
+    level: number,
+    fightMode?: CombatRuntimeState["fightMode"],
+  ) => CombatEnemyInstance;
   getPlayerMaxHp: (state: GameState) => number;
   xpRewardMultiplier: number;
 }
@@ -88,6 +93,7 @@ export function resolveBossLootDrops(
   enemy: CombatEnemyInstance,
   rng: CombatRng = Math.random,
   dropRateMultiplier: number = 1,
+  chaseDropChanceMultiplier: number = 1,
 ): CombatLootDrop[] {
   if (enemy.kind !== "boss") return [];
   const chaseConfig = getCOMBAT_CHASE_DROP_CONFIG();
@@ -139,7 +145,7 @@ export function resolveBossLootDrops(
 
   if (
     enemy.level >= chaseConfig.unlocksAtLevel &&
-    rng() < chaseConfig.chance * dropRateMultiplier
+    rng() < chaseConfig.chance * dropRateMultiplier * chaseDropChanceMultiplier
   ) {
     const chaseTable = COMBAT_LOOT_TABLES[chaseConfig.lootTableId];
     const chaseEntry = chaseTable
@@ -165,6 +171,7 @@ export function applyEnemyReward(
   rng: CombatRng,
   options: ApplyEnemyRewardOptions,
 ): { runtime: CombatRuntimeState; state: GameState; events: CombatEvent[] } {
+  const fightMode = runtime.fightMode ?? "progression";
   const events: CombatEvent[] = [
     {
       type: "enemyDefeated",
@@ -181,7 +188,9 @@ export function applyEnemyReward(
     },
   };
 
-  const rubyDropChance = getRubyDropChanceForLevel(runtime.enemy.level);
+  const rubyDropChance =
+    getRubyDropChanceForLevel(runtime.enemy.level) *
+    getFightModeRubyDropChanceMultiplier(fightMode);
   if (rubyDropChance > 0 && rng() < rubyDropChance) {
     const rubyAmount = Math.max(1, getCOMBAT_RUBY_DROP_CONFIG().amountPerDrop);
     nextState = {
@@ -232,10 +241,8 @@ export function applyEnemyReward(
   const lootDrops = resolveBossLootDrops(
     runtime.enemy,
     rng,
-    getEffectiveDropRateMultiplier(
-      runtime.fightMode ?? "progression",
-      runtime.enemy.level,
-    ),
+    getEffectiveDropRateMultiplier(fightMode, runtime.enemy.level),
+    getFightModeChaseDropChanceMultiplier(fightMode),
   );
   if (lootDrops.length > 0) {
     nextState = applyLootDrops(nextState, lootDrops);
@@ -267,7 +274,7 @@ export function applyEnemyReward(
       : Math.max(runtime.highestLevelReached, nextLevel),
     lastBossCheckpointLevel: checkpointLevel,
     playerCurrentHp: Math.min(maxHp, runtime.playerCurrentHp + hpDelta),
-    enemy: options.createEnemyInstance(nextLevel),
+    enemy: options.createEnemyInstance(nextLevel, runtime.fightMode),
     playerAttackRemainderMs: 0,
     enemyAttackRemainderMs: 0,
   };

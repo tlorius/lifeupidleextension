@@ -1,5 +1,6 @@
 import { useGame } from "./GameContext";
 import type { ClassId } from "./classes";
+import type { CombatFightMode } from "./types";
 
 export function useGameActions() {
   const { dispatch, tickSpeedMultiplier, setTickSpeedMultiplier } = useGame();
@@ -62,10 +63,8 @@ export function useGameActions() {
       dispatch({ type: "combat/useConsumable", itemUid }),
     combatCastSpell: (spellId: string) =>
       dispatch({ type: "combat/castSpell", spellId }),
-    combatSetFightMode: (
-      mode: "progression" | "farming",
-      targetLevel?: number,
-    ) => dispatch({ type: "combat/setFightMode", mode, targetLevel }),
+    combatSetFightMode: (mode: CombatFightMode, targetLevel?: number) =>
+      dispatch({ type: "combat/setFightMode", mode, targetLevel }),
 
     configurePlaytime: (capMinutes: number, tokenUnitMinutes: number) =>
       dispatch({

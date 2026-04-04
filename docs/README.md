@@ -40,6 +40,12 @@ This folder contains all project documentation, organized by purpose.
   - Purchase logic and unlock dependencies
   - UI representation patterns
 
+- **[RUNTIME-CONFIG-GUIDE.md](RUNTIME-CONFIG-GUIDE.md)**
+  - Where combat/progression/garden/upgrades config fields are defined
+  - Which modules consume runtime config values today
+  - How reload works in-app and what requires reset vs live reload
+  - Checklist for adding new runtime-configurable settings safely
+
 ---
 
 ## ⚠️ GAPS IN CURRENT DOCUMENTATION

@@ -13,7 +13,11 @@ import {
   runCombatTick,
   useCombatConsumable,
 } from "./combat";
-import { getRubyDropChanceForLevel } from "./combatConfig";
+import {
+  getFightModeChaseDropChanceMultiplier,
+  getFightModeRubyDropChanceMultiplier,
+  getRubyDropChanceForLevel,
+} from "./combatConfig";
 import { getItemDefSafe } from "./items";
 import { createDefaultState } from "./state";
 
@@ -28,6 +32,16 @@ describe("combat engine", () => {
     const levelThirty = getCombatLevelConfig(30);
     expect(levelThirty.kind).toBe("boss");
     expect(levelThirty.lootTableId).toBe("boss_tier_4");
+  });
+
+  it("forces boss encounters on authored normal levels in boss battle mode", () => {
+    const levelOneBoss = getCombatLevelConfig(1, "bossBattle");
+    const enemy = createEnemyInstance(1, "bossBattle");
+
+    expect(levelOneBoss.kind).toBe("boss");
+    expect(levelOneBoss.lootTableId).toBe("boss_tier_1");
+    expect(enemy.kind).toBe("boss");
+    expect(enemy.name).toContain("Boss");
   });
 
   it("converts agility to attacks per second and respects cap", () => {
@@ -111,6 +125,25 @@ describe("combat engine", () => {
 
     expect(result.runtime.currentLevel).toBe(6);
     expect(result.runtime.lastBossCheckpointLevel).toBe(6);
+  });
+
+  it("continues spawning bosses every level in boss battle mode", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    const state = createDefaultState();
+    const runtime = createInitialCombatRuntime(state);
+    runtime.fightMode = "bossBattle";
+    runtime.currentLevel = 6;
+    runtime.highestLevelReached = 6;
+    runtime.lastBossCheckpointLevel = 6;
+    runtime.enemy = createEnemyInstance(6, "bossBattle");
+    runtime.enemy.currentHp = 1;
+
+    const result = runCombatTick(runtime, state, 2000, () => 0.5);
+
+    expect(result.runtime.currentLevel).toBe(7);
+    expect(result.runtime.lastBossCheckpointLevel).toBe(7);
+    expect(result.runtime.enemy.kind).toBe("boss");
+    expect(result.runtime.enemy.level).toBe(7);
   });
 
   it("applies immediate click attack", () => {
@@ -515,5 +548,13 @@ describe("combat engine", () => {
     expect(getRubyDropChanceForLevel(90)).toBe(0.003);
     expect(getRubyDropChanceForLevel(120)).toBe(0.006);
     expect(getRubyDropChanceForLevel(200)).toBe(0.012);
+  });
+
+  it("applies separate boss battle multipliers for ruby and chase drops", () => {
+    expect(getFightModeRubyDropChanceMultiplier("progression")).toBe(1);
+    expect(getFightModeChaseDropChanceMultiplier("progression")).toBe(1);
+
+    expect(getFightModeRubyDropChanceMultiplier("bossBattle")).toBe(0.5);
+    expect(getFightModeChaseDropChanceMultiplier("bossBattle")).toBe(0.65);
   });
 });

@@ -122,7 +122,10 @@ export function applyEnemyAttack(
   combatModifiers: CombatAttackModifiers,
   getDamageAfterDefense: (rawDamage: number, defense: number) => number,
   getPlayerMaxHp: (state: GameState) => number,
-  createEnemyInstance: (level: number) => any,
+  createEnemyInstance: (
+    level: number,
+    fightMode?: CombatRuntimeState["fightMode"],
+  ) => any,
 ): CombatTickResult {
   const totalStats = getTotalStats(state);
   const defense = totalStats.defense ?? 0;
@@ -178,7 +181,10 @@ function resolvePlayerDefeat(
   runtime: CombatRuntimeState,
   state: GameState,
   getPlayerMaxHp: (state: GameState) => number,
-  createEnemyInstance: (level: number) => any,
+  createEnemyInstance: (
+    level: number,
+    fightMode?: CombatRuntimeState["fightMode"],
+  ) => any,
 ): CombatTickResult {
   const resetLevel =
     runtime.fightMode === "farming"
@@ -189,7 +195,7 @@ function resolvePlayerDefeat(
       ...runtime,
       currentLevel: resetLevel,
       playerCurrentHp: getPlayerMaxHp(state),
-      enemy: createEnemyInstance(resetLevel),
+      enemy: createEnemyInstance(resetLevel, runtime.fightMode),
       playerAttackRemainderMs: 0,
       enemyAttackRemainderMs: 0,
     },

@@ -163,3 +163,9 @@ Before considering a game-logic change complete, confirm:
 - Tests reflect new behavior and edge cases.
 - Validation commands pass.
 - Migration safety is handled for persisted-state changes.
+- Runtime config documentation is reviewed and updated when feature behavior, balance knobs, or reload semantics change (`docs/RUNTIME-CONFIG-GUIDE.md`).
+
+## Agent Must-Do For New Features
+
+- MUST update `docs/RUNTIME-CONFIG-GUIDE.md` for every new feature implemented by an agent that introduces, changes, or depends on configurable runtime behavior.
+- MUST make any value configurable in `public/config` config.json file. Default values should exist in the corresponsing \*config.ts files that are located in the game folder
